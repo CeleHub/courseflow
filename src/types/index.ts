@@ -23,6 +23,9 @@ export interface PaginatedResponse<T> {
   }
 }
 
+// For endpoints that return arrays directly (like verification codes)
+export interface ArrayResponse<T> extends ApiResponse<T[]> {}
+
 // Enums
 export enum Role {
   STUDENT = "STUDENT",

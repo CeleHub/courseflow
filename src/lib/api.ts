@@ -1,4 +1,4 @@
-import { ApiResponse, PaginatedResponse } from '@/types'
+import { ApiResponse, PaginatedResponse, ArrayResponse } from '@/types'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001/api/v1'
 
@@ -29,7 +29,7 @@ class ApiClient {
     return this.token
   }
 
-  private async request<T>(
+  async request<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
@@ -105,6 +105,86 @@ class ApiClient {
     return this.request('/auth/reset-password', {
       method: 'POST',
       body: JSON.stringify({ token, password }),
+    })
+  }
+
+  // Verification code endpoints
+  async getVerificationCodes() {
+    return this.request<any[]>('/auth/verification-codes')
+  }
+
+  async getVerificationCode(id: string) {
+    return this.request(`/auth/verification-codes/${id}`)
+  }
+
+  async createVerificationCode(data: {
+    code: string
+    role: string
+    expiresAt?: string
+    maxUses?: number
+  }) {
+    return this.request('/auth/verification-codes', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateVerificationCode(id: string, data: Partial<{
+    code: string
+    role: string
+    expiresAt: string
+    maxUses: number
+    isActive: boolean
+  }>) {
+    return this.request(`/auth/verification-codes/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteVerificationCode(id: string) {
+    return this.request(`/auth/verification-codes/${id}`, {
+      method: 'DELETE',
+    })
+  }
+
+  // User management endpoints
+  async getUsers(params?: { page?: number; limit?: number; orderBy?: string; orderDirection?: string }) {
+    const queryString = params ? new URLSearchParams(params as any).toString() : ''
+    return this.request<PaginatedResponse<any>>(`/users${queryString ? `?${queryString}` : ''}`)
+  }
+
+  async getUserByMatricNO(matricNO: string) {
+    return this.request(`/users/${matricNO}`)
+  }
+
+  async createUser(data: {
+    matricNO: string
+    email: string
+    password: string
+    name?: string
+    role?: string
+  }) {
+    return this.request('/users', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateUser(matricNO: string, data: Partial<{
+    email: string
+    name: string
+    role: string
+  }>) {
+    return this.request(`/users/${matricNO}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteUser(matricNO: string) {
+    return this.request(`/users/${matricNO}`, {
+      method: 'DELETE',
     })
   }
 

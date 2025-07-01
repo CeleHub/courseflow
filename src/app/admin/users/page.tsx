@@ -28,10 +28,11 @@ export default function AdminUsersPage() {
   const fetchUsers = async () => {
     try {
       setLoading(true)
-      const response = await apiClient.request('/admin/users', { method: 'GET' })
+      const response = await apiClient.getUsers()
 
       if (response.success && response.data) {
-        setUsers(Array.isArray(response.data) ? response.data : response.data.users || [])
+        // Handle paginated response structure
+        setUsers(response.data.data?.items || [])
       }
     } catch (error) {
       console.error('Failed to fetch users:', error)

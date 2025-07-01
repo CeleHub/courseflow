@@ -56,12 +56,17 @@ export default function ComplaintsPage() {
   const fetchComplaints = async () => {
     try {
       setLoading(true)
-      const response = isAdmin
-        ? await apiClient.getComplaints()
-        : await apiClient.getMyComplaints()
 
-      if (response.success && response.data) {
-        setComplaints(Array.isArray(response.data) ? response.data : response.data.data?.items || [])
+      if (isAdmin) {
+        const response = await apiClient.getComplaints()
+        if (response.success && response.data) {
+          setComplaints(response.data.data?.items || [])
+        }
+      } else {
+        const response = await apiClient.getMyComplaints()
+        if (response.success && response.data) {
+          setComplaints(Array.isArray(response.data) ? response.data : [])
+        }
       }
     } catch (error) {
       console.error('Failed to fetch complaints:', error)
