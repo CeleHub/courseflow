@@ -24,8 +24,8 @@ export default function CoursesPage() {
   const [departments, setDepartments] = useState<Department[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedDepartment, setSelectedDepartment] = useState<string>('')
-  const [selectedLevel, setSelectedLevel] = useState<string>('')
+  const [selectedDepartment, setSelectedDepartment] = useState<string>('all')
+  const [selectedLevel, setSelectedLevel] = useState<string>('all')
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
 
@@ -45,8 +45,8 @@ export default function CoursesPage() {
         limit: 12,
       }
 
-      if (selectedDepartment) params.departmentCode = selectedDepartment
-      if (selectedLevel) params.level = selectedLevel
+      if (selectedDepartment && selectedDepartment !== 'all') params.departmentCode = selectedDepartment
+      if (selectedLevel && selectedLevel !== 'all') params.level = selectedLevel
 
       const response = await apiClient.getCourses(params)
 
@@ -87,8 +87,8 @@ export default function CoursesPage() {
 
   const handleReset = () => {
     setSearchTerm('')
-    setSelectedDepartment('')
-    setSelectedLevel('')
+    setSelectedDepartment('all')
+    setSelectedLevel('all')
     setCurrentPage(1)
   }
 
@@ -144,7 +144,7 @@ export default function CoursesPage() {
                   <SelectValue placeholder="All Departments" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Departments</SelectItem>
+                  <SelectItem value="all">All Departments</SelectItem>
                   {departments.map((dept) => (
                     <SelectItem key={dept.code} value={dept.code}>
                       {dept.name}
@@ -158,7 +158,7 @@ export default function CoursesPage() {
                   <SelectValue placeholder="All Levels" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Levels</SelectItem>
+                  <SelectItem value="all">All Levels</SelectItem>
                   {levelOptions.map((level) => (
                     <SelectItem key={level.value} value={level.value}>
                       {level.label}
