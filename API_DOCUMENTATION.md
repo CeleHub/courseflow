@@ -4,7 +4,7 @@ This document provides a comprehensive list of all API endpoints, their paramete
 
 ## Base URL
 ```
-http://localhost:3000
+http://localhost:3001/api/v1
 ```
 
 ## Authentication
@@ -110,15 +110,46 @@ enum ComplaintStatus {
 ### POST /auth/register
 **Description**: Register a new user
 **Authentication**: Not required
-**Request Body**:
+
+**Note**:
+- `matricNO` is **required** for all roles (use matric number for students, staff ID for lecturers/admins)
+- `verificationCode` is **required only** for ADMIN or LECTURER roles
+- `role` defaults to STUDENT if not provided
+
+**Request Body Examples**:
+
+**Student Registration**:
 ```json
 {
   "matricNO": "CS/2023/001",
-  "email": "user@example.com",
+  "email": "student@example.com",
   "password": "password123",
   "name": "John Doe", // optional
-  "role": "STUDENT", // optional, defaults to STUDENT
-  "verificationCode": "ADMIN-2025-ABC123" // required for ADMIN/LECTURER roles
+  "role": "STUDENT" // optional, defaults to STUDENT
+}
+```
+
+**Lecturer Registration**:
+```json
+{
+  "matricNO": "LEC/2024/001",
+  "email": "lecturer@example.com",
+  "password": "password123",
+  "name": "Dr. Jane Smith", // optional
+  "role": "LECTURER",
+  "verificationCode": "LECTURER-2025-ABC123" // required for LECTURER role
+}
+```
+
+**Admin Registration**:
+```json
+{
+  "matricNO": "ADM/2024/001",
+  "email": "admin@example.com",
+  "password": "password123",
+  "name": "Admin User", // optional
+  "role": "ADMIN",
+  "verificationCode": "ADMIN-2025-XYZ789" // required for ADMIN role
 }
 ```
 **Response**:
