@@ -108,6 +108,11 @@ class ApiClient {
     })
   }
 
+  // Get current authenticated user
+  async getCurrentUser() {
+    return this.request('/auth/me')
+  }
+
   // Verification code endpoints
   async getVerificationCodes() {
     return this.request<any[]>('/auth/verification-codes')
@@ -218,6 +223,45 @@ class ApiClient {
     })
   }
 
+  // Additional department endpoints
+  async getDepartmentStatistics() {
+    return this.request('/departments/statistics')
+  }
+
+  async searchDepartments(searchTerm: string) {
+    return this.request(`/departments/search/${searchTerm}`)
+  }
+
+  async getDepartmentsWithCourses() {
+    return this.request('/departments/with-courses')
+  }
+
+  async getDepartmentsWithoutCourses() {
+    return this.request('/departments/without-courses')
+  }
+
+  async getDepartmentsWithCourseCount() {
+    return this.request('/departments/with-course-count')
+  }
+
+  async getDepartmentFullDetails(code: string) {
+    return this.request(`/departments/${code}/full-details`)
+  }
+
+  async uploadDepartmentsBulk(file: File) {
+    const formData = new FormData()
+    formData.append('file', file)
+    return this.request('/departments/bulk/upload', {
+      method: 'POST',
+      body: formData,
+      headers: {}, // Let browser set Content-Type for FormData
+    })
+  }
+
+  async getDepartmentsBulkTemplate() {
+    return this.request('/departments/bulk/template')
+  }
+
   // Course endpoints
   async getCourses(params?: { page?: number; limit?: number; departmentCode?: string; level?: string }) {
     const queryString = params ? new URLSearchParams(params as any).toString() : ''
@@ -258,6 +302,45 @@ class ApiClient {
     return this.request(`/courses/${code}`, {
       method: 'DELETE',
     })
+  }
+
+  // Additional course endpoints
+  async getCoursesByDepartment(departmentCode: string) {
+    return this.request(`/courses/department/${departmentCode}`)
+  }
+
+  async getCoursesByLevel(level: string) {
+    return this.request(`/courses/level/${level}`)
+  }
+
+  async getCourseStatistics() {
+    return this.request('/courses/statistics')
+  }
+
+  async searchCourses(searchTerm: string) {
+    return this.request(`/courses/search/${searchTerm}`)
+  }
+
+  async getCoursesByCredits(minCredits: number, maxCredits: number) {
+    return this.request(`/courses/credits/${minCredits}/${maxCredits}`)
+  }
+
+  async getCoursesWithoutSchedules() {
+    return this.request('/courses/without-schedules')
+  }
+
+  async uploadCoursesBulk(file: File) {
+    const formData = new FormData()
+    formData.append('file', file)
+    return this.request('/courses/bulk/upload', {
+      method: 'POST',
+      body: formData,
+      headers: {}, // Let browser set Content-Type for FormData
+    })
+  }
+
+  async getCoursesBulkTemplate() {
+    return this.request('/courses/bulk/template')
   }
 
   // Schedule endpoints
@@ -311,6 +394,49 @@ class ApiClient {
     })
   }
 
+  // Additional schedule endpoints
+  async getSchedulesByCourse(courseCode: string) {
+    return this.request(`/schedules/course/${courseCode}`)
+  }
+
+  async getSchedulesByDepartment(departmentCode: string) {
+    return this.request(`/schedules/department/${departmentCode}`)
+  }
+
+  async getSchedulesByLevel(level: string) {
+    return this.request(`/schedules/level/${level}`)
+  }
+
+  async getSchedulesByDay(dayOfWeek: string) {
+    return this.request(`/schedules/day/${dayOfWeek}`)
+  }
+
+  async getSchedulesByVenue(venue: string) {
+    return this.request(`/schedules/venue/${venue}`)
+  }
+
+  async getSchedulesByType(type: string) {
+    return this.request(`/schedules/type/${type}`)
+  }
+
+  async getScheduleStatistics() {
+    return this.request('/schedules/statistics')
+  }
+
+  async uploadSchedulesBulk(file: File) {
+    const formData = new FormData()
+    formData.append('file', file)
+    return this.request('/schedules/bulk/upload', {
+      method: 'POST',
+      body: formData,
+      headers: {}, // Let browser set Content-Type for FormData
+    })
+  }
+
+  async getSchedulesBulkTemplate() {
+    return this.request('/schedules/bulk/template')
+  }
+
   // Complaint endpoints
   async getComplaints(params?: { page?: number; limit?: number }) {
     const queryString = params ? new URLSearchParams(params as any).toString() : ''
@@ -340,9 +466,34 @@ class ApiClient {
     })
   }
 
-  // Health check
+  // Additional complaint endpoints
+  async getPendingComplaints() {
+    return this.request('/complaints/pending')
+  }
+
+  async getResolvedComplaints() {
+    return this.request('/complaints/resolved')
+  }
+
+  // Health check endpoints
   async healthCheck() {
     return this.request('/health')
+  }
+
+  async simpleHealthCheck() {
+    return this.request('/health/simple')
+  }
+
+  async databaseHealthCheck() {
+    return this.request('/health/database')
+  }
+
+  async readinessCheck() {
+    return this.request('/health/readiness')
+  }
+
+  async livenessCheck() {
+    return this.request('/health/liveness')
   }
 }
 
