@@ -29,6 +29,34 @@ class ApiClient {
     return this.token
   }
 
+  private normalizeAuthResponse(response: any): ApiResponse<any> {
+    // Check if this is a direct auth response (has user and access_token)
+    if (response.user && response.access_token) {
+      return {
+        success: true,
+        data: response,
+        timestamp: new Date().toISOString()
+      }
+    }
+    // Check if this is a simple message response (forgot-password, reset-password)
+    if (response.message && !response.success) {
+      return {
+        success: true,
+        data: response,
+        timestamp: new Date().toISOString()
+      }
+    }
+    // For health endpoints or other direct responses
+    if (!response.success && !response.error) {
+      return {
+        success: true,
+        data: response,
+        timestamp: new Date().toISOString()
+      }
+    }
+    return response
+  }
+
   async request<T>(
     endpoint: string,
     options: RequestInit = {}
@@ -61,6 +89,16 @@ class ApiClient {
       }
 
       const data = await response.json()
+      
+      // Normalize endpoints that return direct responses (not wrapped in success/data)
+      if (endpoint.startsWith('/auth/login') || 
+          endpoint.startsWith('/auth/register') ||
+          endpoint.startsWith('/auth/forgot-password') ||
+          endpoint.startsWith('/auth/reset-password') ||
+          endpoint.startsWith('/health')) {
+        return this.normalizeAuthResponse(data)
+      }
+      
       return data
     } catch (error) {
       return {
@@ -104,7 +142,7 @@ class ApiClient {
   async resetPassword(token: string, password: string) {
     return this.request('/auth/reset-password', {
       method: 'POST',
-      body: JSON.stringify({ token, password }),
+      body: JSON.stringify({ token, newPassword: password }),
     })
   }
 

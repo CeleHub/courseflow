@@ -32,23 +32,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast()
 
   useEffect(() => {
-    // Check if user is logged in on mount
-    const token = apiClient.getToken()
-    if (token) {
-      // Validate token by making a request (you might want to add a /auth/me endpoint)
-      // For now, we'll assume the token is valid if it exists
-      // In a real app, you'd verify the token with the backend
-      try {
-        const userData = localStorage.getItem('user')
-        if (userData) {
-          setUser(JSON.parse(userData))
+    // Check if user is logged in on mount and validate token
+    const validateToken = async () => {
+      const token = apiClient.getToken()
+      if (token) {
+        try {
+          // Validate token with backend
+          const response = await apiClient.getCurrentUser()
+          if (response.success && response.data) {
+            setUser(response.data as User)
+            // Update localStorage with fresh user data
+            localStorage.setItem('user', JSON.stringify(response.data))
+          } else {
+            // Token is invalid, clear it
+            logout()
+          }
+        } catch (error) {
+          console.error('Token validation failed:', error)
+          logout()
         }
-      } catch (error) {
-        console.error('Failed to parse user data:', error)
-        logout()
       }
+      setLoading(false)
     }
-    setLoading(false)
+
+    validateToken()
   }, [])
 
   const login = async (email: string, password: string): Promise<boolean> => {
@@ -59,7 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (response.success && response.data) {
         const authData = response.data as AuthResponse
         setUser(authData.user)
-        apiClient.setToken(authData.token)
+        apiClient.setToken(authData.access_token)
 
         // Store user data in localStorage
         localStorage.setItem('user', JSON.stringify(authData.user))
@@ -105,7 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (response.success && response.data) {
         const authData = response.data as AuthResponse
         setUser(authData.user)
-        apiClient.setToken(authData.token)
+        apiClient.setToken(authData.access_token)
 
         // Store user data in localStorage
         localStorage.setItem('user', JSON.stringify(authData.user))

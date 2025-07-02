@@ -40,13 +40,19 @@ export default function DashboardPage() {
         const [coursesRes, departmentsRes, complaintsRes] = await Promise.all([
           apiClient.getCourses({ limit: 1 }),
           apiClient.getDepartments({ limit: 1 }),
-          isAuthenticated ? apiClient.getComplaints({ limit: 1 }) : Promise.resolve({ success: false })
+          isAuthenticated ? apiClient.getComplaints({ limit: 1 }) : Promise.resolve({ 
+            success: false, 
+            data: null,
+            error: 'Not authenticated',
+            statusCode: 401,
+            timestamp: new Date().toISOString()
+          })
         ])
 
         setStats({
-          totalCourses: (coursesRes.success && 'data' in coursesRes && coursesRes.data?.data?.pagination?.total) || 0,
-          totalDepartments: (departmentsRes.success && 'data' in departmentsRes && departmentsRes.data?.data?.pagination?.total) || 0,
-          totalComplaints: (complaintsRes.success && 'data' in complaintsRes && complaintsRes.data?.data?.pagination?.total) || 0,
+          totalCourses: (coursesRes.success && coursesRes.data?.data?.pagination?.total) || 0,
+          totalDepartments: (departmentsRes.success && departmentsRes.data?.data?.pagination?.total) || 0,
+          totalComplaints: (complaintsRes.success && complaintsRes.data?.data?.pagination?.total) || 0,
           myComplaints: 0, // This would need a separate endpoint
           recentActivity: [] // This would need a separate endpoint
         })

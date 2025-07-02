@@ -14,15 +14,16 @@ Authorization: Bearer <jwt_token>
 ```
 
 ## Common Response Format
-All responses follow a consistent format:
+Most endpoints use this standard format (automatically applied by ResponseInterceptor):
 ```json
 {
   "success": true,
   "data": {},
-  "message": "string",
-  "timestamp": "ISO 8601 date"
+  "message": "Request processed successfully"
 }
 ```
+
+**Exceptions**: Endpoints marked with "**Does not use standard success/data format**" return custom response structures.
 
 ## Error Response Format
 ```json
@@ -99,7 +100,9 @@ enum ComplaintStatus {
 **Response**:
 ```json
 {
-  "message": "Hello World!"
+  "success": true,
+  "data": "Hello World!",
+  "message": "Request processed successfully"
 }
 ```
 
@@ -115,6 +118,7 @@ enum ComplaintStatus {
 - `matricNO` is **required** for all roles (use matric number for students, staff ID for lecturers/admins)
 - `verificationCode` is **required only** for ADMIN or LECTURER roles
 - `role` defaults to STUDENT if not provided
+- **Does not use standard success/data format**
 
 **Request Body Examples**:
 
@@ -155,23 +159,23 @@ enum ComplaintStatus {
 **Response**:
 ```json
 {
-  "success": true,
-  "data": {
-    "user": {
-      "id": "user_id",
-      "matricNO": "CS/2023/001",
-      "email": "user@example.com",
-      "name": "John Doe",
-      "role": "STUDENT"
-    },
-    "token": "jwt_token"
-  }
+  "user": {
+    "id": "user_id",
+    "matricNO": "CS/2023/001",
+    "email": "user@example.com",
+    "name": "John Doe",
+    "role": "STUDENT",
+    "createdAt": "2024-01-01T00:00:00.000Z"
+  },
+  "access_token": "jwt_token",
+  "token_type": "Bearer"
 }
 ```
 
 ### POST /auth/login
 **Description**: Login user
 **Authentication**: Not required
+**Note**: **Does not use standard success/data format**
 **Request Body**:
 ```json
 {
@@ -182,23 +186,22 @@ enum ComplaintStatus {
 **Response**:
 ```json
 {
-  "success": true,
-  "data": {
-    "user": {
-      "id": "user_id",
-      "matricNO": "CS/2023/001",
-      "email": "user@example.com",
-      "name": "John Doe",
-      "role": "STUDENT"
-    },
-    "token": "jwt_token"
-  }
+  "user": {
+    "id": "user_id",
+    "matricNO": "CS/2023/001",
+    "email": "user@example.com",
+    "name": "John Doe",
+    "role": "STUDENT"
+  },
+  "access_token": "jwt_token",
+  "token_type": "Bearer"
 }
 ```
 
 ### POST /auth/forgot-password
 **Description**: Request password reset
 **Authentication**: Not required
+**Note**: **Does not use standard success/data format**
 **Request Body**:
 ```json
 {
@@ -215,17 +218,65 @@ enum ComplaintStatus {
 ### POST /auth/reset-password
 **Description**: Reset password using token
 **Authentication**: Not required
+**Note**: **Does not use standard success/data format**
 **Request Body**:
 ```json
 {
   "token": "reset_token",
-  "password": "newpassword123"
+  "newPassword": "newpassword123"
 }
 ```
 **Response**:
 ```json
 {
   "message": "Password has been reset successfully"
+}
+```
+
+### GET /auth/me
+**Description**: Get current authenticated user information
+**Authentication**: Required (JWT Token)
+**Response**:
+```json
+{
+  "success": true,
+  "data": {
+    "id": "user_id",
+    "matricNO": "CS/2023/001",
+    "email": "user@example.com",
+    "name": "John Doe",
+    "role": "STUDENT",
+    "createdAt": "2024-01-01T00:00:00.000Z",
+    "updatedAt": "2024-01-01T00:00:00.000Z"
+  },
+  "message": "User retrieved successfully",
+  "timestamp": "2024-01-01T00:00:00.000Z"
+}
+```
+**Error Responses**:
+```json
+// 401 - Invalid or expired token
+{
+  "success": false,
+  "error": "Invalid or expired token",
+  "statusCode": 401,
+  "timestamp": "2024-01-01T00:00:00.000Z"
+}
+
+// 401 - Missing token
+{
+  "success": false,
+  "error": "Authorization token required",
+  "statusCode": 401,
+  "timestamp": "2024-01-01T00:00:00.000Z"
+}
+
+// 401 - User not found or inactive
+{
+  "success": false,
+  "error": "User not found or inactive",
+  "statusCode": 401,
+  "timestamp": "2024-01-01T00:00:00.000Z"
 }
 ```
 
@@ -259,7 +310,8 @@ enum ComplaintStatus {
       "currentUses": 2,
       "isActive": true
     }
-  ]
+  ],
+  "message": "Request processed successfully"
 }
 ```
 
@@ -649,6 +701,7 @@ enum ComplaintStatus {
 ### GET /health
 **Description**: Comprehensive health check
 **Authentication**: Not required
+**Note**: **Does not use standard success/data format**
 **Response**:
 ```json
 {
@@ -678,6 +731,7 @@ enum ComplaintStatus {
 ### GET /health/simple
 **Description**: Simple health check
 **Authentication**: Not required
+**Note**: **Does not use standard success/data format**
 **Response**:
 ```json
 {
@@ -692,6 +746,7 @@ enum ComplaintStatus {
 ### GET /health/database
 **Description**: Database health check
 **Authentication**: Not required
+**Note**: **Does not use standard success/data format**
 **Response**:
 ```json
 {
@@ -712,6 +767,7 @@ enum ComplaintStatus {
 ### GET /health/readiness
 **Description**: Readiness check for Kubernetes
 **Authentication**: Not required
+**Note**: **Does not use standard success/data format**
 **Response**:
 ```json
 {
@@ -726,6 +782,7 @@ enum ComplaintStatus {
 ### GET /health/liveness
 **Description**: Liveness check for Kubernetes
 **Authentication**: Not required
+**Note**: **Does not use standard success/data format**
 **Response**:
 ```json
 {
@@ -753,7 +810,8 @@ For endpoints that support pagination, the response follows this format:
       "hasNext": true,
       "hasPrev": false
     }
-  }
+  },
+  "message": "Request processed successfully"
 }
 ```
 
