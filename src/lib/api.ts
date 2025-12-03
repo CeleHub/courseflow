@@ -89,17 +89,60 @@ class ApiClient {
       }
 
       const data = await response.json()
-      
+
       // Normalize endpoints that return direct responses (not wrapped in success/data)
-      if (endpoint.startsWith('/auth/login') || 
+      if (endpoint.startsWith('/auth/login') ||
           endpoint.startsWith('/auth/register') ||
           endpoint.startsWith('/auth/forgot-password') ||
           endpoint.startsWith('/auth/reset-password') ||
           endpoint.startsWith('/health')) {
         return this.normalizeAuthResponse(data)
       }
-      
+
       return data
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Network error occurred',
+        statusCode: 0,
+        timestamp: new Date().toISOString(),
+      }
+    }
+  }
+
+  async downloadFile(endpoint: string): Promise<ApiResponse<string>> {
+    const url = `${this.baseURL}${endpoint}`
+
+    const headers: Record<string, string> = {}
+
+    if (this.token) {
+      headers.Authorization = `Bearer ${this.token}`
+    }
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers,
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        return {
+          success: false,
+          error: errorData.error || `HTTP ${response.status}: ${response.statusText}`,
+          statusCode: response.status,
+          timestamp: new Date().toISOString(),
+        }
+      }
+
+      // Get the file content as text (CSV)
+      const fileContent = await response.text()
+
+      return {
+        success: true,
+        data: fileContent,
+        timestamp: new Date().toISOString(),
+      }
     } catch (error) {
       return {
         success: false,
@@ -297,7 +340,7 @@ class ApiClient {
   }
 
   async getDepartmentsBulkTemplate() {
-    return this.request('/departments/bulk/template')
+    return this.downloadFile('/departments/bulk/template')
   }
 
   // Course endpoints
@@ -378,7 +421,7 @@ class ApiClient {
   }
 
   async getCoursesBulkTemplate() {
-    return this.request('/courses/bulk/template')
+    return this.downloadFile('/courses/bulk/template')
   }
 
   // Schedule endpoints
@@ -472,7 +515,7 @@ class ApiClient {
   }
 
   async getSchedulesBulkTemplate() {
-    return this.request('/schedules/bulk/template')
+    return this.downloadFile('/schedules/bulk/template')
   }
 
   // Complaint endpoints

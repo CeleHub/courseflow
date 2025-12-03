@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Navigation } from '@/components/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -18,14 +19,19 @@ import {
   GraduationCap,
   Upload,
   Download,
-  FileText
+  FileText,
+  Plus
 } from 'lucide-react'
 import { apiClient } from '@/lib/api'
 import { Department } from '@/types'
 
 export default function DepartmentsPage() {
-  const { isAuthenticated, isAdmin } = useAuth()
+  const router = useRouter()
+  const { isAuthenticated, isAdmin, isLecturer } = useAuth()
   const { toast } = useToast()
+
+  // Check if user is staff (admin or lecturer)
+  const isStaff = isAdmin || isLecturer
   const [departments, setDepartments] = useState<Department[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -207,7 +213,7 @@ export default function DepartmentsPage() {
                             Upload a CSV file to create multiple departments at once
                           </DialogDescription>
                         </DialogHeader>
-                        
+
                         <div className="space-y-4">
                           <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center">
                             <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
@@ -239,8 +245,8 @@ export default function DepartmentsPage() {
                           >
                             Cancel
                           </Button>
-                          <Button 
-                            onClick={handleBulkUpload} 
+                          <Button
+                            onClick={handleBulkUpload}
                             disabled={!selectedFile || isUploading}
                           >
                             {isUploading ? 'Uploading...' : 'Upload'}
@@ -248,6 +254,11 @@ export default function DepartmentsPage() {
                         </DialogFooter>
                       </DialogContent>
                     </Dialog>
+
+                    <Button variant="default" onClick={() => router.push('/departments/create')}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Department
+                    </Button>
                   </>
                 )}
 

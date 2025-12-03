@@ -1,12 +1,16 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Navigation } from '@/components/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { useAuth } from '@/contexts/AuthContext'
+import { useToast } from '@/hooks/use-toast'
 import {
   BookOpen,
   Search,
@@ -14,12 +18,22 @@ import {
   Clock,
   Building2,
   GraduationCap,
-  RefreshCw
+  RefreshCw,
+  Upload,
+  Download,
+  FileText,
+  Plus
 } from 'lucide-react'
 import { apiClient } from '@/lib/api'
 import { Course, Department, Level } from '@/types'
 
 export default function CoursesPage() {
+  const router = useRouter()
+  const { isAuthenticated, isAdmin, isLecturer } = useAuth()
+  const { toast } = useToast()
+
+  // Check if user is staff (admin or lecturer)
+  const isStaff = isAdmin || isLecturer
   const [courses, setCourses] = useState<Course[]>([])
   const [departments, setDepartments] = useState<Department[]>([])
   const [loading, setLoading] = useState(true)
@@ -28,6 +42,9 @@ export default function CoursesPage() {
   const [selectedLevel, setSelectedLevel] = useState<string>('all')
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
+  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
 
   const levelOptions = [
     { value: Level.LEVEL_100, label: '100 Level' },
@@ -90,6 +107,91 @@ export default function CoursesPage() {
     setSelectedDepartment('all')
     setSelectedLevel('all')
     setCurrentPage(1)
+  }
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (file && file.type === 'text/csv') {
+      setSelectedFile(file)
+    } else {
+      toast({
+        title: "Invalid File",
+        description: "Please select a CSV file",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleBulkUpload = async () => {
+    if (!selectedFile) {
+      toast({
+        title: "No File Selected",
+        description: "Please select a CSV file to upload",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      setIsUploading(true)
+      const response = await apiClient.uploadCoursesBulk(selectedFile)
+
+      if (response.success) {
+        toast({
+          title: "Upload Successful",
+          description: "Courses have been uploaded successfully",
+        })
+        setIsUploadDialogOpen(false)
+        setSelectedFile(null)
+        fetchCourses()
+      } else {
+        toast({
+          title: "Upload Failed",
+          description: response.error || "Failed to upload courses",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error('Bulk upload failed:', error)
+      toast({
+        title: "Upload Error",
+        description: "An error occurred during upload",
+        variant: "destructive",
+      })
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  const handleDownloadTemplate = async () => {
+    try {
+      const response = await apiClient.getCoursesBulkTemplate()
+      if (response.success && response.data) {
+        // Create a download link for the template
+        const blob = new Blob([response.data as string], { type: 'text/csv' })
+        const url = window.URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = 'courses_template.csv'
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        window.URL.revokeObjectURL(url)
+      } else {
+        toast({
+          title: "Download Failed",
+          description: "Failed to download template",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error('Template download failed:', error)
+      toast({
+        title: "Download Error",
+        description: "An error occurred while downloading template",
+        variant: "destructive",
+      })
+    }
   }
 
   const getLevelBadgeColor = (level: Level) => {
@@ -166,6 +268,76 @@ export default function CoursesPage() {
                   ))}
                 </SelectContent>
               </Select>
+
+              {isAuthenticated && isStaff && (
+                <>
+                  <Button variant="outline" onClick={handleDownloadTemplate}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Template
+                  </Button>
+
+                  <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline">
+                        <Upload className="h-4 w-4 mr-2" />
+                        Bulk Upload
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>Bulk Upload Courses</DialogTitle>
+                        <DialogDescription>
+                          Upload a CSV file to create multiple courses at once
+                        </DialogDescription>
+                      </DialogHeader>
+
+                      <div className="space-y-4">
+                        <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center">
+                          <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                          <div className="space-y-2">
+                            <p className="text-sm text-muted-foreground">
+                              {selectedFile ? selectedFile.name : 'Select a CSV file'}
+                            </p>
+                            <Input
+                              type="file"
+                              accept=".csv"
+                              onChange={handleFileSelect}
+                              className="cursor-pointer"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="text-xs text-muted-foreground space-y-1">
+                          <p>• CSV file should contain columns: code, name, level, credits, departmentCode</p>
+                          <p>• Download the template for the correct format</p>
+                          <p>• Maximum file size: 5MB</p>
+                        </div>
+                      </div>
+
+                      <DialogFooter>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setIsUploadDialogOpen(false)}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={handleBulkUpload}
+                          disabled={!selectedFile || isUploading}
+                        >
+                          {isUploading ? 'Uploading...' : 'Upload'}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+
+                  <Button variant="default" onClick={() => router.push('/courses/create')}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Course
+                  </Button>
+                </>
+              )}
 
               <Button variant="outline" onClick={handleReset}>
                 <RefreshCw className="h-4 w-4 mr-2" />
