@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { Navigation } from '@/components/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -53,7 +53,7 @@ export default function ComplaintsPage() {
     [ComplaintStatus.CLOSED]: XCircle,
   }
 
-  const fetchComplaints = async () => {
+  const fetchComplaints = useCallback(async () => {
     try {
       setLoading(true)
 
@@ -73,25 +73,25 @@ export default function ComplaintsPage() {
     } finally {
       setLoading(false)
     }
-  }
-
-  const fetchDepartments = async () => {
-    try {
-      const response = await apiClient.getDepartments({ limit: 100 })
-      if (response.success && response.data) {
-        setDepartments(response.data.data.items)
-      }
-    } catch (error) {
-      console.error('Failed to fetch departments:', error)
-    }
-  }
+  }, [isAdmin])
 
   useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        const response = await apiClient.getDepartments({ limit: 100 })
+        if (response.success && response.data) {
+          setDepartments(response.data.data.items)
+        }
+      } catch (error) {
+        console.error('Failed to fetch departments:', error)
+      }
+    }
+
     if (isAuthenticated) {
       fetchComplaints()
     }
     fetchDepartments()
-  }, [isAuthenticated, isAdmin])
+  }, [isAuthenticated, fetchComplaints])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

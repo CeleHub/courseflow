@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react'
 import { User, AuthResponse } from '@/types'
 import { apiClient } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
@@ -31,6 +31,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const { toast } = useToast()
 
+  const logout = useCallback(() => {
+    setUser(null)
+    apiClient.setToken(null)
+    localStorage.removeItem('user')
+    toast({
+      title: "Logged Out",
+      description: "You have been successfully logged out",
+    })
+  }, [toast])
+
   useEffect(() => {
     // Check if user is logged in on mount and validate token
     const validateToken = async () => {
@@ -56,7 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     validateToken()
-  }, [])
+  }, [logout])
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
@@ -143,15 +153,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const logout = () => {
-    setUser(null)
-    apiClient.setToken(null)
-    localStorage.removeItem('user')
-    toast({
-      title: "Logged Out",
-      description: "You have been successfully logged out",
-    })
-  }
 
   const value: AuthContextType = {
     user,

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { Navigation } from '@/components/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -41,7 +41,7 @@ export default function AdminVerificationCodesPage() {
     maxUses: 1
   })
 
-  const fetchVerificationCodes = async () => {
+  const fetchVerificationCodes = useCallback(async () => {
     try {
       setLoading(true)
       const response = await apiClient.getVerificationCodes()
@@ -59,13 +59,13 @@ export default function AdminVerificationCodesPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [toast])
 
   useEffect(() => {
     if (isAuthenticated && isAdmin) {
       fetchVerificationCodes()
     }
-  }, [isAuthenticated, isAdmin])
+  }, [isAuthenticated, isAdmin, fetchVerificationCodes])
 
   const handleCreateCode = async () => {
     if (!newCode.code.trim()) {

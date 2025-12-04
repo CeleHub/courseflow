@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Navigation } from '@/components/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -42,7 +42,7 @@ export default function DepartmentsPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isUploading, setIsUploading] = useState(false)
 
-  const fetchDepartments = async () => {
+  const fetchDepartments = useCallback(async () => {
     try {
       setLoading(true)
       const params = {
@@ -61,11 +61,11 @@ export default function DepartmentsPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [currentPage])
 
   useEffect(() => {
     fetchDepartments()
-  }, [currentPage])
+  }, [fetchDepartments])
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
