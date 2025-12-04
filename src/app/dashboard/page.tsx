@@ -14,7 +14,8 @@ import {
   Users,
   Clock,
   TrendingUp,
-  Activity
+  Activity,
+  GraduationCap
 } from 'lucide-react'
 import Link from 'next/link'
 import { apiClient } from '@/lib/api'
@@ -142,7 +143,7 @@ export default function DashboardPage() {
                 Welcome back, {user?.name?.split(' ')[0]}!
               </h1>
               <p className="text-lg text-muted-foreground">
-                Here's an overview of your academic journey
+                Here&apos;s an overview of your academic journey
               </p>
             </div>
             <div className="flex items-center gap-3">

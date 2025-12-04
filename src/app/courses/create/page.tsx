@@ -38,25 +38,29 @@ export default function CreateCoursePage() {
     { value: Level.LEVEL_500, label: '500 Level' },
   ]
 
+  useEffect(() => {
+    if (!isAuthenticated || !isStaff) {
+      router.push('/auth/login')
+      return
+    }
+
+    const fetchDepartments = async () => {
+      try {
+        const response = await apiClient.getDepartments({ limit: 100 })
+        if (response.success && response.data) {
+          setDepartments(response.data.data.items)
+        }
+      } catch (error) {
+        console.error('Failed to fetch departments:', error)
+      }
+    }
+
+    fetchDepartments()
+  }, [isAuthenticated, isStaff, router])
+
   // Redirect if not authenticated or not staff
   if (!isAuthenticated || !isStaff) {
-    router.push('/auth/login')
     return null
-  }
-
-  useEffect(() => {
-    fetchDepartments()
-  }, [])
-
-  const fetchDepartments = async () => {
-    try {
-      const response = await apiClient.getDepartments({ limit: 100 })
-      if (response.success && response.data) {
-        setDepartments(response.data.data.items)
-      }
-    } catch (error) {
-      console.error('Failed to fetch departments:', error)
-    }
   }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {

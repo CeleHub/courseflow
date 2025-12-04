@@ -443,7 +443,7 @@ export default function SchedulePage() {
                   </div>
                   <h3 className="text-xl font-semibold mb-2">No schedules found</h3>
                   <p className="text-muted-foreground mb-4">
-                    We couldn't find any schedules matching your search criteria
+                    We couldn&apos;t find any schedules matching your search criteria
                   </p>
                   <p className="text-sm text-muted-foreground">
                     Try adjusting your filters or search terms

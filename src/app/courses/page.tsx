@@ -456,10 +456,10 @@ export default function CoursesPage() {
                   </div>
                   <h3 className="text-xl font-semibold mb-2">No courses found</h3>
                   <p className="text-muted-foreground mb-4">
-                    We couldn't find any courses matching your search criteria
+                    We couldn&apos;t find any courses matching your search criteria
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    Try adjusting your search terms or filters to find what you're looking for
+                    Try adjusting your search terms or filters to find what you&apos;re looking for
                   </p>
                 </CardContent>
               </Card>

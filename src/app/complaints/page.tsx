@@ -214,7 +214,7 @@ export default function ComplaintsPage() {
               <CardHeader>
                 <CardTitle>Submit a Complaint</CardTitle>
                 <CardDescription>
-                  Fill out the form below to submit your complaint. We'll review it and get back to you.
+                  Fill out the form below to submit your complaint. We&apos;ll review it and get back to you.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -327,7 +327,7 @@ export default function ComplaintsPage() {
                     <MessageCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                     <p className="text-muted-foreground">No complaints found</p>
                     <p className="text-sm text-muted-foreground mt-2">
-                      {isAdmin ? 'No complaints have been submitted yet' : 'You haven\'t submitted any complaints yet'}
+                      {isAdmin ? 'No complaints have been submitted yet' : 'You haven&apos;t submitted any complaints yet'}
                     </p>
                   </div>
                 ) : (
