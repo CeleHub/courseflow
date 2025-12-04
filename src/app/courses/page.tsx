@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Navigation } from '@/components/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -54,7 +54,22 @@ export default function CoursesPage() {
     { value: Level.LEVEL_500, label: '500 Level' },
   ]
 
-  const fetchCourses = async () => {
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        const response = await apiClient.getDepartments({ limit: 100 })
+        if (response.success && response.data) {
+          setDepartments(response.data.data.items)
+        }
+      } catch (error) {
+        console.error('Failed to fetch departments:', error)
+      }
+    }
+
+    fetchDepartments()
+  }, [])
+
+  const fetchCourses = useCallback(async () => {
     try {
       setLoading(true)
       const params: any = {
@@ -76,26 +91,11 @@ export default function CoursesPage() {
     } finally {
       setLoading(false)
     }
-  }
-
-  const fetchDepartments = async () => {
-    try {
-      const response = await apiClient.getDepartments({ limit: 100 })
-      if (response.success && response.data) {
-        setDepartments(response.data.data.items)
-      }
-    } catch (error) {
-      console.error('Failed to fetch departments:', error)
-    }
-  }
-
-  useEffect(() => {
-    fetchDepartments()
-  }, [])
+  }, [currentPage, selectedDepartment, selectedLevel])
 
   useEffect(() => {
     fetchCourses()
-  }, [currentPage, selectedDepartment, selectedLevel])
+  }, [fetchCourses])
 
   const filteredCourses = courses.filter(course =>
     course.name.toLowerCase().includes(searchTerm.toLowerCase()) ||

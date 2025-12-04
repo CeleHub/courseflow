@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Navigation } from '@/components/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -24,9 +24,15 @@ export default function CreateDepartmentPage() {
 
   const isStaff = isAdmin || isLecturer
 
+  useEffect(() => {
+    if (!isAuthenticated || !isStaff) {
+      router.push('/auth/login')
+      return
+    }
+  }, [isAuthenticated, isStaff, router])
+
   // Redirect if not authenticated or not staff
   if (!isAuthenticated || !isStaff) {
-    router.push('/auth/login')
     return null
   }
 

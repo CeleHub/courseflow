@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Navigation } from '@/components/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -65,7 +65,22 @@ export default function SchedulePage() {
     { value: Level.LEVEL_500, label: '500 Level' },
   ]
 
-  const fetchSchedules = async () => {
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        const response = await apiClient.getDepartments({ limit: 100 })
+        if (response.success && response.data) {
+          setDepartments(response.data.data.items)
+        }
+      } catch (error) {
+        console.error('Failed to fetch departments:', error)
+      }
+    }
+
+    fetchDepartments()
+  }, [])
+
+  const fetchSchedules = useCallback(async () => {
     try {
       setLoading(true)
       const params: any = {
@@ -88,26 +103,11 @@ export default function SchedulePage() {
     } finally {
       setLoading(false)
     }
-  }
-
-  const fetchDepartments = async () => {
-    try {
-      const response = await apiClient.getDepartments({ limit: 100 })
-      if (response.success && response.data) {
-        setDepartments(response.data.data.items)
-      }
-    } catch (error) {
-      console.error('Failed to fetch departments:', error)
-    }
-  }
-
-  useEffect(() => {
-    fetchDepartments()
-  }, [])
+  }, [currentPage, selectedDepartment, selectedLevel, selectedDay])
 
   useEffect(() => {
     fetchSchedules()
-  }, [currentPage, selectedDepartment, selectedLevel, selectedDay])
+  }, [fetchSchedules])
 
   const filteredSchedules = schedules.filter(schedule =>
     schedule.course?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
