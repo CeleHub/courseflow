@@ -246,18 +246,20 @@ export default function SchedulePage() {
         {/* Header */}
         <div className="mb-10">
           <div className="flex items-center justify-between flex-wrap gap-4 mb-4">
-            <div>
-              <h1 className="text-4xl md:text-5xl font-bold mb-2 flex items-center gap-3">
-                <div className="p-2 bg-primary/10 rounded-xl">
-                  <Calendar className="h-8 w-8 md:h-10 md:w-10 text-primary" />
-                </div>
-                <span className="bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-                  Academic Timetable
-                </span>
-              </h1>
-              <p className="text-lg text-muted-foreground ml-[4.5rem]">
-                View your class schedules organized by day with detailed time and venue information
-              </p>
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-primary/10 rounded-xl flex-shrink-0">
+                <Calendar className="h-8 w-8 md:h-10 md:w-10 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h1 className="text-4xl md:text-5xl font-bold mb-2">
+                  <span className="bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+                    Academic Timetable
+                  </span>
+                </h1>
+                <p className="text-lg text-muted-foreground">
+                  View your class schedules organized by day with detailed time and venue information
+                </p>
+              </div>
             </div>
           </div>
         </div>
