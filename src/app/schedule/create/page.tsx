@@ -48,25 +48,29 @@ export default function CreateSchedulePage() {
     { value: ClassType.TUTORIAL, label: 'Tutorial' },
   ]
 
+  useEffect(() => {
+    if (!isAuthenticated || !isStaff) {
+      router.push('/auth/login')
+      return
+    }
+
+    const fetchCourses = async () => {
+      try {
+        const response = await apiClient.getCourses({ limit: 100 })
+        if (response.success && response.data) {
+          setCourses(response.data.data.items)
+        }
+      } catch (error) {
+        console.error('Failed to fetch courses:', error)
+      }
+    }
+
+    fetchCourses()
+  }, [isAuthenticated, isStaff, router])
+
   // Redirect if not authenticated or not staff
   if (!isAuthenticated || !isStaff) {
-    router.push('/auth/login')
     return null
-  }
-
-  useEffect(() => {
-    fetchCourses()
-  }, [])
-
-  const fetchCourses = async () => {
-    try {
-      const response = await apiClient.getCourses({ limit: 100 })
-      if (response.success && response.data) {
-        setCourses(response.data.data.items)
-      }
-    } catch (error) {
-      console.error('Failed to fetch courses:', error)
-    }
   }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
