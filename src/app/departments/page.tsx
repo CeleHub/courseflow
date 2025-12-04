@@ -20,7 +20,8 @@ import {
   Upload,
   Download,
   FileText,
-  Plus
+  Plus,
+  Clock
 } from 'lucide-react'
 import { apiClient } from '@/lib/api'
 import { Department } from '@/types'
@@ -162,24 +163,43 @@ export default function DepartmentsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50 dark:from-slate-950 dark:via-blue-950/20 dark:to-slate-950">
       <Navigation />
 
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2 flex items-center gap-2">
-            <Building2 className="h-8 w-8" />
-            Departments
-          </h1>
-          <p className="text-muted-foreground">
-            Explore academic departments and their course offerings
-          </p>
+        <div className="mb-10">
+          <div className="flex items-center justify-between flex-wrap gap-4 mb-4">
+            <div>
+              <h1 className="text-4xl md:text-5xl font-bold mb-2 flex items-center gap-3">
+                <div className="p-2 bg-primary/10 rounded-xl">
+                  <Building2 className="h-8 w-8 md:h-10 md:w-10 text-primary" />
+                </div>
+                <span className="bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+                  Academic Departments
+                </span>
+              </h1>
+              <p className="text-lg text-muted-foreground ml-[4.5rem]">
+                Explore departments and discover their course offerings
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Search and Filters */}
-        <Card className="mb-6">
-          <CardContent className="pt-6">
+        <Card className="mb-8 border-2 shadow-sm">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-xl font-semibold flex items-center gap-2">
+              <div className="p-1.5 bg-primary/10 rounded-lg">
+                <Search className="h-5 w-5 text-primary" />
+              </div>
+              Search Departments
+            </CardTitle>
+            <CardDescription>
+              Find departments by name or code
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -291,47 +311,62 @@ export default function DepartmentsPage() {
           </div>
         ) : (
           <>
-            <div className="mb-4 flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                Showing {filteredDepartments.length} of {departments.length} departments
+            <div className="mb-6 flex items-center justify-between">
+              <p className="text-base font-medium text-muted-foreground">
+                Showing <span className="text-foreground font-semibold">{filteredDepartments.length}</span> of{' '}
+                <span className="text-foreground font-semibold">{departments.length}</span> departments
               </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredDepartments.map((department) => (
-                <Card key={department.id} className="transition-all hover:shadow-lg">
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <CardTitle className="text-lg">{department.name}</CardTitle>
-                        <CardDescription className="font-mono text-sm">
+                <Card 
+                  key={department.id} 
+                  className="transition-all hover:shadow-xl hover:scale-[1.02] border-2 hover:border-primary/20 group"
+                >
+                  <CardHeader className="pb-4">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex-1">
+                        <Badge variant="outline" className="font-mono text-xs mb-2">
                           {department.code}
-                        </CardDescription>
+                        </Badge>
+                        <CardTitle className="text-xl font-semibold leading-tight">
+                          {department.name}
+                        </CardTitle>
                       </div>
-                      <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                        <Building2 className="h-6 w-6 text-primary" />
+                      <div className="w-14 h-14 bg-primary/10 dark:bg-primary/20 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <Building2 className="h-7 w-7 text-primary" />
                       </div>
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-3">
+                    <div className="space-y-3 pt-3 border-t">
                       {department._count && (
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <BookOpen className="h-4 w-4" />
-                          <span>
-                            {department._count.courses} Course{department._count.courses !== 1 ? 's' : ''}
+                        <div className="flex items-center gap-3 text-sm">
+                          <div className="p-1.5 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
+                            <BookOpen className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                          </div>
+                          <span className="text-muted-foreground">
+                            <span className="font-semibold text-foreground">{department._count.courses}</span> Course{department._count.courses !== 1 ? 's' : ''} Available
                           </span>
                         </div>
                       )}
 
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <GraduationCap className="h-4 w-4" />
-                        <span>Academic Department</span>
+                      <div className="flex items-center gap-3 text-sm">
+                        <div className="p-1.5 bg-green-50 dark:bg-green-950/30 rounded-lg">
+                          <GraduationCap className="h-4 w-4 text-green-600 dark:text-green-400" />
+                        </div>
+                        <span className="text-muted-foreground">Academic Department</span>
                       </div>
 
                       {department.createdAt && (
-                        <div className="text-xs text-muted-foreground">
-                          Est. {new Date(department.createdAt).getFullYear()}
+                        <div className="flex items-center gap-3 text-sm">
+                          <div className="p-1.5 bg-purple-50 dark:bg-purple-950/30 rounded-lg">
+                            <Clock className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                          </div>
+                          <span className="text-muted-foreground">
+                            Established <span className="font-semibold text-foreground">{new Date(department.createdAt).getFullYear()}</span>
+                          </span>
                         </div>
                       )}
                     </div>

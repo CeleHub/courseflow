@@ -130,86 +130,108 @@ export default function DashboardPage() {
   ]
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50 dark:from-slate-950 dark:via-blue-950/20 dark:to-slate-950">
       <Navigation />
 
       <div className="container mx-auto px-4 py-8">
         {/* Welcome Section */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Welcome back, {user?.name}!</h1>
-          <p className="text-muted-foreground">Here's what's happening with your academic journey.</p>
-          <div className="flex items-center gap-2 mt-3">
-            <Badge variant="secondary">
-              {user?.role}
-            </Badge>
-            <Badge variant="outline">
-              {user?.matricNO}
-            </Badge>
+        <div className="mb-10">
+          <div className="flex items-center justify-between flex-wrap gap-4 mb-4">
+            <div>
+              <h1 className="text-4xl md:text-5xl font-bold mb-2 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+                Welcome back, {user?.name?.split(' ')[0]}!
+              </h1>
+              <p className="text-lg text-muted-foreground">
+                Here's an overview of your academic journey
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <Badge variant="secondary" className="text-sm px-4 py-1.5">
+                <GraduationCap className="h-3 w-3 mr-1.5" />
+                {user?.role}
+              </Badge>
+              <Badge variant="outline" className="text-sm px-4 py-1.5 font-mono">
+                {user?.matricNO}
+              </Badge>
+            </div>
           </div>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+          <Card className="border-2 hover:border-primary/20 transition-all hover:shadow-lg group">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Courses</CardTitle>
-              <BookOpen className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-semibold text-muted-foreground">Total Courses</CardTitle>
+              <div className="p-2 bg-blue-50 dark:bg-blue-950/30 rounded-lg group-hover:scale-110 transition-transform">
+                <BookOpen className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{loading ? '...' : stats.totalCourses}</div>
+              <div className="text-3xl font-bold mb-1">{loading ? '...' : stats.totalCourses}</div>
               <p className="text-xs text-muted-foreground">Available courses</p>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-2 hover:border-primary/20 transition-all hover:shadow-lg group">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Departments</CardTitle>
-              <Building2 className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-semibold text-muted-foreground">Departments</CardTitle>
+              <div className="p-2 bg-green-50 dark:bg-green-950/30 rounded-lg group-hover:scale-110 transition-transform">
+                <Building2 className="h-5 w-5 text-green-600 dark:text-green-400" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{loading ? '...' : stats.totalDepartments}</div>
+              <div className="text-3xl font-bold mb-1">{loading ? '...' : stats.totalDepartments}</div>
               <p className="text-xs text-muted-foreground">Academic departments</p>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-2 hover:border-primary/20 transition-all hover:shadow-lg group">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">My Complaints</CardTitle>
-              <MessageCircle className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-semibold text-muted-foreground">My Complaints</CardTitle>
+              <div className="p-2 bg-orange-50 dark:bg-orange-950/30 rounded-lg group-hover:scale-110 transition-transform">
+                <MessageCircle className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{loading ? '...' : stats.myComplaints}</div>
+              <div className="text-3xl font-bold mb-1">{loading ? '...' : stats.myComplaints}</div>
               <p className="text-xs text-muted-foreground">Submitted complaints</p>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-2 hover:border-primary/20 transition-all hover:shadow-lg group">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Quick Access</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-semibold text-muted-foreground">Quick Access</CardTitle>
+              <div className="p-2 bg-purple-50 dark:bg-purple-950/30 rounded-lg group-hover:scale-110 transition-transform">
+                <TrendingUp className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">4</div>
+              <div className="text-3xl font-bold mb-1">{quickActions.length}</div>
               <p className="text-xs text-muted-foreground">Available actions</p>
             </CardContent>
           </Card>
         </div>
 
         {/* Quick Actions */}
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold mb-4">Quick Actions</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="mb-10">
+          <h2 className="text-3xl font-bold mb-6 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+            Quick Actions
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {quickActions.map((action, index) => (
-              <Card key={index} className="transition-all hover:shadow-lg cursor-pointer">
+              <Card 
+                key={index} 
+                className="transition-all hover:shadow-xl hover:scale-[1.02] cursor-pointer border-2 hover:border-primary/20 group"
+              >
                 <Link href={action.href}>
-                  <CardHeader className="pb-2">
-                    <div className={`w-10 h-10 ${action.color} rounded-lg flex items-center justify-center mb-2`}>
-                      <action.icon className="h-5 w-5 text-white" />
+                  <CardHeader className="pb-3">
+                    <div className={`w-12 h-12 ${action.color} rounded-xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform shadow-md`}>
+                      <action.icon className="h-6 w-6 text-white" />
                     </div>
-                    <CardTitle className="text-lg">{action.title}</CardTitle>
+                    <CardTitle className="text-lg font-semibold">{action.title}</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <CardDescription>{action.description}</CardDescription>
+                    <CardDescription className="text-sm leading-relaxed">{action.description}</CardDescription>
                   </CardContent>
                 </Link>
               </Card>
@@ -219,22 +241,25 @@ export default function DashboardPage() {
 
         {/* Admin Actions */}
         {(isAdmin || isLecturer) && (
-          <div className="mb-8">
-            <h2 className="text-2xl font-bold mb-4">
-              {isAdmin ? 'Admin' : 'Lecturer'} Tools
+          <div className="mb-10">
+            <h2 className="text-3xl font-bold mb-6 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+              {isAdmin ? 'Administrative' : 'Lecturer'} Tools
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {adminActions.filter(action => isAdmin).map((action, index) => (
-                <Card key={index} className="transition-all hover:shadow-lg cursor-pointer">
+                <Card 
+                  key={index} 
+                  className="transition-all hover:shadow-xl hover:scale-[1.02] cursor-pointer border-2 hover:border-primary/20 group"
+                >
                   <Link href={action.href}>
-                    <CardHeader className="pb-2">
-                      <div className={`w-10 h-10 ${action.color} rounded-lg flex items-center justify-center mb-2`}>
-                        <action.icon className="h-5 w-5 text-white" />
+                    <CardHeader className="pb-3">
+                      <div className={`w-12 h-12 ${action.color} rounded-xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform shadow-md`}>
+                        <action.icon className="h-6 w-6 text-white" />
                       </div>
-                      <CardTitle className="text-lg">{action.title}</CardTitle>
+                      <CardTitle className="text-lg font-semibold">{action.title}</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <CardDescription>{action.description}</CardDescription>
+                      <CardDescription className="text-sm leading-relaxed">{action.description}</CardDescription>
                     </CardContent>
                   </Link>
                 </Card>

@@ -239,31 +239,44 @@ export default function SchedulePage() {
   }, {} as Record<string, Schedule[]>)
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50 dark:from-slate-950 dark:via-blue-950/20 dark:to-slate-950">
       <Navigation />
 
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2 flex items-center gap-2">
-            <Calendar className="h-8 w-8" />
-            Class Schedule
-          </h1>
-          <p className="text-muted-foreground">
-            View detailed schedules for all courses with time, venue, and type information
-          </p>
+        <div className="mb-10">
+          <div className="flex items-center justify-between flex-wrap gap-4 mb-4">
+            <div>
+              <h1 className="text-4xl md:text-5xl font-bold mb-2 flex items-center gap-3">
+                <div className="p-2 bg-primary/10 rounded-xl">
+                  <Calendar className="h-8 w-8 md:h-10 md:w-10 text-primary" />
+                </div>
+                <span className="bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+                  Academic Timetable
+                </span>
+              </h1>
+              <p className="text-lg text-muted-foreground ml-[4.5rem]">
+                View your class schedules organized by day with detailed time and venue information
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Filters */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Filter className="h-5 w-5" />
-              Filters
+        <Card className="mb-8 border-2 shadow-sm">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-xl font-semibold flex items-center gap-2">
+              <div className="p-1.5 bg-primary/10 rounded-lg">
+                <Filter className="h-5 w-5 text-primary" />
+              </div>
+              Filter Timetable
             </CardTitle>
+            <CardDescription>
+              Refine your schedule view by department, level, or day
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
               <div className="relative">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -421,12 +434,17 @@ export default function SchedulePage() {
             </div>
 
             {Object.keys(schedulesByDay).length === 0 ? (
-              <Card>
-                <CardContent className="py-8 text-center">
-                  <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">No schedules found matching your criteria</p>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Try adjusting your search terms or filters
+              <Card className="border-2 border-dashed">
+                <CardContent className="py-16 text-center">
+                  <div className="p-4 bg-muted/50 rounded-full w-20 h-20 mx-auto mb-6 flex items-center justify-center">
+                    <Calendar className="h-10 w-10 text-muted-foreground" />
+                  </div>
+                  <h3 className="text-xl font-semibold mb-2">No schedules found</h3>
+                  <p className="text-muted-foreground mb-4">
+                    We couldn't find any schedules matching your search criteria
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Try adjusting your filters or search terms
                   </p>
                 </CardContent>
               </Card>
@@ -437,51 +455,75 @@ export default function SchedulePage() {
                   if (!daySchedules || daySchedules.length === 0) return null
 
                   return (
-                    <Card key={dayOption.value}>
-                      <CardHeader>
-                        <CardTitle className="text-xl">{dayOption.label}</CardTitle>
-                        <CardDescription>
-                          {daySchedules.length} class{daySchedules.length !== 1 ? 'es' : ''} scheduled
-                        </CardDescription>
+                    <Card key={dayOption.value} className="border-2 shadow-sm">
+                      <CardHeader className="pb-4 bg-gradient-to-r from-primary/5 to-transparent">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <CardTitle className="text-2xl font-bold">{dayOption.label}</CardTitle>
+                            <CardDescription className="text-base mt-1">
+                              {daySchedules.length} class{daySchedules.length !== 1 ? 'es' : ''} scheduled for this day
+                            </CardDescription>
+                          </div>
+                          <div className="p-3 bg-primary/10 rounded-xl">
+                            <Calendar className="h-6 w-6 text-primary" />
+                          </div>
+                        </div>
                       </CardHeader>
-                      <CardContent>
+                      <CardContent className="pt-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                           {daySchedules
                             .sort((a, b) => a.startTime.localeCompare(b.startTime))
                             .map((schedule) => (
-                              <Card key={schedule.id} className="border-l-4 border-l-primary">
-                                <CardHeader className="pb-2">
-                                  <div className="flex items-start justify-between">
-                                    <div>
-                                      <CardTitle className="text-base">
-                                        {schedule.course?.code}
-                                      </CardTitle>
-                                      <CardDescription className="font-medium">
+                              <Card 
+                                key={schedule.id} 
+                                className="border-l-4 border-l-primary hover:shadow-lg transition-all group"
+                              >
+                                <CardHeader className="pb-3">
+                                  <div className="flex items-start justify-between mb-2">
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <Badge className={getClassTypeBadgeColor(schedule.type)}>
+                                          {schedule.type}
+                                        </Badge>
+                                        <Badge variant="outline" className="font-mono text-xs">
+                                          {schedule.course?.code}
+                                        </Badge>
+                                      </div>
+                                      <CardTitle className="text-base font-semibold leading-tight">
                                         {schedule.course?.name}
-                                      </CardDescription>
+                                      </CardTitle>
                                     </div>
-                                    <Badge className={getClassTypeBadgeColor(schedule.type)}>
-                                      {schedule.type}
-                                    </Badge>
                                   </div>
                                 </CardHeader>
-                                <CardContent className="space-y-2">
+                                <CardContent className="space-y-3 pt-3 border-t">
                                   <div className="flex items-center gap-2 text-sm">
-                                    <Clock className="h-4 w-4 text-muted-foreground" />
-                                    <span>
-                                      {formatTime(schedule.startTime)} - {formatTime(schedule.endTime)}
+                                    <div className="p-1.5 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
+                                      <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                                    </div>
+                                    <span className="text-muted-foreground">
+                                      <span className="font-semibold text-foreground">
+                                        {formatTime(schedule.startTime)} - {formatTime(schedule.endTime)}
+                                      </span>
                                     </span>
                                   </div>
 
                                   <div className="flex items-center gap-2 text-sm">
-                                    <MapPin className="h-4 w-4 text-muted-foreground" />
-                                    <span>{schedule.venue}</span>
+                                    <div className="p-1.5 bg-green-50 dark:bg-green-950/30 rounded-lg">
+                                      <MapPin className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                    </div>
+                                    <span className="text-muted-foreground">
+                                      <span className="font-semibold text-foreground">{schedule.venue}</span>
+                                    </span>
                                   </div>
 
                                   {schedule.course && (
                                     <div className="flex items-center gap-2 text-sm">
-                                      <BookOpen className="h-4 w-4 text-muted-foreground" />
-                                      <span>{schedule.course.credits} Credits</span>
+                                      <div className="p-1.5 bg-purple-50 dark:bg-purple-950/30 rounded-lg">
+                                        <BookOpen className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                                      </div>
+                                      <span className="text-muted-foreground">
+                                        <span className="font-semibold text-foreground">{schedule.course.credits}</span> Credits
+                                      </span>
                                     </div>
                                   )}
                                 </CardContent>

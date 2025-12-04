@@ -206,31 +206,44 @@ export default function CoursesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50 dark:from-slate-950 dark:via-blue-950/20 dark:to-slate-950">
       <Navigation />
 
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2 flex items-center gap-2">
-            <BookOpen className="h-8 w-8" />
-            Courses
-          </h1>
-          <p className="text-muted-foreground">
-            Browse and explore all available courses across departments
-          </p>
+        <div className="mb-10">
+          <div className="flex items-center justify-between flex-wrap gap-4 mb-4">
+            <div>
+              <h1 className="text-4xl md:text-5xl font-bold mb-2 flex items-center gap-3">
+                <div className="p-2 bg-primary/10 rounded-xl">
+                  <BookOpen className="h-8 w-8 md:h-10 md:w-10 text-primary" />
+                </div>
+                <span className="bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+                  Course Catalog
+                </span>
+              </h1>
+              <p className="text-lg text-muted-foreground ml-[4.5rem]">
+                Explore comprehensive course listings across all academic departments
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Filters */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Filter className="h-5 w-5" />
-              Filters
+        <Card className="mb-8 border-2 shadow-sm">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-xl font-semibold flex items-center gap-2">
+              <div className="p-1.5 bg-primary/10 rounded-lg">
+                <Filter className="h-5 w-5 text-primary" />
+              </div>
+              Search & Filter Courses
             </CardTitle>
+            <CardDescription>
+              Refine your search to find the courses that match your academic goals
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="relative">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -367,44 +380,64 @@ export default function CoursesPage() {
           </div>
         ) : (
           <>
-            <div className="mb-4 flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                Showing {filteredCourses.length} of {courses.length} courses
+            <div className="mb-6 flex items-center justify-between">
+              <p className="text-base font-medium text-muted-foreground">
+                Showing <span className="text-foreground font-semibold">{filteredCourses.length}</span> of{' '}
+                <span className="text-foreground font-semibold">{courses.length}</span> courses
               </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredCourses.map((course) => (
-                <Card key={course.id} className="transition-all hover:shadow-lg">
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <CardTitle className="text-lg">{course.code}</CardTitle>
-                        <CardDescription className="font-medium text-foreground">
+                <Card 
+                  key={course.id} 
+                  className="transition-all hover:shadow-xl hover:scale-[1.02] border-2 hover:border-primary/20 group"
+                >
+                  <CardHeader className="pb-4">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Badge className={getLevelBadgeColor(course.level)}>
+                            {course.level.replace('LEVEL_', '')}
+                          </Badge>
+                          <Badge variant="outline" className="font-mono text-xs">
+                            {course.code}
+                          </Badge>
+                        </div>
+                        <CardTitle className="text-lg font-semibold leading-tight">
                           {course.name}
-                        </CardDescription>
+                        </CardTitle>
                       </div>
-                      <Badge className={getLevelBadgeColor(course.level)}>
-                        {course.level.replace('LEVEL_', '')}
-                      </Badge>
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Building2 className="h-4 w-4" />
-                        <span>{course.department?.name || course.departmentCode}</span>
+                    <div className="space-y-3 pt-3 border-t">
+                      <div className="flex items-center gap-2 text-sm">
+                        <div className="p-1.5 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
+                          <Building2 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                        </div>
+                        <span className="text-muted-foreground">
+                          {course.department?.name || course.departmentCode}
+                        </span>
                       </div>
 
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <GraduationCap className="h-4 w-4" />
-                        <span>{course.credits} Credit{course.credits !== 1 ? 's' : ''}</span>
+                      <div className="flex items-center gap-2 text-sm">
+                        <div className="p-1.5 bg-green-50 dark:bg-green-950/30 rounded-lg">
+                          <GraduationCap className="h-4 w-4 text-green-600 dark:text-green-400" />
+                        </div>
+                        <span className="text-muted-foreground">
+                          <span className="font-semibold text-foreground">{course.credits}</span> Credit{course.credits !== 1 ? 's' : ''}
+                        </span>
                       </div>
 
                       {course.schedules && course.schedules.length > 0 && (
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Clock className="h-4 w-4" />
-                          <span>{course.schedules.length} Schedule{course.schedules.length !== 1 ? 's' : ''}</span>
+                        <div className="flex items-center gap-2 text-sm">
+                          <div className="p-1.5 bg-purple-50 dark:bg-purple-950/30 rounded-lg">
+                            <Clock className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                          </div>
+                          <span className="text-muted-foreground">
+                            <span className="font-semibold text-foreground">{course.schedules.length}</span> Schedule{course.schedules.length !== 1 ? 's' : ''} available
+                          </span>
                         </div>
                       )}
                     </div>
@@ -414,12 +447,17 @@ export default function CoursesPage() {
             </div>
 
             {filteredCourses.length === 0 && (
-              <Card>
-                <CardContent className="py-8 text-center">
-                  <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">No courses found matching your criteria</p>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Try adjusting your search terms or filters
+              <Card className="border-2 border-dashed">
+                <CardContent className="py-16 text-center">
+                  <div className="p-4 bg-muted/50 rounded-full w-20 h-20 mx-auto mb-6 flex items-center justify-center">
+                    <BookOpen className="h-10 w-10 text-muted-foreground" />
+                  </div>
+                  <h3 className="text-xl font-semibold mb-2">No courses found</h3>
+                  <p className="text-muted-foreground mb-4">
+                    We couldn't find any courses matching your search criteria
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Try adjusting your search terms or filters to find what you're looking for
                   </p>
                 </CardContent>
               </Card>

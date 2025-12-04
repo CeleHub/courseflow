@@ -188,13 +188,18 @@ export function Navigation() {
   )
 
   return (
-    <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur-md supports-[backdrop-filter]:bg-background/80 shadow-sm">
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
-          <Link href="/" className="flex items-center space-x-2">
-            <GraduationCap className="h-6 w-6" />
-            <span className="text-xl font-bold">CourseFlow</span>
+          <Link href="/" className="flex items-center space-x-2 group">
+            <div className="relative">
+              <GraduationCap className="h-7 w-7 text-primary group-hover:scale-110 transition-transform" />
+              <div className="absolute inset-0 bg-primary/20 rounded-full blur-md opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            </div>
+            <span className="text-xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+              CourseFlow
+            </span>
           </Link>
 
           {/* Desktop Navigation */}
@@ -203,10 +208,10 @@ export function Navigation() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center space-x-1 text-sm font-medium transition-colors hover:text-primary px-3 py-2 rounded-md ${
+                className={`flex items-center space-x-1.5 text-sm font-medium transition-all px-3 py-2 rounded-lg ${
                   pathname === item.href
-                    ? 'bg-accent text-accent-foreground'
-                    : 'text-muted-foreground hover:text-foreground'
+                    ? 'bg-primary/10 text-primary font-semibold'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
                 }`}
               >
                 <item.icon className="h-4 w-4" />
