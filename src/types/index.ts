@@ -100,7 +100,9 @@ export interface Course {
   level: Level
   credits: number
   departmentCode: string
+  lecturerEmail?: string | null
   department?: Department
+  lecturer?: User
   schedules?: Schedule[]
   createdAt?: string
   updatedAt?: string
@@ -137,8 +139,8 @@ export interface VerificationCode {
   id: string
   code: string
   role: Role
-  expiresAt?: string
-  maxUses?: number
+  expiresAt?: string | null
+  maxUses?: number | null
   currentUses: number
   isActive: boolean
   createdAt?: string
@@ -171,6 +173,7 @@ export interface CreateCourseData {
   level: Level
   credits: number
   departmentCode: string
+  lecturerEmail?: string
 }
 
 export interface CreateScheduleData {

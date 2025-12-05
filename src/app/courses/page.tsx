@@ -1,16 +1,36 @@
-'use client'
+"use client";
 
-import { useEffect, useState, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
-import { Navigation } from '@/components/navigation'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { useAuth } from '@/contexts/AuthContext'
-import { useToast } from '@/hooks/use-toast'
+import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { Navigation } from "@/components/navigation";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 import {
   BookOpen,
   Search,
@@ -22,105 +42,108 @@ import {
   Upload,
   Download,
   FileText,
-  Plus
-} from 'lucide-react'
-import { apiClient } from '@/lib/api'
-import { Course, Department, Level } from '@/types'
+  Plus,
+  User as UserIcon,
+} from "lucide-react";
+import { apiClient } from "@/lib/api";
+import { Course, Department, Level } from "@/types";
 
 export default function CoursesPage() {
-  const router = useRouter()
-  const { isAuthenticated, isAdmin, isLecturer } = useAuth()
-  const { toast } = useToast()
+  const router = useRouter();
+  const { isAuthenticated, isAdmin, isLecturer } = useAuth();
+  const { toast } = useToast();
 
-  // Check if user is staff (admin or lecturer)
-  const isStaff = isAdmin || isLecturer
-  const [courses, setCourses] = useState<Course[]>([])
-  const [departments, setDepartments] = useState<Department[]>([])
-  const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [selectedDepartment, setSelectedDepartment] = useState<string>('all')
-  const [selectedLevel, setSelectedLevel] = useState<string>('all')
-  const [currentPage, setCurrentPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
-  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [isUploading, setIsUploading] = useState(false)
+  const isStaff = isAdmin || isLecturer;
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
+  const [selectedLevel, setSelectedLevel] = useState<string>("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const levelOptions = [
-    { value: Level.LEVEL_100, label: '100 Level' },
-    { value: Level.LEVEL_200, label: '200 Level' },
-    { value: Level.LEVEL_300, label: '300 Level' },
-    { value: Level.LEVEL_400, label: '400 Level' },
-    { value: Level.LEVEL_500, label: '500 Level' },
-  ]
+    { value: Level.LEVEL_100, label: "100 Level" },
+    { value: Level.LEVEL_200, label: "200 Level" },
+    { value: Level.LEVEL_300, label: "300 Level" },
+    { value: Level.LEVEL_400, label: "400 Level" },
+    { value: Level.LEVEL_500, label: "500 Level" },
+  ];
 
   useEffect(() => {
     const fetchDepartments = async () => {
       try {
-        const response = await apiClient.getDepartments({ limit: 100 })
+        const response = await apiClient.getDepartments({ limit: 100 });
         if (response.success && response.data) {
-          setDepartments(response.data.data.items)
+          setDepartments(response.data.data.items);
         }
       } catch (error) {
-        console.error('Failed to fetch departments:', error)
+        console.error("Failed to fetch departments:", error);
       }
-    }
+    };
 
-    fetchDepartments()
-  }, [])
+    fetchDepartments();
+  }, []);
 
   const fetchCourses = useCallback(async () => {
     try {
-      setLoading(true)
+      setLoading(true);
       const params: any = {
         page: currentPage,
         limit: 12,
-      }
+      };
 
-      if (selectedDepartment && selectedDepartment !== 'all') params.departmentCode = selectedDepartment
-      if (selectedLevel && selectedLevel !== 'all') params.level = selectedLevel
+      if (searchTerm) params.search = searchTerm;
+      if (selectedDepartment && selectedDepartment !== "all")
+        params.departmentCode = selectedDepartment;
+      if (selectedLevel && selectedLevel !== "all")
+        params.level = selectedLevel;
 
-      const response = await apiClient.getCourses(params)
+      const response = await apiClient.getCourses(params);
 
       if (response.success && response.data) {
-        setCourses(response.data.data.items)
-        setTotalPages(response.data.data.pagination.totalPages)
+        setCourses(response.data.data.items);
+        setTotalPages(response.data.data.pagination.totalPages);
       }
     } catch (error) {
-      console.error('Failed to fetch courses:', error)
+      console.error("Failed to fetch courses:", error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch courses",
+        variant: "destructive",
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [currentPage, selectedDepartment, selectedLevel])
+  }, [currentPage, searchTerm, selectedDepartment, selectedLevel, toast]);
 
   useEffect(() => {
-    fetchCourses()
-  }, [fetchCourses])
-
-  const filteredCourses = courses.filter(course =>
-    course.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    course.code.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+    fetchCourses();
+  }, [fetchCourses]);
 
   const handleReset = () => {
-    setSearchTerm('')
-    setSelectedDepartment('all')
-    setSelectedLevel('all')
-    setCurrentPage(1)
-  }
+    setSearchTerm("");
+    setSelectedDepartment("all");
+    setSelectedLevel("all");
+    setCurrentPage(1);
+  };
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (file && file.type === 'text/csv') {
-      setSelectedFile(file)
+    const file = event.target.files?.[0];
+    if (file && file.type === "text/csv") {
+      setSelectedFile(file);
     } else {
       toast({
         title: "Invalid File",
         description: "Please select a CSV file",
         variant: "destructive",
-      })
+      });
     }
-  }
+  };
 
   const handleBulkUpload = async () => {
     if (!selectedFile) {
@@ -128,82 +151,96 @@ export default function CoursesPage() {
         title: "No File Selected",
         description: "Please select a CSV file to upload",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
 
     try {
-      setIsUploading(true)
-      const response = await apiClient.uploadCoursesBulk(selectedFile)
+      setIsUploading(true);
+      const response = await apiClient.uploadCoursesBulk(selectedFile);
 
       if (response.success) {
         toast({
           title: "Upload Successful",
           description: "Courses have been uploaded successfully",
-        })
-        setIsUploadDialogOpen(false)
-        setSelectedFile(null)
-        fetchCourses()
+        });
+        setIsUploadDialogOpen(false);
+        setSelectedFile(null);
+        fetchCourses();
       } else {
         toast({
           title: "Upload Failed",
           description: response.error || "Failed to upload courses",
           variant: "destructive",
-        })
+        });
       }
     } catch (error) {
-      console.error('Bulk upload failed:', error)
+      console.error("Bulk upload failed:", error);
       toast({
         title: "Upload Error",
         description: "An error occurred during upload",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsUploading(false)
+      setIsUploading(false);
     }
-  }
+  };
 
   const handleDownloadTemplate = async () => {
     try {
-      const response = await apiClient.getCoursesBulkTemplate()
+      const response = await apiClient.getCoursesBulkTemplate();
       if (response.success && response.data) {
-        // Create a download link for the template
-        const blob = new Blob([response.data as string], { type: 'text/csv' })
-        const url = window.URL.createObjectURL(blob)
-        const link = document.createElement('a')
-        link.href = url
-        link.download = 'courses_template.csv'
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-        window.URL.revokeObjectURL(url)
+        const blob = new Blob([response.data as string], { type: "text/csv" });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "courses_template.csv";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
       } else {
         toast({
           title: "Download Failed",
           description: "Failed to download template",
           variant: "destructive",
-        })
+        });
       }
     } catch (error) {
-      console.error('Template download failed:', error)
+      console.error("Template download failed:", error);
       toast({
         title: "Download Error",
         description: "An error occurred while downloading template",
         variant: "destructive",
-      })
+      });
     }
-  }
+  };
 
   const getLevelBadgeColor = (level: Level) => {
     switch (level) {
-      case Level.LEVEL_100: return 'bg-green-100 text-green-800'
-      case Level.LEVEL_200: return 'bg-blue-100 text-blue-800'
-      case Level.LEVEL_300: return 'bg-yellow-100 text-yellow-800'
-      case Level.LEVEL_400: return 'bg-orange-100 text-orange-800'
-      case Level.LEVEL_500: return 'bg-red-100 text-red-800'
-      default: return 'bg-gray-100 text-gray-800'
+      case Level.LEVEL_100:
+        return "bg-green-100 text-green-800";
+      case Level.LEVEL_200:
+        return "bg-blue-100 text-blue-800";
+      case Level.LEVEL_300:
+        return "bg-yellow-100 text-yellow-800";
+      case Level.LEVEL_400:
+        return "bg-orange-100 text-orange-800";
+      case Level.LEVEL_500:
+        return "bg-red-100 text-red-800";
+      default:
+        return "bg-gray-100 text-gray-800";
     }
-  }
+  };
+
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50 dark:from-slate-950 dark:via-blue-950/20 dark:to-slate-950">
@@ -224,7 +261,8 @@ export default function CoursesPage() {
                   </span>
                 </h1>
                 <p className="text-lg text-muted-foreground">
-                  Explore comprehensive course listings across all academic departments
+                  Explore comprehensive course listings with detailed
+                  information
                 </p>
               </div>
             </div>
@@ -241,22 +279,25 @@ export default function CoursesPage() {
               Search & Filter Courses
             </CardTitle>
             <CardDescription>
-              Refine your search to find the courses that match your academic goals
+              Find courses by name, code, department, or level
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="relative">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              <div className="relative lg:col-span-2">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search courses..."
+                  placeholder="Search by name or code..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
                 />
               </div>
 
-              <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
+              <Select
+                value={selectedDepartment}
+                onValueChange={setSelectedDepartment}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="All Departments" />
                 </SelectTrigger>
@@ -284,16 +325,34 @@ export default function CoursesPage() {
                 </SelectContent>
               </Select>
 
+              <div className="flex gap-2 lg:col-span-1">
+                <Button
+                  variant="outline"
+                  onClick={handleReset}
+                  className="flex-1"
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Reset
+                </Button>
+              </div>
+
               {isAuthenticated && isStaff && (
                 <>
-                  <Button variant="outline" onClick={handleDownloadTemplate}>
+                  <Button
+                    variant="outline"
+                    onClick={handleDownloadTemplate}
+                    className="lg:col-span-1"
+                  >
                     <Download className="h-4 w-4 mr-2" />
                     Template
                   </Button>
 
-                  <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
+                  <Dialog
+                    open={isUploadDialogOpen}
+                    onOpenChange={setIsUploadDialogOpen}
+                  >
                     <DialogTrigger asChild>
-                      <Button variant="outline">
+                      <Button variant="outline" className="lg:col-span-2">
                         <Upload className="h-4 w-4 mr-2" />
                         Bulk Upload
                       </Button>
@@ -311,7 +370,9 @@ export default function CoursesPage() {
                           <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                           <div className="space-y-2">
                             <p className="text-sm text-muted-foreground">
-                              {selectedFile ? selectedFile.name : 'Select a CSV file'}
+                              {selectedFile
+                                ? selectedFile.name
+                                : "Select a CSV file"}
                             </p>
                             <Input
                               type="file"
@@ -323,7 +384,10 @@ export default function CoursesPage() {
                         </div>
 
                         <div className="text-xs text-muted-foreground space-y-1">
-                          <p>• CSV file should contain columns: code, name, level, credits, departmentCode</p>
+                          <p>
+                            • CSV file should contain: code, name, level,
+                            credits, departmentCode, lecturerEmail
+                          </p>
                           <p>• Download the template for the correct format</p>
                           <p>• Maximum file size: 5MB</p>
                         </div>
@@ -341,23 +405,22 @@ export default function CoursesPage() {
                           onClick={handleBulkUpload}
                           disabled={!selectedFile || isUploading}
                         >
-                          {isUploading ? 'Uploading...' : 'Upload'}
+                          {isUploading ? "Uploading..." : "Upload"}
                         </Button>
                       </DialogFooter>
                     </DialogContent>
                   </Dialog>
 
-                  <Button variant="default" onClick={() => router.push('/courses/create')}>
+                  <Button
+                    variant="default"
+                    onClick={() => router.push("/courses/create")}
+                    className="lg:col-span-2"
+                  >
                     <Plus className="h-4 w-4 mr-2" />
                     Add Course
                   </Button>
                 </>
               )}
-
-              <Button variant="outline" onClick={handleReset}>
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Reset
-              </Button>
             </div>
           </CardContent>
         </Card>
@@ -384,29 +447,35 @@ export default function CoursesPage() {
           <>
             <div className="mb-6 flex items-center justify-between">
               <p className="text-base font-medium text-muted-foreground">
-                Showing <span className="text-foreground font-semibold">{filteredCourses.length}</span> of{' '}
-                <span className="text-foreground font-semibold">{courses.length}</span> courses
+                Showing{" "}
+                <span className="text-foreground font-semibold">
+                  {courses.length}
+                </span>{" "}
+                courses
               </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredCourses.map((course) => (
-                <Card 
-                  key={course.id} 
+              {courses.map((course) => (
+                <Card
+                  key={course.id}
                   className="transition-all hover:shadow-xl hover:scale-[1.02] border-2 hover:border-primary/20 group"
                 >
                   <CardHeader className="pb-4">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
+                        <div className="flex items-center gap-2 mb-2 flex-wrap">
                           <Badge className={getLevelBadgeColor(course.level)}>
-                            {course.level.replace('LEVEL_', '')}
+                            {course.level.replace("LEVEL_", "")}
                           </Badge>
-                          <Badge variant="outline" className="font-mono text-xs">
+                          <Badge
+                            variant="outline"
+                            className="font-mono text-xs"
+                          >
                             {course.code}
                           </Badge>
                         </div>
-                        <CardTitle className="text-lg font-semibold leading-tight">
+                        <CardTitle className="text-lg font-semibold leading-tight line-clamp-2">
                           {course.name}
                         </CardTitle>
                       </div>
@@ -418,7 +487,7 @@ export default function CoursesPage() {
                         <div className="p-1.5 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
                           <Building2 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                         </div>
-                        <span className="text-muted-foreground">
+                        <span className="text-muted-foreground truncate">
                           {course.department?.name || course.departmentCode}
                         </span>
                       </div>
@@ -428,9 +497,34 @@ export default function CoursesPage() {
                           <GraduationCap className="h-4 w-4 text-green-600 dark:text-green-400" />
                         </div>
                         <span className="text-muted-foreground">
-                          <span className="font-semibold text-foreground">{course.credits}</span> Credit{course.credits !== 1 ? 's' : ''}
+                          <span className="font-semibold text-foreground">
+                            {course.credits}
+                          </span>{" "}
+                          Credit{course.credits !== 1 ? "s" : ""}
                         </span>
                       </div>
+
+                      {course.lecturer ? (
+                        <div className="flex items-center gap-2 text-sm">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium text-foreground truncate">
+                              {course.lecturer.name}
+                            </p>
+                            <p className="text-xs text-muted-foreground truncate">
+                              {course.lecturer.email}
+                            </p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 text-sm">
+                          <div className="p-1.5 bg-gray-50 dark:bg-gray-950/30 rounded-lg">
+                            <UserIcon className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                          </div>
+                          <span className="text-muted-foreground text-xs">
+                            No lecturer assigned
+                          </span>
+                        </div>
+                      )}
 
                       {course.schedules && course.schedules.length > 0 && (
                         <div className="flex items-center gap-2 text-sm">
@@ -438,7 +532,10 @@ export default function CoursesPage() {
                             <Clock className="h-4 w-4 text-purple-600 dark:text-purple-400" />
                           </div>
                           <span className="text-muted-foreground">
-                            <span className="font-semibold text-foreground">{course.schedules.length}</span> Schedule{course.schedules.length !== 1 ? 's' : ''} available
+                            <span className="font-semibold text-foreground">
+                              {course.schedules.length}
+                            </span>{" "}
+                            Schedule{course.schedules.length !== 1 ? "s" : ""}
                           </span>
                         </div>
                       )}
@@ -448,18 +545,21 @@ export default function CoursesPage() {
               ))}
             </div>
 
-            {filteredCourses.length === 0 && (
+            {courses.length === 0 && (
               <Card className="border-2 border-dashed">
                 <CardContent className="py-16 text-center">
                   <div className="p-4 bg-muted/50 rounded-full w-20 h-20 mx-auto mb-6 flex items-center justify-center">
                     <BookOpen className="h-10 w-10 text-muted-foreground" />
                   </div>
-                  <h3 className="text-xl font-semibold mb-2">No courses found</h3>
+                  <h3 className="text-xl font-semibold mb-2">
+                    No courses found
+                  </h3>
                   <p className="text-muted-foreground mb-4">
-                    We couldn&apos;t find any courses matching your search criteria
+                    We couldn&apos;t find any courses matching your search
+                    criteria
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    Try adjusting your search terms or filters to find what you&apos;re looking for
+                    Try adjusting your search terms or filters
                   </p>
                 </CardContent>
               </Card>
@@ -470,7 +570,9 @@ export default function CoursesPage() {
               <div className="flex justify-center gap-2 mt-8">
                 <Button
                   variant="outline"
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.max(1, prev - 1))
+                  }
                   disabled={currentPage === 1}
                 >
                   Previous
@@ -478,7 +580,7 @@ export default function CoursesPage() {
 
                 <div className="flex items-center gap-2">
                   {[...Array(Math.min(5, totalPages))].map((_, index) => {
-                    const page = index + 1
+                    const page = index + 1;
                     return (
                       <Button
                         key={page}
@@ -488,13 +590,15 @@ export default function CoursesPage() {
                       >
                         {page}
                       </Button>
-                    )
+                    );
                   })}
                 </div>
 
                 <Button
                   variant="outline"
-                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.min(totalPages, prev + 1))
+                  }
                   disabled={currentPage === totalPages}
                 >
                   Next
@@ -505,5 +609,5 @@ export default function CoursesPage() {
         )}
       </div>
     </div>
-  )
+  );
 }
