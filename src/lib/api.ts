@@ -1,6 +1,6 @@
 import { ApiResponse, PaginatedResponse, ArrayResponse } from '@/types'
 
-const API_BASE_URL = 'https://courseflow-backend-s16i.onrender.com/api/v1'
+const API_BASE_URL = 'http://localhost:3001/api/v1'
 
 class ApiClient {
   private baseURL: string
@@ -29,32 +29,67 @@ class ApiClient {
     return this.token
   }
 
-  private normalizeAuthResponse(response: any): ApiResponse<any> {
-    // Check if this is a direct auth response (has user and access_token)
-    if (response.user && response.access_token) {
+  private normalizeResponse(data: any, endpoint: string): ApiResponse<any> {
+    // For direct auth responses (login, register)
+    if (data.user && data.access_token) {
       return {
         success: true,
-        data: response,
+        data: data,
         timestamp: new Date().toISOString()
       }
     }
-    // Check if this is a simple message response (forgot-password, reset-password)
-    if (response.message && !response.success) {
+
+    // For verification codes endpoint (returns array directly)
+    if (endpoint.includes('/verification-codes') && Array.isArray(data)) {
       return {
         success: true,
-        data: response,
+        data: data,
         timestamp: new Date().toISOString()
       }
     }
-    // For health endpoints or other direct responses
-    if (!response.success && !response.error) {
+
+    // For paginated responses from backend
+    // Backend structure: { data: [], total: number, page: number, limit: number, totalPages: number }
+    if (data.data && Array.isArray(data.data) && data.total !== undefined) {
       return {
         success: true,
-        data: response,
+        data: {
+          data: {
+            items: data.data,
+            pagination: {
+              page: data.page || 1,
+              limit: data.limit || 10,
+              total: data.total,
+              totalPages: data.totalPages || Math.ceil(data.total / (data.limit || 10)),
+              hasNext: data.page < data.totalPages,
+              hasPrev: data.page > 1
+            }
+          }
+        },
         timestamp: new Date().toISOString()
       }
     }
-    return response
+
+    // For non-paginated array responses
+    if (Array.isArray(data)) {
+      return {
+        success: true,
+        data: data,
+        timestamp: new Date().toISOString()
+      }
+    }
+
+    // For single item responses or already normalized responses
+    if (data.success !== undefined) {
+      return data
+    }
+
+    // Default: wrap the data
+    return {
+      success: true,
+      data: data,
+      timestamp: new Date().toISOString()
+    }
   }
 
   async request<T>(
@@ -82,25 +117,16 @@ class ApiClient {
         const errorData = await response.json().catch(() => ({}))
         return {
           success: false,
-          error: errorData.error || `HTTP ${response.status}: ${response.statusText}`,
+          error: errorData.message || errorData.error || `HTTP ${response.status}: ${response.statusText}`,
           statusCode: response.status,
           timestamp: new Date().toISOString(),
         }
       }
 
       const data = await response.json()
-
-      // Normalize endpoints that return direct responses (not wrapped in success/data)
-      if (endpoint.startsWith('/auth/login') ||
-          endpoint.startsWith('/auth/register') ||
-          endpoint.startsWith('/auth/forgot-password') ||
-          endpoint.startsWith('/auth/reset-password') ||
-          endpoint.startsWith('/health')) {
-        return this.normalizeAuthResponse(data)
-      }
-
-      return data
+      return this.normalizeResponse(data, endpoint)
     } catch (error) {
+      console.error('API Request Error:', error)
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Network error occurred',
@@ -135,7 +161,6 @@ class ApiClient {
         }
       }
 
-      // Get the file content as text (CSV)
       const fileContent = await response.text()
 
       return {
@@ -175,21 +200,6 @@ class ApiClient {
     })
   }
 
-  async forgotPassword(email: string) {
-    return this.request('/auth/forgot-password', {
-      method: 'POST',
-      body: JSON.stringify({ email }),
-    })
-  }
-
-  async resetPassword(token: string, password: string) {
-    return this.request('/auth/reset-password', {
-      method: 'POST',
-      body: JSON.stringify({ token, newPassword: password }),
-    })
-  }
-
-  // Get current authenticated user
   async getCurrentUser() {
     return this.request('/auth/me')
   }
@@ -197,10 +207,6 @@ class ApiClient {
   // Verification code endpoints
   async getVerificationCodes() {
     return this.request<any[]>('/auth/verification-codes')
-  }
-
-  async getVerificationCode(id: string) {
-    return this.request(`/auth/verification-codes/${id}`)
   }
 
   async createVerificationCode(data: {
@@ -240,48 +246,10 @@ class ApiClient {
     return this.request<PaginatedResponse<any>>(`/users${queryString ? `?${queryString}` : ''}`)
   }
 
-  async getUserByMatricNO(matricNO: string) {
-    return this.request(`/users/${matricNO}`)
-  }
-
-  async createUser(data: {
-    matricNO: string
-    email: string
-    password: string
-    name?: string
-    role?: string
-  }) {
-    return this.request('/users', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    })
-  }
-
-  async updateUser(matricNO: string, data: Partial<{
-    email: string
-    name: string
-    role: string
-  }>) {
-    return this.request(`/users/${matricNO}`, {
-      method: 'PATCH',
-      body: JSON.stringify(data),
-    })
-  }
-
-  async deleteUser(matricNO: string) {
-    return this.request(`/users/${matricNO}`, {
-      method: 'DELETE',
-    })
-  }
-
   // Department endpoints
   async getDepartments(params?: { page?: number; limit?: number }) {
     const queryString = params ? new URLSearchParams(params as any).toString() : ''
     return this.request<PaginatedResponse<any>>(`/departments${queryString ? `?${queryString}` : ''}`)
-  }
-
-  async getDepartment(code: string) {
-    return this.request(`/departments/${code}`)
   }
 
   async createDepartment(data: { name: string; code: string }) {
@@ -291,52 +259,44 @@ class ApiClient {
     })
   }
 
-  async updateDepartment(code: string, data: Partial<{ name: string; code: string }>) {
-    return this.request(`/departments/${code}`, {
-      method: 'PATCH',
-      body: JSON.stringify(data),
-    })
-  }
-
-  async deleteDepartment(code: string) {
-    return this.request(`/departments/${code}`, {
-      method: 'DELETE',
-    })
-  }
-
-  // Additional department endpoints
-  async getDepartmentStatistics() {
-    return this.request('/departments/statistics')
-  }
-
-  async searchDepartments(searchTerm: string) {
-    return this.request(`/departments/search/${searchTerm}`)
-  }
-
-  async getDepartmentsWithCourses() {
-    return this.request('/departments/with-courses')
-  }
-
-  async getDepartmentsWithoutCourses() {
-    return this.request('/departments/without-courses')
-  }
-
-  async getDepartmentsWithCourseCount() {
-    return this.request('/departments/with-course-count')
-  }
-
-  async getDepartmentFullDetails(code: string) {
-    return this.request(`/departments/${code}/full-details`)
-  }
-
   async uploadDepartmentsBulk(file: File) {
     const formData = new FormData()
     formData.append('file', file)
-    return this.request('/departments/bulk/upload', {
-      method: 'POST',
-      body: formData,
-      headers: {}, // Let browser set Content-Type for FormData
-    })
+
+    const url = `${this.baseURL}/departments/bulk/upload`
+    const headers: Record<string, string> = {}
+
+    if (this.token) {
+      headers.Authorization = `Bearer ${this.token}`
+    }
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        body: formData,
+        headers,
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        return {
+          success: false,
+          error: errorData.message || errorData.error || 'Upload failed',
+          statusCode: response.status,
+          timestamp: new Date().toISOString(),
+        }
+      }
+
+      const data = await response.json()
+      return this.normalizeResponse(data, '/departments/bulk/upload')
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Network error occurred',
+        statusCode: 0,
+        timestamp: new Date().toISOString(),
+      }
+    }
   }
 
   async getDepartmentsBulkTemplate() {
@@ -349,16 +309,13 @@ class ApiClient {
     return this.request<PaginatedResponse<any>>(`/courses${queryString ? `?${queryString}` : ''}`)
   }
 
-  async getCourse(code: string) {
-    return this.request(`/courses/${code}`)
-  }
-
   async createCourse(data: {
     code: string
     name: string
     level: string
     credits: number
     departmentCode: string
+    lecturerEmail: string
   }) {
     return this.request('/courses', {
       method: 'POST',
@@ -366,58 +323,44 @@ class ApiClient {
     })
   }
 
-  async updateCourse(code: string, data: Partial<{
-    code: string
-    name: string
-    level: string
-    credits: number
-    departmentCode: string
-  }>) {
-    return this.request(`/courses/${code}`, {
-      method: 'PATCH',
-      body: JSON.stringify(data),
-    })
-  }
-
-  async deleteCourse(code: string) {
-    return this.request(`/courses/${code}`, {
-      method: 'DELETE',
-    })
-  }
-
-  // Additional course endpoints
-  async getCoursesByDepartment(departmentCode: string) {
-    return this.request(`/courses/department/${departmentCode}`)
-  }
-
-  async getCoursesByLevel(level: string) {
-    return this.request(`/courses/level/${level}`)
-  }
-
-  async getCourseStatistics() {
-    return this.request('/courses/statistics')
-  }
-
-  async searchCourses(searchTerm: string) {
-    return this.request(`/courses/search/${searchTerm}`)
-  }
-
-  async getCoursesByCredits(minCredits: number, maxCredits: number) {
-    return this.request(`/courses/credits/${minCredits}/${maxCredits}`)
-  }
-
-  async getCoursesWithoutSchedules() {
-    return this.request('/courses/without-schedules')
-  }
-
   async uploadCoursesBulk(file: File) {
     const formData = new FormData()
     formData.append('file', file)
-    return this.request('/courses/bulk/upload', {
-      method: 'POST',
-      body: formData,
-      headers: {}, // Let browser set Content-Type for FormData
-    })
+
+    const url = `${this.baseURL}/courses/bulk/upload`
+    const headers: Record<string, string> = {}
+
+    if (this.token) {
+      headers.Authorization = `Bearer ${this.token}`
+    }
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        body: formData,
+        headers,
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        return {
+          success: false,
+          error: errorData.message || errorData.error || 'Upload failed',
+          statusCode: response.status,
+          timestamp: new Date().toISOString(),
+        }
+      }
+
+      const data = await response.json()
+      return this.normalizeResponse(data, '/courses/bulk/upload')
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Network error occurred',
+        statusCode: 0,
+        timestamp: new Date().toISOString(),
+      }
+    }
   }
 
   async getCoursesBulkTemplate() {
@@ -437,10 +380,6 @@ class ApiClient {
     return this.request<PaginatedResponse<any>>(`/schedules${queryString ? `?${queryString}` : ''}`)
   }
 
-  async getSchedule(id: string) {
-    return this.request(`/schedules/${id}`)
-  }
-
   async createSchedule(data: {
     courseCode: string
     dayOfWeek: string
@@ -455,63 +394,44 @@ class ApiClient {
     })
   }
 
-  async updateSchedule(id: string, data: Partial<{
-    courseCode: string
-    dayOfWeek: string
-    startTime: string
-    endTime: string
-    venue: string
-    type: string
-  }>) {
-    return this.request(`/schedules/${id}`, {
-      method: 'PATCH',
-      body: JSON.stringify(data),
-    })
-  }
-
-  async deleteSchedule(id: string) {
-    return this.request(`/schedules/${id}`, {
-      method: 'DELETE',
-    })
-  }
-
-  // Additional schedule endpoints
-  async getSchedulesByCourse(courseCode: string) {
-    return this.request(`/schedules/course/${courseCode}`)
-  }
-
-  async getSchedulesByDepartment(departmentCode: string) {
-    return this.request(`/schedules/department/${departmentCode}`)
-  }
-
-  async getSchedulesByLevel(level: string) {
-    return this.request(`/schedules/level/${level}`)
-  }
-
-  async getSchedulesByDay(dayOfWeek: string) {
-    return this.request(`/schedules/day/${dayOfWeek}`)
-  }
-
-  async getSchedulesByVenue(venue: string) {
-    return this.request(`/schedules/venue/${venue}`)
-  }
-
-  async getSchedulesByType(type: string) {
-    return this.request(`/schedules/type/${type}`)
-  }
-
-  async getScheduleStatistics() {
-    return this.request('/schedules/statistics')
-  }
-
   async uploadSchedulesBulk(file: File) {
     const formData = new FormData()
     formData.append('file', file)
-    return this.request('/schedules/bulk/upload', {
-      method: 'POST',
-      body: formData,
-      headers: {}, // Let browser set Content-Type for FormData
-    })
+
+    const url = `${this.baseURL}/schedules/bulk/upload`
+    const headers: Record<string, string> = {}
+
+    if (this.token) {
+      headers.Authorization = `Bearer ${this.token}`
+    }
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        body: formData,
+        headers,
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        return {
+          success: false,
+          error: errorData.message || errorData.error || 'Upload failed',
+          statusCode: response.status,
+          timestamp: new Date().toISOString(),
+        }
+      }
+
+      const data = await response.json()
+      return this.normalizeResponse(data, '/schedules/bulk/upload')
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Network error occurred',
+        statusCode: 0,
+        timestamp: new Date().toISOString(),
+      }
+    }
   }
 
   async getSchedulesBulkTemplate() {
@@ -545,36 +465,6 @@ class ApiClient {
     return this.request(`/complaints/${id}/status?status=${status}`, {
       method: 'PATCH',
     })
-  }
-
-  // Additional complaint endpoints
-  async getPendingComplaints() {
-    return this.request('/complaints/pending')
-  }
-
-  async getResolvedComplaints() {
-    return this.request('/complaints/resolved')
-  }
-
-  // Health check endpoints
-  async healthCheck() {
-    return this.request('/health')
-  }
-
-  async simpleHealthCheck() {
-    return this.request('/health/simple')
-  }
-
-  async databaseHealthCheck() {
-    return this.request('/health/database')
-  }
-
-  async readinessCheck() {
-    return this.request('/health/readiness')
-  }
-
-  async livenessCheck() {
-    return this.request('/health/liveness')
   }
 }
 
