@@ -317,7 +317,7 @@ class ApiClient {
     level: string
     credits: number
     departmentCode: string
-    lecturerEmail: string
+    lecturerEmail?: string
   }) {
     return this.request('/courses', {
       method: 'POST',
