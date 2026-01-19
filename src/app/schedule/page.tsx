@@ -328,7 +328,7 @@ export default function SchedulePage() {
       }
 
       // Fetch courses with lecturer information to enrich schedules
-      const courseCodes = [...new Set(allSchedules.map(s => s.courseCode).filter(Boolean))]
+      const courseCodes = Array.from(new Set(allSchedules.map(s => s.courseCode).filter(Boolean)))
       if (courseCodes.length > 0) {
         try {
           const coursesResponse = await apiClient.getCourses({ limit: 1000 })
