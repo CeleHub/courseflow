@@ -358,13 +358,15 @@ export default function SchedulePage() {
             allSchedules = allSchedules.map(schedule => {
               if (schedule.courseCode && courseMap.has(schedule.courseCode)) {
                 const enrichedCourse = courseMap.get(schedule.courseCode)
-                return {
-                  ...schedule,
-                  course: {
-                    ...schedule.course,
-                    lecturer: enrichedCourse.lecturer || schedule.course?.lecturer,
-                    lecturerEmail: enrichedCourse.lecturerEmail || schedule.course?.lecturerEmail,
-                  }
+                if (schedule.course && enrichedCourse) {
+                  return {
+                    ...schedule,
+                    course: {
+                      ...schedule.course,
+                      lecturer: enrichedCourse.lecturer || schedule.course.lecturer,
+                      lecturerEmail: enrichedCourse.lecturerEmail || schedule.course.lecturerEmail,
+                    }
+                  } as Schedule
                 }
               }
               return schedule
