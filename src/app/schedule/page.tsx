@@ -22,10 +22,22 @@ import {
   Upload,
   Download,
   FileText,
-  Plus
+  Plus,
+  FileDown,
+  ChevronDown
 } from 'lucide-react'
 import { apiClient } from '@/lib/api'
 import { Schedule, Department, Level, DayOfWeek, ClassType } from '@/types'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
+import * as XLSX from 'xlsx'
+import html2canvas from 'html2canvas'
 
 export default function SchedulePage() {
   const router = useRouter()
@@ -48,13 +60,13 @@ export default function SchedulePage() {
   const [isUploading, setIsUploading] = useState(false)
 
   const dayOptions = [
-    { value: DayOfWeek.MONDAY, label: 'Monday' },
-    { value: DayOfWeek.TUESDAY, label: 'Tuesday' },
-    { value: DayOfWeek.WEDNESDAY, label: 'Wednesday' },
-    { value: DayOfWeek.THURSDAY, label: 'Thursday' },
-    { value: DayOfWeek.FRIDAY, label: 'Friday' },
-    { value: DayOfWeek.SATURDAY, label: 'Saturday' },
-    { value: DayOfWeek.SUNDAY, label: 'Sunday' },
+    { value: DayOfWeek.MONDAY, label: 'Monday', shortLabel: 'MON.' },
+    { value: DayOfWeek.TUESDAY, label: 'Tuesday', shortLabel: 'TUES.' },
+    { value: DayOfWeek.WEDNESDAY, label: 'Wednesday', shortLabel: 'WED.' },
+    { value: DayOfWeek.THURSDAY, label: 'Thursday', shortLabel: 'THURS.' },
+    { value: DayOfWeek.FRIDAY, label: 'Friday', shortLabel: 'FRI.' },
+    { value: DayOfWeek.SATURDAY, label: 'Saturday', shortLabel: 'SAT.' },
+    { value: DayOfWeek.SUNDAY, label: 'Sunday', shortLabel: 'SUN.' },
   ]
 
   const levelOptions = [
@@ -203,6 +215,776 @@ export default function SchedulePage() {
       toast({
         title: "Download Error",
         description: "An error occurred while downloading template",
+        variant: "destructive",
+      })
+    }
+  }
+
+  // Helper function to get time slots from schedules
+  const getTimeSlots = (schedules: Schedule[]): string[] => {
+    const timeSet = new Set<string>()
+    schedules.forEach(schedule => {
+      const timeKey = `${schedule.startTime}-${schedule.endTime}`
+      timeSet.add(timeKey)
+    })
+    return Array.from(timeSet).sort((a, b) => {
+      const [startA] = a.split('-')
+      const [startB] = b.split('-')
+      return startA.localeCompare(startB)
+    })
+  }
+
+  // Helper function to format time slot for display (matches image format)
+  const formatTimeSlot = (startTime: string, endTime: string): string => {
+    try {
+      const [startHours, startMinutes] = startTime.split(':')
+      const [endHours, endMinutes] = endTime.split(':')
+      const startHour = parseInt(startHours)
+      const endHour = parseInt(endHours)
+      
+      const startAMPM = startHour >= 12 ? 'PM' : 'AM'
+      const endAMPM = endHour >= 12 ? 'PM' : 'AM'
+      const displayStartHour = startHour % 12 || 12
+      const displayEndHour = endHour % 12 || 12
+      
+      // Format like "9-10 (AM)" or "11AM-12PM"
+      if (startAMPM === endAMPM) {
+        return `${displayStartHour}-${displayEndHour} (${startAMPM})`
+      } else {
+        return `${displayStartHour}${startAMPM}-${displayEndHour}${endAMPM}`
+      }
+    } catch {
+      return `${startTime} - ${endTime}`
+    }
+  }
+
+
+  // Fetch all schedules for export (not just current page)
+  const fetchAllSchedulesForExport = async (): Promise<Schedule[]> => {
+    try {
+      // Always fetch from API with filters, don't rely on current page data
+      const params: any = {
+        page: 1,
+        limit: 100, // Reasonable limit per page
+      }
+
+      if (selectedDepartment && selectedDepartment !== 'all') params.departmentCode = selectedDepartment
+      if (selectedLevel && selectedLevel !== 'all') params.level = selectedLevel
+      if (selectedDay && selectedDay !== 'all') params.dayOfWeek = selectedDay
+      if (searchTerm) params.search = searchTerm
+
+      const response = await apiClient.getSchedules(params)
+      if (!response.success || !response.data) {
+        throw new Error('Failed to fetch schedules')
+      }
+
+      // Based on fetchSchedules, the structure is: response.data.data.items
+      let allSchedules: Schedule[] = []
+      let totalPagesCount = 1
+
+      // Parse response structure (matches fetchSchedules structure)
+      if (response.data.data && typeof response.data.data === 'object') {
+        if ('items' in response.data.data && Array.isArray((response.data.data as any).items)) {
+          allSchedules = (response.data.data as any).items
+          if ('pagination' in response.data.data && (response.data.data as any).pagination) {
+            totalPagesCount = (response.data.data as any).pagination.totalPages || 1
+          }
+        } else if (Array.isArray(response.data.data)) {
+          allSchedules = response.data.data
+        }
+      }
+
+      // Fetch all remaining pages
+      for (let page = 2; page <= totalPagesCount; page++) {
+        const pageParams = { ...params, page }
+        const pageResponse = await apiClient.getSchedules(pageParams)
+        
+        if (pageResponse.success && pageResponse.data) {
+          let pageItems: Schedule[] = []
+          
+          if (pageResponse.data.data && typeof pageResponse.data.data === 'object') {
+            if ('items' in pageResponse.data.data && Array.isArray((pageResponse.data.data as any).items)) {
+              pageItems = (pageResponse.data.data as any).items
+            } else if (Array.isArray(pageResponse.data.data)) {
+              pageItems = pageResponse.data.data
+            }
+          }
+          
+          allSchedules = [...allSchedules, ...pageItems]
+        }
+      }
+
+      // Apply client-side search filter if search param wasn't supported by API
+      if (searchTerm && allSchedules.length > 0) {
+        const filtered = allSchedules.filter(schedule =>
+          schedule.course?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          schedule.course?.code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          schedule.venue?.toLowerCase().includes(searchTerm.toLowerCase())
+        )
+        // Use filtered results if we got matches
+        if (filtered.length > 0) {
+          allSchedules = filtered
+        }
+      }
+
+      // Fetch courses with lecturer information to enrich schedules
+      const courseCodes = Array.from(new Set(allSchedules.map(s => s.courseCode).filter(Boolean)))
+      if (courseCodes.length > 0) {
+        try {
+          const coursesResponse = await apiClient.getCourses({ limit: 1000 })
+          if (coursesResponse.success && coursesResponse.data) {
+            let courses: any[] = []
+            
+            // Parse courses response structure
+            if (coursesResponse.data.data && typeof coursesResponse.data.data === 'object') {
+              if ('items' in coursesResponse.data.data && Array.isArray((coursesResponse.data.data as any).items)) {
+                courses = (coursesResponse.data.data as any).items
+              } else if (Array.isArray(coursesResponse.data.data)) {
+                courses = coursesResponse.data.data
+              }
+            } else if (Array.isArray(coursesResponse.data)) {
+              courses = coursesResponse.data
+            }
+
+            // Create a map of course codes to courses with lecturer info
+            const courseMap = new Map<string, any>()
+            courses.forEach(course => {
+              if (course.code) {
+                courseMap.set(course.code, course)
+              }
+            })
+
+            // Enrich schedules with lecturer information from courses
+            allSchedules = allSchedules.map(schedule => {
+              if (schedule.courseCode && courseMap.has(schedule.courseCode)) {
+                const enrichedCourse = courseMap.get(schedule.courseCode)
+                if (schedule.course && enrichedCourse) {
+                  return {
+                    ...schedule,
+                    course: {
+                      ...schedule.course,
+                      lecturer: enrichedCourse.lecturer || schedule.course.lecturer,
+                      lecturerEmail: enrichedCourse.lecturerEmail || schedule.course.lecturerEmail,
+                    }
+                  } as Schedule
+                }
+              }
+              return schedule
+            })
+          }
+        } catch (error) {
+          console.warn('Failed to fetch courses for lecturer info:', error)
+          // Continue without enriching, will use available data
+        }
+      }
+
+      return allSchedules
+    } catch (error) {
+      console.error('Failed to fetch all schedules:', error)
+      // Only fallback to visible schedules if API completely fails
+      // But note: this will only have current page data
+      if (filteredSchedules.length > 0) {
+        console.warn('API fetch failed, using visible schedules (may be incomplete)')
+        return filteredSchedules
+      }
+      return []
+    }
+  }
+
+  // Export as PDF
+  const exportAsPDF = async () => {
+    try {
+      toast({
+        title: "Preparing Export",
+        description: "Fetching all schedules...",
+      })
+
+      const allSchedules = await fetchAllSchedulesForExport()
+      
+      if (!allSchedules || allSchedules.length === 0) {
+        toast({
+          title: "No Schedules",
+          description: "There are no schedules to export",
+          variant: "destructive",
+        })
+        return
+      }
+
+      // Build grid with all schedules
+      const timeSlots = getTimeSlots(allSchedules)
+      const grid: Record<string, Record<string, { code: string; venue: string; type?: string }[]>> = {}
+
+      dayOptions.forEach(day => {
+        grid[day.value] = {}
+        timeSlots.forEach(timeSlot => {
+          grid[day.value][timeSlot] = []
+        })
+      })
+
+      allSchedules.forEach(schedule => {
+        const day = schedule.dayOfWeek
+        const timeSlot = `${schedule.startTime}-${schedule.endTime}`
+        const courseCode = schedule.course?.code || 'N/A'
+        const venue = schedule.venue
+        const type = schedule.type
+
+        if (!grid[day]) grid[day] = {}
+        if (!grid[day][timeSlot]) grid[day][timeSlot] = []
+        
+        grid[day][timeSlot].push({ code: courseCode, venue, type })
+      })
+
+      // Build course details
+      const courseMap = new Map<string, {
+        code: string
+        title: string
+        lecturer: string
+        units: number
+        status: string
+      }>()
+
+      allSchedules.forEach(schedule => {
+        if (!schedule.course) return
+        const code = schedule.course.code
+        if (!courseMap.has(code)) {
+          // Get lecturer name from lecturer object, or use lecturerEmail, or fallback to N/A
+          let lecturerName = 'N/A'
+          if (schedule.course.lecturer?.name) {
+            lecturerName = schedule.course.lecturer.name
+          } else if (schedule.course.lecturerEmail) {
+            lecturerName = schedule.course.lecturerEmail
+          }
+          
+          courseMap.set(code, {
+            code,
+            title: schedule.course.name,
+            lecturer: lecturerName,
+            units: schedule.course.credits,
+            status: 'C'
+          })
+        }
+      })
+
+      const courseDetails = Array.from(courseMap.values()).sort((a, b) => a.code.localeCompare(b.code))
+      const doc = new jsPDF('landscape', 'mm', 'a4')
+      
+      // Timetable Grid
+      const timetableData: string[][] = []
+      dayOptions.forEach(day => {
+        const row: string[] = [day.shortLabel || day.label]
+        timeSlots.forEach(timeSlot => {
+          const [startTime, endTime] = timeSlot.split('-')
+          const timeLabel = formatTimeSlot(startTime, endTime)
+          const schedules = grid[day.value]?.[timeSlot] || []
+          if (schedules.length > 0) {
+            const cellContent = schedules.map(s => {
+              const venueText = s.venue ? ` (${s.venue})` : ''
+              return `${s.code}${venueText}`
+            }).join(' / ')
+            row.push(cellContent)
+          } else {
+            row.push('')
+          }
+        })
+        timetableData.push(row)
+      })
+
+      const timeHeaders = ['Day', ...timeSlots.map(ts => {
+        const [start, end] = ts.split('-')
+        return formatTimeSlot(start, end)
+      })]
+
+      autoTable(doc, {
+        head: [timeHeaders],
+        body: timetableData,
+        startY: 20,
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: [66, 139, 202], textColor: 255, fontStyle: 'bold' },
+        margin: { top: 20 },
+      })
+
+      // Course Details Table
+      const courseData = courseDetails.map((course, index) => [
+        (index + 1).toString(),
+        course.code,
+        course.title,
+        course.lecturer,
+        course.units.toString(),
+        course.status
+      ])
+
+      autoTable(doc, {
+        head: [['S/NO.', 'COURSE CODE', 'COURSE TITLE', 'LECTURER', 'UNITS', 'STATUS']],
+        body: courseData,
+        startY: (doc as any).lastAutoTable.finalY + 20,
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: [66, 139, 202], textColor: 255, fontStyle: 'bold' },
+      })
+
+      const date = new Date().toISOString().split('T')[0]
+      doc.save(`timetable_${date}.pdf`)
+
+      toast({
+        title: "Export Successful",
+        description: `Timetable exported as PDF (${allSchedules.length} schedules)`,
+      })
+    } catch (error) {
+      console.error('PDF export failed:', error)
+      toast({
+        title: "Export Error",
+        description: "An error occurred while exporting PDF",
+        variant: "destructive",
+      })
+    }
+  }
+
+  // Export as XLSX
+  const exportAsXLSX = async () => {
+    try {
+      toast({
+        title: "Preparing Export",
+        description: "Fetching all schedules...",
+      })
+
+      const allSchedules = await fetchAllSchedulesForExport()
+      
+      if (!allSchedules || allSchedules.length === 0) {
+        toast({
+          title: "No Schedules",
+          description: "There are no schedules to export",
+          variant: "destructive",
+        })
+        return
+      }
+
+      // Build grid with all schedules
+      const timeSlots = getTimeSlots(allSchedules)
+      const grid: Record<string, Record<string, { code: string; venue: string; type?: string }[]>> = {}
+
+      dayOptions.forEach(day => {
+        grid[day.value] = {}
+        timeSlots.forEach(timeSlot => {
+          grid[day.value][timeSlot] = []
+        })
+      })
+
+      allSchedules.forEach(schedule => {
+        const day = schedule.dayOfWeek
+        const timeSlot = `${schedule.startTime}-${schedule.endTime}`
+        const courseCode = schedule.course?.code || 'N/A'
+        const venue = schedule.venue
+        const type = schedule.type
+
+        if (!grid[day]) grid[day] = {}
+        if (!grid[day][timeSlot]) grid[day][timeSlot] = []
+        
+        grid[day][timeSlot].push({ code: courseCode, venue, type })
+      })
+
+      // Build course details
+      const courseMap = new Map<string, {
+        code: string
+        title: string
+        lecturer: string
+        units: number
+        status: string
+      }>()
+
+      allSchedules.forEach(schedule => {
+        if (!schedule.course) return
+        const code = schedule.course.code
+        if (!courseMap.has(code)) {
+          // Get lecturer name from lecturer object, or use lecturerEmail, or fallback to N/A
+          let lecturerName = 'N/A'
+          if (schedule.course.lecturer?.name) {
+            lecturerName = schedule.course.lecturer.name
+          } else if (schedule.course.lecturerEmail) {
+            lecturerName = schedule.course.lecturerEmail
+          }
+          
+          courseMap.set(code, {
+            code,
+            title: schedule.course.name,
+            lecturer: lecturerName,
+            units: schedule.course.credits,
+            status: 'C'
+          })
+        }
+      })
+
+      const courseDetails = Array.from(courseMap.values()).sort((a, b) => a.code.localeCompare(b.code))
+
+      // Create workbook
+      const wb = XLSX.utils.book_new()
+
+      // Timetable Grid Sheet
+      const timetableData: string[][] = []
+      const timeHeaders = ['Day', ...timeSlots.map(ts => {
+        const [start, end] = ts.split('-')
+        return formatTimeSlot(start, end)
+      })]
+      timetableData.push(timeHeaders)
+
+      dayOptions.forEach(day => {
+        const row: string[] = [day.shortLabel || day.label]
+        timeSlots.forEach(timeSlot => {
+          const schedules = grid[day.value]?.[timeSlot] || []
+          if (schedules.length > 0) {
+            const cellContent = schedules.map(s => {
+              const venueText = s.venue ? ` (${s.venue})` : ''
+              return `${s.code}${venueText}`
+            }).join(' / ')
+            row.push(cellContent)
+          } else {
+            row.push('')
+          }
+        })
+        timetableData.push(row)
+      })
+
+      const ws1 = XLSX.utils.aoa_to_sheet(timetableData)
+      XLSX.utils.book_append_sheet(wb, ws1, 'Timetable')
+
+      // Course Details Sheet
+      const courseData = [
+        ['S/NO.', 'COURSE CODE', 'COURSE TITLE', 'LECTURER', 'UNITS', 'STATUS'],
+        ...courseDetails.map((course, index) => [
+          index + 1,
+          course.code,
+          course.title,
+          course.lecturer,
+          course.units,
+          course.status
+        ])
+      ]
+
+      const ws2 = XLSX.utils.aoa_to_sheet(courseData)
+      XLSX.utils.book_append_sheet(wb, ws2, 'Course Details')
+
+      const date = new Date().toISOString().split('T')[0]
+      XLSX.writeFile(wb, `timetable_${date}.xlsx`)
+
+      toast({
+        title: "Export Successful",
+        description: `Timetable exported as XLSX (${allSchedules.length} schedules)`,
+      })
+    } catch (error) {
+      console.error('XLSX export failed:', error)
+      toast({
+        title: "Export Error",
+        description: "An error occurred while exporting XLSX",
+        variant: "destructive",
+      })
+    }
+  }
+
+  // Export as CSV
+  const exportAsCSV = async () => {
+    try {
+      toast({
+        title: "Preparing Export",
+        description: "Fetching all schedules...",
+      })
+
+      const allSchedules = await fetchAllSchedulesForExport()
+      
+      if (!allSchedules || allSchedules.length === 0) {
+        toast({
+          title: "No Schedules",
+          description: "There are no schedules to export",
+          variant: "destructive",
+        })
+        return
+      }
+
+      // Build grid with all schedules
+      const timeSlots = getTimeSlots(allSchedules)
+      const grid: Record<string, Record<string, { code: string; venue: string; type?: string }[]>> = {}
+
+      dayOptions.forEach(day => {
+        grid[day.value] = {}
+        timeSlots.forEach(timeSlot => {
+          grid[day.value][timeSlot] = []
+        })
+      })
+
+      allSchedules.forEach(schedule => {
+        const day = schedule.dayOfWeek
+        const timeSlot = `${schedule.startTime}-${schedule.endTime}`
+        const courseCode = schedule.course?.code || 'N/A'
+        const venue = schedule.venue
+        const type = schedule.type
+
+        if (!grid[day]) grid[day] = {}
+        if (!grid[day][timeSlot]) grid[day][timeSlot] = []
+        
+        grid[day][timeSlot].push({ code: courseCode, venue, type })
+      })
+
+      // Build course details
+      const courseMap = new Map<string, {
+        code: string
+        title: string
+        lecturer: string
+        units: number
+        status: string
+      }>()
+
+      allSchedules.forEach(schedule => {
+        if (!schedule.course) return
+        const code = schedule.course.code
+        if (!courseMap.has(code)) {
+          // Get lecturer name from lecturer object, or use lecturerEmail, or fallback to N/A
+          let lecturerName = 'N/A'
+          if (schedule.course.lecturer?.name) {
+            lecturerName = schedule.course.lecturer.name
+          } else if (schedule.course.lecturerEmail) {
+            lecturerName = schedule.course.lecturerEmail
+          }
+          
+          courseMap.set(code, {
+            code,
+            title: schedule.course.name,
+            lecturer: lecturerName,
+            units: schedule.course.credits,
+            status: 'C'
+          })
+        }
+      })
+
+      const courseDetails = Array.from(courseMap.values()).sort((a, b) => a.code.localeCompare(b.code))
+
+      let csvContent = ''
+
+      // Timetable Grid
+      csvContent += 'TIMETABLE\n'
+      const timeHeaders = ['Day', ...timeSlots.map(ts => {
+        const [start, end] = ts.split('-')
+        return formatTimeSlot(start, end)
+      })]
+      csvContent += timeHeaders.map(h => `"${h}"`).join(',') + '\n'
+
+      dayOptions.forEach(day => {
+        const row: string[] = [day.shortLabel || day.label]
+        timeSlots.forEach(timeSlot => {
+          const schedules = grid[day.value]?.[timeSlot] || []
+          if (schedules.length > 0) {
+            const cellContent = schedules.map(s => {
+              const venueText = s.venue ? ` (${s.venue})` : ''
+              return `${s.code}${venueText}`
+            }).join(' / ')
+            row.push(cellContent)
+          } else {
+            row.push('')
+          }
+        })
+        csvContent += row.map(cell => `"${cell}"`).join(',') + '\n'
+      })
+
+      csvContent += '\n\nCOURSE DETAILS\n'
+      csvContent += '"S/NO.","COURSE CODE","COURSE TITLE","LECTURER","UNITS","STATUS"\n'
+      courseDetails.forEach((course, index) => {
+        csvContent += `"${index + 1}","${course.code}","${course.title}","${course.lecturer}","${course.units}","${course.status}"\n`
+      })
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      const date = new Date().toISOString().split('T')[0]
+      link.download = `timetable_${date}.csv`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+
+      toast({
+        title: "Export Successful",
+        description: `Timetable exported as CSV (${allSchedules.length} schedules)`,
+      })
+    } catch (error) {
+      console.error('CSV export failed:', error)
+      toast({
+        title: "Export Error",
+        description: "An error occurred while exporting CSV",
+        variant: "destructive",
+      })
+    }
+  }
+
+  // Export as PNG
+  const exportAsPNG = async () => {
+    try {
+      toast({
+        title: "Preparing Export",
+        description: "Fetching all schedules...",
+      })
+
+      const allSchedules = await fetchAllSchedulesForExport()
+      
+      if (!allSchedules || allSchedules.length === 0) {
+        toast({
+          title: "No Schedules",
+          description: "There are no schedules to export",
+          variant: "destructive",
+        })
+        return
+      }
+
+      // Create a temporary container for the export
+      const container = document.createElement('div')
+      container.style.position = 'absolute'
+      container.style.left = '-9999px'
+      container.style.width = '1200px'
+      container.style.backgroundColor = 'white'
+      container.style.padding = '20px'
+      document.body.appendChild(container)
+
+      // Build grid with all schedules
+      const timeSlots = getTimeSlots(allSchedules)
+      const grid: Record<string, Record<string, { code: string; venue: string; type?: string }[]>> = {}
+
+      dayOptions.forEach(day => {
+        grid[day.value] = {}
+        timeSlots.forEach(timeSlot => {
+          grid[day.value][timeSlot] = []
+        })
+      })
+
+      allSchedules.forEach(schedule => {
+        const day = schedule.dayOfWeek
+        const timeSlot = `${schedule.startTime}-${schedule.endTime}`
+        const courseCode = schedule.course?.code || 'N/A'
+        const venue = schedule.venue
+        const type = schedule.type
+
+        if (!grid[day]) grid[day] = {}
+        if (!grid[day][timeSlot]) grid[day][timeSlot] = []
+        
+        grid[day][timeSlot].push({ code: courseCode, venue, type })
+      })
+
+      // Build course details
+      const courseMap = new Map<string, {
+        code: string
+        title: string
+        lecturer: string
+        units: number
+        status: string
+      }>()
+
+      allSchedules.forEach(schedule => {
+        if (!schedule.course) return
+        const code = schedule.course.code
+        if (!courseMap.has(code)) {
+          // Get lecturer name from lecturer object, or use lecturerEmail, or fallback to N/A
+          let lecturerName = 'N/A'
+          if (schedule.course.lecturer?.name) {
+            lecturerName = schedule.course.lecturer.name
+          } else if (schedule.course.lecturerEmail) {
+            lecturerName = schedule.course.lecturerEmail
+          }
+          
+          courseMap.set(code, {
+            code,
+            title: schedule.course.name,
+            lecturer: lecturerName,
+            units: schedule.course.credits,
+            status: 'C'
+          })
+        }
+      })
+
+      const courseDetails = Array.from(courseMap.values()).sort((a, b) => a.code.localeCompare(b.code))
+
+      // Create timetable table
+      let html = `
+        <div style="font-family: Arial, sans-serif;">
+          <h2 style="text-align: center; margin-bottom: 20px;">ACADEMIC TIMETABLE</h2>
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 40px; font-size: 10px;">
+            <thead>
+              <tr style="background-color: #4285F4; color: white;">
+                <th style="border: 1px solid #000; padding: 8px; text-align: left;">Day</th>
+                ${timeSlots.map(ts => {
+                  const [start, end] = ts.split('-')
+                  return `<th style="border: 1px solid #000; padding: 8px; text-align: center;">${formatTimeSlot(start, end)}</th>`
+                }).join('')}
+              </tr>
+            </thead>
+            <tbody>
+              ${dayOptions.map(day => `
+                <tr>
+                  <td style="border: 1px solid #000; padding: 8px; font-weight: bold;">${day.shortLabel || day.label}</td>
+                  ${timeSlots.map(timeSlot => {
+                    const schedules = grid[day.value]?.[timeSlot] || []
+                    const cellContent = schedules.length > 0
+                      ? schedules.map(s => {
+                          const venueText = s.venue ? ` (${s.venue})` : ''
+                          return `${s.code}${venueText}`
+                        }).join(' / ')
+                      : ''
+                    return `<td style="border: 1px solid #000; padding: 8px; text-align: center;">${cellContent}</td>`
+                  }).join('')}
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+
+          <h2 style="text-align: center; margin-bottom: 20px;">COURSE DETAILS</h2>
+          <table style="width: 100%; border-collapse: collapse; font-size: 10px;">
+            <thead>
+              <tr style="background-color: #4285F4; color: white;">
+                <th style="border: 1px solid #000; padding: 8px;">S/NO.</th>
+                <th style="border: 1px solid #000; padding: 8px;">COURSE CODE</th>
+                <th style="border: 1px solid #000; padding: 8px;">COURSE TITLE</th>
+                <th style="border: 1px solid #000; padding: 8px;">LECTURER</th>
+                <th style="border: 1px solid #000; padding: 8px;">UNITS</th>
+                <th style="border: 1px solid #000; padding: 8px;">STATUS</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${courseDetails.map((course, index) => `
+                <tr>
+                  <td style="border: 1px solid #000; padding: 8px; text-align: center;">${index + 1}</td>
+                  <td style="border: 1px solid #000; padding: 8px;">${course.code}</td>
+                  <td style="border: 1px solid #000; padding: 8px;">${course.title}</td>
+                  <td style="border: 1px solid #000; padding: 8px;">${course.lecturer}</td>
+                  <td style="border: 1px solid #000; padding: 8px; text-align: center;">${course.units}</td>
+                  <td style="border: 1px solid #000; padding: 8px; text-align: center;">${course.status}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `
+
+      container.innerHTML = html
+
+      const canvas = await html2canvas(container, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        logging: false,
+      })
+
+      const imgData = canvas.toDataURL('image/png')
+      const link = document.createElement('a')
+      link.href = imgData
+      const date = new Date().toISOString().split('T')[0]
+      link.download = `timetable_${date}.png`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      document.body.removeChild(container)
+
+      toast({
+        title: "Export Successful",
+        description: `Timetable exported as PNG (${allSchedules.length} schedules)`,
+      })
+    } catch (error) {
+      console.error('PNG export failed:', error)
+      toast({
+        title: "Export Error",
+        description: "An error occurred while exporting PNG",
         variant: "destructive",
       })
     }
@@ -433,6 +1215,38 @@ export default function SchedulePage() {
               <p className="text-sm text-muted-foreground">
                 Showing {filteredSchedules.length} of {schedules.length} schedules
               </p>
+              {filteredSchedules.length > 0 && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="default"
+                      className="flex items-center gap-2"
+                    >
+                      <FileDown className="h-4 w-4" />
+                      Export Timetable
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem onClick={exportAsPDF} className="cursor-pointer">
+                      <FileText className="h-4 w-4 mr-2" />
+                      Export as PDF
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={exportAsXLSX} className="cursor-pointer">
+                      <FileText className="h-4 w-4 mr-2" />
+                      Export as XLSX
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={exportAsCSV} className="cursor-pointer">
+                      <FileText className="h-4 w-4 mr-2" />
+                      Export as CSV
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={exportAsPNG} className="cursor-pointer">
+                      <FileText className="h-4 w-4 mr-2" />
+                      Export as PNG
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
             </div>
 
             {Object.keys(schedulesByDay).length === 0 ? (
