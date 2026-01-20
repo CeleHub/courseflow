@@ -66,6 +66,7 @@ export default function CoursesPage() {
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [searchInput, setSearchInput] = useState("");
 
   const levelOptions = [
     { value: Level.LEVEL_100, label: "100 Level" },
@@ -94,6 +95,15 @@ export default function CoursesPage() {
 
     fetchDepartments();
   }, []);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setSearchTerm(searchInput);
+      setCurrentPage(1); // Reset to page 1 when searching
+    }, 500);
+
+    return () => clearTimeout(handler);
+  }, [searchInput]);
 
   const fetchCourses = useCallback(async () => {
     try {
@@ -128,7 +138,14 @@ export default function CoursesPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, searchTerm, selectedDepartment, selectedLevel, selectedSemester, toast]);
+  }, [
+    currentPage,
+    searchTerm,
+    selectedDepartment,
+    selectedLevel,
+    selectedSemester,
+    toast,
+  ]);
 
   useEffect(() => {
     fetchCourses();
@@ -298,8 +315,8 @@ export default function CoursesPage() {
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search by name or code..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
                   className="pl-10"
                 />
               </div>
@@ -335,7 +352,10 @@ export default function CoursesPage() {
                 </SelectContent>
               </Select>
 
-              <Select value={selectedSemester} onValueChange={setSelectedSemester}>
+              <Select
+                value={selectedSemester}
+                onValueChange={setSelectedSemester}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="All Semesters" />
                 </SelectTrigger>
