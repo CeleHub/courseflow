@@ -25,7 +25,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { BookOpen, ArrowLeft, User as UserIcon } from "lucide-react";
 import { apiClient } from "@/lib/api";
-import { Department, Level, Lecturer } from "@/types";
+import { Department, Level, Lecturer, Semester } from "@/types";
 
 export default function CreateCoursePage() {
   const router = useRouter();
@@ -39,6 +39,7 @@ export default function CreateCoursePage() {
     name: "",
     level: "",
     credits: "",
+    semester: "FIRST",
     departmentCode: "",
     lecturerEmail: "",
     overview: "",
@@ -76,9 +77,7 @@ export default function CreateCoursePage() {
           // Check if data is paginated or array and set accordingly
           const items =
             (lecturerResponse.data as any).data?.items ??
-            (Array.isArray(lecturerResponse.data)
-              ? lecturerResponse.data
-              : []);
+            (Array.isArray(lecturerResponse.data) ? lecturerResponse.data : []);
           setLecturers(items);
         }
       } catch (error) {
@@ -94,7 +93,7 @@ export default function CreateCoursePage() {
   }
 
   const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
@@ -145,6 +144,7 @@ export default function CreateCoursePage() {
         name: formData.name.trim(),
         level: formData.level as Level,
         credits: credits,
+        semester: formData.semester as Semester,
         departmentCode: formData.departmentCode,
         lecturerEmail:
           formData.lecturerEmail && formData.lecturerEmail !== "none"
@@ -290,6 +290,26 @@ export default function CreateCoursePage() {
                 </div>
 
                 <div className="space-y-2">
+                  <Label htmlFor="semester">
+                    Semester <span className="text-red-500">*</span>
+                  </Label>
+                  <Select
+                    value={formData.semester}
+                    onValueChange={(value) =>
+                      handleSelectChange("semester", value)
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select semester" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="FIRST">First Semester</SelectItem>
+                      <SelectItem value="SECOND">Second Semester</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
                   <Label htmlFor="departmentCode">
                     Department <span className="text-red-500">*</span>
                   </Label>
@@ -332,7 +352,8 @@ export default function CreateCoursePage() {
                       <SelectItem value="none">No lecturer assigned</SelectItem>
                       {lecturers.map((lecturer) => (
                         <SelectItem key={lecturer.id} value={lecturer.email}>
-                          {lecturer.name} — {lecturer.department?.name || lecturer.departmentCode}
+                          {lecturer.name} —{" "}
+                          {lecturer.department?.name || lecturer.departmentCode}
                         </SelectItem>
                       ))}
                     </SelectContent>
