@@ -25,13 +25,15 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
 
+
   const fetchUsers = async () => {
     try {
       setLoading(true)
-      const response = await apiClient.getUsers()
+      // CHANGE: Added { page: 1, limit: 50 } to ensure backend returns paginated object
+      const response = await apiClient.getUsers({ page: 1, limit: 50 })
 
       if (response.success && response.data) {
-        // Handle paginated response structure
+        // Now this path exists because we forced pagination
         setUsers(response.data.data?.items || [])
       }
     } catch (error) {

@@ -58,13 +58,15 @@ export default function ComplaintsPage() {
       setLoading(true)
 
       if (isAdmin) {
-        const response = await apiClient.getComplaints()
+        // CHANGE: Added { page: 1, limit: 50 } here
+        const response = await apiClient.getComplaints({ page: 1, limit: 50 })
         if (response.success && response.data) {
           setComplaints(response.data.data?.items || [])
         }
       } else {
         const response = await apiClient.getMyComplaints()
         if (response.success && response.data) {
+          // This part was already correct for flat arrays
           setComplaints(Array.isArray(response.data) ? response.data : [])
         }
       }
