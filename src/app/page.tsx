@@ -185,64 +185,6 @@ export default function Home() {
         </Card>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t bg-slate-100/50 dark:bg-slate-900/50 backdrop-blur-sm">
-        <div className="container mx-auto px-4 py-12">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
-            <div>
-              <div className="flex items-center gap-2 mb-4">
-                <GraduationCap className="h-6 w-6 text-primary" />
-                <span className="text-xl font-bold">CourseFlow</span>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Your comprehensive academic management system for modern education.
-              </p>
-            </div>
-            
-            <div>
-              <h3 className="font-semibold mb-4">Quick Links</h3>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li>
-                  <Link href="/courses" className="hover:text-primary transition-colors">
-                    Browse Courses
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/schedule" className="hover:text-primary transition-colors">
-                    View Schedule
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/departments" className="hover:text-primary transition-colors">
-                    Departments
-                  </Link>
-                </li>
-              </ul>
-            </div>
-            
-            <div>
-              <h3 className="font-semibold mb-4">Support</h3>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li>
-                  <Link href="/complaints" className="hover:text-primary transition-colors">
-                    Submit Inquiry
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/dashboard" className="hover:text-primary transition-colors">
-                    Dashboard
-                  </Link>
-                </li>
-              </ul>
-            </div>
-          </div>
-          
-          <div className="border-t pt-8 text-center text-sm text-muted-foreground">
-            <p>&copy; {new Date().getFullYear()} CourseFlow. All rights reserved.</p>
-            <p className="mt-2">Empowering academic excellence through intelligent organization.</p>
-          </div>
-        </div>
-      </footer>
     </div>
   )
 }

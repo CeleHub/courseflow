@@ -1,4 +1,13 @@
-import { ApiResponse, PaginatedResponse } from "@/types";
+import {
+  ApiResponse,
+  PaginatedResponse,
+  CreateAcademicSessionData,
+  UpdateAcademicSessionData,
+  CreateVenueData,
+  UpdateVenueData,
+  CreateExamData,
+  UpdateExamData,
+} from "@/types";
 
 const API_BASE_URL = "https://courseflow-backend-s16i.onrender.com/api/v1";
 
@@ -264,6 +273,46 @@ class ApiClient {
     );
   }
 
+  // Academic Sessions (v2.0)
+  async getAcademicSessions(params?: { page?: number; limit?: number }) {
+    const queryString = params
+      ? new URLSearchParams(params as any).toString()
+      : "";
+    return this.request<PaginatedResponse<any>>(
+      `/academic-sessions${queryString ? `?${queryString}` : ""}`
+    );
+  }
+
+  async createAcademicSession(data: CreateAcademicSessionData) {
+    return this.request("/academic-sessions", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getActiveAcademicSession() {
+    return this.request("/academic-sessions/active");
+  }
+
+  async activateAcademicSession(id: string) {
+    return this.request(`/academic-sessions/${id}/activate`, {
+      method: "PATCH",
+    });
+  }
+
+  async updateAcademicSession(id: string, data: UpdateAcademicSessionData) {
+    return this.request(`/academic-sessions/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteAcademicSession(id: string) {
+    return this.request(`/academic-sessions/${id}`, {
+      method: "DELETE",
+    });
+  }
+
   // Department endpoints - FIXED with proper filters
   async getDepartments(params?: {
     page?: number;
@@ -280,11 +329,21 @@ class ApiClient {
     );
   }
 
-  async createDepartment(data: { name: string; code: string }) {
+  async createDepartment(
+    data: { name: string; code: string } & {
+      // v2.0 optional fields
+      description?: string;
+      hodEmail?: string;
+    }
+  ) {
     return this.request("/departments", {
       method: "POST",
       body: JSON.stringify(data),
     });
+  }
+
+  async getDepartmentFullDetails(code: string) {
+    return this.request(`/departments/${code}/full-details`);
   }
 
   async uploadDepartmentsBulk(file: File) {
@@ -340,6 +399,10 @@ class ApiClient {
     level?: string;
     search?: string;
     lecturerEmail?: string;
+    // v2.0 filters
+    isGeneral?: string;
+    includeGeneral?: string;
+    semester?: string;
     orderBy?: string;
     orderDirection?: string;
   }) {
@@ -358,6 +421,10 @@ class ApiClient {
     credits: number;
     departmentCode: string;
     lecturerEmail?: string;
+    // v2.0 extras
+    overview?: string;
+    isGeneral?: boolean;
+    isLocked?: boolean;
   }) {
     return this.request("/courses", {
       method: "POST",
@@ -418,6 +485,7 @@ class ApiClient {
     departmentCode?: string;
     level?: string;
     dayOfWeek?: string;
+    semester?: string;
     search?: string;
     orderBy?: string;
     orderDirection?: string;
@@ -489,6 +557,36 @@ class ApiClient {
     return this.downloadFile("/schedules/bulk/template");
   }
 
+  // Venues (v2.0)
+  async getVenues(params?: { page?: number; limit?: number }) {
+    const queryString = params
+      ? new URLSearchParams(params as any).toString()
+      : "";
+    return this.request<PaginatedResponse<any>>(
+      `/venues${queryString ? `?${queryString}` : ""}`
+    );
+  }
+
+  async createVenue(data: CreateVenueData) {
+    return this.request("/venues", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateVenue(id: string, data: UpdateVenueData) {
+    return this.request(`/venues/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteVenue(id: string) {
+    return this.request(`/venues/${id}`, {
+      method: "DELETE",
+    });
+  }
+
   // Complaint endpoints - FIXED
   async getComplaints(params?: {
     page?: number;
@@ -527,6 +625,36 @@ class ApiClient {
   async updateComplaintStatus(id: string, status: string) {
     return this.request(`/complaints/${id}/status?status=${status}`, {
       method: "PATCH",
+    });
+  }
+
+  // Exams (v2.0)
+  async getExams(params?: { page?: number; limit?: number }) {
+    const queryString = params
+      ? new URLSearchParams(params as any).toString()
+      : "";
+    return this.request<PaginatedResponse<any>>(
+      `/exams${queryString ? `?${queryString}` : ""}`
+    );
+  }
+
+  async createExam(data: CreateExamData) {
+    return this.request("/exams", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateExam(id: string, data: UpdateExamData) {
+    return this.request(`/exams/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteExam(id: string) {
+    return this.request(`/exams/${id}`, {
+      method: "DELETE",
     });
   }
 }

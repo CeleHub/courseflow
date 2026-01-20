@@ -27,7 +27,7 @@ import {
   ChevronDown
 } from 'lucide-react'
 import { apiClient } from '@/lib/api'
-import { Schedule, Department, Level, DayOfWeek, ClassType } from '@/types'
+import { Schedule, Department, Level, DayOfWeek, ClassType, Semester } from '@/types'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -53,6 +53,7 @@ export default function SchedulePage() {
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all')
   const [selectedLevel, setSelectedLevel] = useState<string>('all')
   const [selectedDay, setSelectedDay] = useState<string>('all')
+  const [selectedSemester, setSelectedSemester] = useState<string>('all')
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
@@ -75,6 +76,11 @@ export default function SchedulePage() {
     { value: Level.LEVEL_300, label: '300 Level' },
     { value: Level.LEVEL_400, label: '400 Level' },
     { value: Level.LEVEL_500, label: '500 Level' },
+  ]
+
+  const semesterOptions = [
+    { value: Semester.FIRST, label: 'First Semester' },
+    { value: Semester.SECOND, label: 'Second Semester' },
   ]
 
   useEffect(() => {
@@ -103,6 +109,7 @@ export default function SchedulePage() {
       if (selectedDepartment && selectedDepartment !== 'all') params.departmentCode = selectedDepartment
       if (selectedLevel && selectedLevel !== 'all') params.level = selectedLevel
       if (selectedDay && selectedDay !== 'all') params.dayOfWeek = selectedDay
+      if (selectedSemester && selectedSemester !== 'all') params.semester = selectedSemester
 
       const response = await apiClient.getSchedules(params)
 
@@ -115,7 +122,7 @@ export default function SchedulePage() {
     } finally {
       setLoading(false)
     }
-  }, [currentPage, selectedDepartment, selectedLevel, selectedDay])
+  }, [currentPage, selectedDepartment, selectedLevel, selectedDay, selectedSemester])
 
   useEffect(() => {
     fetchSchedules()
@@ -132,6 +139,7 @@ export default function SchedulePage() {
     setSelectedDepartment('all')
     setSelectedLevel('all')
     setSelectedDay('all')
+    setSelectedSemester('all')
     setCurrentPage(1)
   }
 
@@ -1060,7 +1068,7 @@ export default function SchedulePage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
               <div className="relative">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -1108,6 +1116,20 @@ export default function SchedulePage() {
                   {dayOptions.map((day) => (
                     <SelectItem key={day.value} value={day.value}>
                       {day.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={selectedSemester} onValueChange={setSelectedSemester}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Semesters" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Semesters</SelectItem>
+                  {semesterOptions.map((semester) => (
+                    <SelectItem key={semester.value} value={semester.value}>
+                      {semester.label}
                     </SelectItem>
                   ))}
                 </SelectContent>

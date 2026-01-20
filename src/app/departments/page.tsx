@@ -324,7 +324,8 @@ export default function DepartmentsPage() {
               {filteredDepartments.map((department) => (
                 <Card 
                   key={department.id} 
-                  className="transition-all hover:shadow-xl hover:scale-[1.02] border-2 hover:border-primary/20 group"
+                  className="transition-all hover:shadow-xl hover:scale-[1.02] border-2 hover:border-primary/20 group cursor-pointer"
+                  onClick={() => router.push(`/departments/${department.code}`)}
                 >
                   <CardHeader className="pb-4">
                     <div className="flex items-start justify-between mb-4">
