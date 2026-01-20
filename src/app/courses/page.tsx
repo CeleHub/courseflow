@@ -103,7 +103,8 @@ export default function CoursesPage() {
         limit: 12,
       };
 
-      if (searchTerm) params.search = searchTerm;
+      if (searchTerm) params.searchTerm = searchTerm;
+
       if (selectedDepartment && selectedDepartment !== "all")
         params.departmentCode = selectedDepartment;
       if (selectedLevel && selectedLevel !== "all")
