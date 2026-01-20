@@ -13,6 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -40,6 +41,9 @@ export default function CreateCoursePage() {
     credits: "",
     departmentCode: "",
     lecturerEmail: "",
+    overview: "",
+    isGeneral: false,
+    isLocked: false,
   });
 
   const isStaff = isAdmin || isLecturer;
@@ -86,7 +90,7 @@ export default function CreateCoursePage() {
     return null;
   }
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
@@ -138,6 +142,9 @@ export default function CreateCoursePage() {
         credits: credits,
         departmentCode: formData.departmentCode,
         lecturerEmail: formData.lecturerEmail || undefined,
+        overview: formData.overview.trim() || undefined,
+        isGeneral: formData.isGeneral,
+        isLocked: formData.isLocked,
       });
 
       if (response.success) {
@@ -326,6 +333,52 @@ export default function CreateCoursePage() {
                     Assign a lecturer to this course
                   </p>
                 </div>
+
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="overview">Course Overview (Optional)</Label>
+                  <Textarea
+                    id="overview"
+                    name="overview"
+                    placeholder="Enter course description/overview..."
+                    value={formData.overview}
+                    onChange={(e) => handleInputChange(e)}
+                    rows={4}
+                  />
+                </div>
+
+                <div className="space-y-2 md:col-span-2">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="isGeneral"
+                      name="isGeneral"
+                      checked={formData.isGeneral}
+                      onChange={(e) => setFormData(prev => ({ ...prev, isGeneral: e.target.checked }))}
+                      className="rounded border-gray-300"
+                    />
+                    <Label htmlFor="isGeneral" className="cursor-pointer">
+                      General Course (GST) - University-wide course
+                    </Label>
+                  </div>
+                </div>
+
+                {isAdmin && (
+                  <div className="space-y-2 md:col-span-2">
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="isLocked"
+                        name="isLocked"
+                        checked={formData.isLocked}
+                        onChange={(e) => setFormData(prev => ({ ...prev, isLocked: e.target.checked }))}
+                        className="rounded border-gray-300"
+                      />
+                      <Label htmlFor="isLocked" className="cursor-pointer">
+                        Lock Course (Prevent deletion)
+                      </Label>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="flex gap-4 pt-4 border-t">

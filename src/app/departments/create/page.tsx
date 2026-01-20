@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/hooks/use-toast'
 import { Building2, ArrowLeft } from 'lucide-react'
@@ -20,6 +21,8 @@ export default function CreateDepartmentPage() {
   const [formData, setFormData] = useState({
     name: '',
     code: '',
+    description: '',
+    hodEmail: '',
   })
 
   const isStaff = isAdmin || isLecturer
@@ -36,7 +39,7 @@ export default function CreateDepartmentPage() {
     return null
   }
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
     setFormData(prev => ({
       ...prev,
@@ -61,6 +64,8 @@ export default function CreateDepartmentPage() {
       const response = await apiClient.createDepartment({
         name: formData.name.trim(),
         code: formData.code.trim().toUpperCase(),
+        description: formData.description.trim() || undefined,
+        hodEmail: formData.hodEmail.trim() || undefined,
       })
 
       if (response.success) {
@@ -152,6 +157,33 @@ export default function CreateDepartmentPage() {
                   />
                   <p className="text-xs text-muted-foreground">
                     Short code for the department (will be converted to uppercase)
+                  </p>
+                </div>
+
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="description">Description (Optional)</Label>
+                  <Textarea
+                    id="description"
+                    name="description"
+                    placeholder="Enter department description..."
+                    value={formData.description}
+                    onChange={handleInputChange}
+                    rows={3}
+                  />
+                </div>
+
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="hodEmail">Head of Department Email (Optional)</Label>
+                  <Input
+                    id="hodEmail"
+                    name="hodEmail"
+                    type="email"
+                    placeholder="e.g., prof.alan@uni.edu"
+                    value={formData.hodEmail}
+                    onChange={handleInputChange}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Automatically links Head of Department to this department
                   </p>
                 </div>
               </div>

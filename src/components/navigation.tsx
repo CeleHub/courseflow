@@ -1,9 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
+import { apiClient } from '@/lib/api'
+import { AcademicSession } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -51,6 +53,21 @@ export function Navigation() {
   const router = useRouter()
   const pathname = usePathname()
   const [isOpen, setIsOpen] = useState(false)
+  const [activeSession, setActiveSession] = useState<AcademicSession | null>(null)
+
+  useEffect(() => {
+    const fetchActiveSession = async () => {
+      try {
+        const response = await apiClient.getActiveAcademicSession()
+        if (response.success && response.data) {
+          setActiveSession(response.data as AcademicSession)
+        }
+      } catch (error) {
+        console.error('Failed to fetch active session:', error)
+      }
+    }
+    fetchActiveSession()
+  }, [])
 
   const handleLogout = () => {
     logout()
@@ -95,6 +112,24 @@ export function Navigation() {
       title: 'Users',
       href: '/admin/users',
       icon: Users,
+      show: isAdmin,
+    },
+    {
+      title: 'Academic Sessions',
+      href: '/admin/academic-sessions',
+      icon: Calendar,
+      show: isAdmin,
+    },
+    {
+      title: 'Exams',
+      href: '/admin/exams',
+      icon: ClipboardList,
+      show: isAdmin,
+    },
+    {
+      title: 'Venues',
+      href: '/admin/venues',
+      icon: Building2,
       show: isAdmin,
     },
     {
@@ -201,6 +236,14 @@ export function Navigation() {
               CourseFlow
             </span>
           </Link>
+
+          {/* Active Session Badge */}
+          {activeSession && (
+            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-md bg-primary/10 text-primary text-sm font-medium">
+              <Calendar className="h-4 w-4" />
+              <span>Current Session: {activeSession.name}</span>
+            </div>
+          )}
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-6">

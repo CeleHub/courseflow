@@ -46,7 +46,7 @@ import {
   User as UserIcon,
 } from "lucide-react";
 import { apiClient } from "@/lib/api";
-import { Course, Department, Level } from "@/types";
+import { Course, Department, Level, Semester } from "@/types";
 
 export default function CoursesPage() {
   const router = useRouter();
@@ -60,6 +60,7 @@ export default function CoursesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
   const [selectedLevel, setSelectedLevel] = useState<string>("all");
+  const [selectedSemester, setSelectedSemester] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
@@ -72,6 +73,11 @@ export default function CoursesPage() {
     { value: Level.LEVEL_300, label: "300 Level" },
     { value: Level.LEVEL_400, label: "400 Level" },
     { value: Level.LEVEL_500, label: "500 Level" },
+  ];
+
+  const semesterOptions = [
+    { value: Semester.FIRST, label: "First Semester" },
+    { value: Semester.SECOND, label: "Second Semester" },
   ];
 
   useEffect(() => {
@@ -102,6 +108,8 @@ export default function CoursesPage() {
         params.departmentCode = selectedDepartment;
       if (selectedLevel && selectedLevel !== "all")
         params.level = selectedLevel;
+      if (selectedSemester && selectedSemester !== "all")
+        params.semester = selectedSemester;
 
       const response = await apiClient.getCourses(params);
 
@@ -119,7 +127,7 @@ export default function CoursesPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, searchTerm, selectedDepartment, selectedLevel, toast]);
+  }, [currentPage, searchTerm, selectedDepartment, selectedLevel, selectedSemester, toast]);
 
   useEffect(() => {
     fetchCourses();
@@ -129,6 +137,7 @@ export default function CoursesPage() {
     setSearchTerm("");
     setSelectedDepartment("all");
     setSelectedLevel("all");
+    setSelectedSemester("all");
     setCurrentPage(1);
   };
 
@@ -283,7 +292,7 @@ export default function CoursesPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
               <div className="relative lg:col-span-2">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -320,6 +329,20 @@ export default function CoursesPage() {
                   {levelOptions.map((level) => (
                     <SelectItem key={level.value} value={level.value}>
                       {level.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={selectedSemester} onValueChange={setSelectedSemester}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Semesters" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Semesters</SelectItem>
+                  {semesterOptions.map((semester) => (
+                    <SelectItem key={semester.value} value={semester.value}>
+                      {semester.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
