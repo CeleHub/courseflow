@@ -391,6 +391,21 @@ class ApiClient {
     return this.downloadFile("/departments/bulk/template");
   }
 
+  async getLecturers(params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    orderBy?: string;
+    orderDirection?: string;
+  })  {
+    const queryString = params
+      ? new URLSearchParams(params as any).toString()
+      : "";
+    return this.request<PaginatedResponse<any>>(
+      `/lecturers${queryString ? `?${queryString}` : ""}`
+    );
+  }
+
   // Course endpoints - FIXED with lecturer support
   async getCourses(params?: {
     page?: number;
