@@ -78,13 +78,15 @@ export enum ComplaintStatus {
 
 // Data Models
 export interface User {
-  id: string
-  matricNO: string
-  email: string
-  name: string
-  role: Role
-  createdAt?: string
-  updatedAt?: string
+  id: string;
+  matricNO: string;
+  email: string;
+  name: string;
+  role: Role;
+  isActive: boolean;
+  lastLoginAt?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface AuthResponse {
@@ -93,38 +95,54 @@ export interface AuthResponse {
   token_type: string
 }
 
+export interface Lecturer {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  departmentCode: string;
+  department?: Department;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Department {
-  id: string
-  name: string
-  code: string
-  // NEW (v2.0 API)
-  description?: string
-  hodEmail?: string
-  createdAt?: string
-  updatedAt?: string
+  id: string;
+  name: string;
+  code: string;
+  description?: string;
+  college?: College;
+  hodId?: string;
+  hod?: User;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
   _count?: {
-    courses: number
-  }
+    courses: number;
+    lecturers: number;
+  };
 }
 
 export interface Course {
-  id: string
-  code: string
-  name: string
-  level: Level
-  // NEW (v2.0 API)
-  overview?: string
-  credits: number
-  departmentCode: string
-  lecturerEmail?: string | null
-  // University‑wide / admin flags (v2.0)
-  isGeneral?: boolean
-  isLocked?: boolean
-  department?: Department
-  lecturer?: User
-  schedules?: Schedule[]
-  createdAt?: string
-  updatedAt?: string
+  id: string;
+  code: string;
+  name: string;
+  overview?: string;
+  level: Level;
+  credits: number;
+  semester: Semester;
+  departmentCode: string;
+  department?: Department;
+  lecturerId?: string;
+  lecturer?: Lecturer | User; // Handles both strict Lecturer model or User model depending on endpoint
+  lecturerEmail?: string;
+  isGeneral: boolean;
+  isLocked: boolean;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  schedules?: Schedule[];
 }
 
 // Academic sessions (v2.0)
@@ -150,59 +168,66 @@ export interface Venue {
 }
 
 export interface Schedule {
-  id: string
-  courseCode: string
-  course?: Course
-  dayOfWeek: DayOfWeek
-  startTime: string
-  endTime: string
-  venue: string
-  type: ClassType
-  createdAt?: string
-  updatedAt?: string
+  id: string;
+  courseCode: string;
+  course?: Course;
+  semester: Semester;
+  sessionId: string;
+  dayOfWeek: DayOfWeek;
+  startTime: string;
+  endTime: string;
+  venue: string;
+  type: ClassType;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // Exams (v2.0)
 export interface Exam {
-  id: string
-  courseCode: string
-  course?: Course
-  venueId: string
-  venue?: Venue
-  date: string
-  startTime: string
-  endTime: string
-  studentCount: number
-  invigilators: string
-  targetCollege?: College
-  createdAt?: string
-  updatedAt?: string
+  id: string;
+  courseCode: string;
+  course?: Course;
+  date: string;
+  startTime: string;
+  endTime: string;
+  venueId: string;
+  venue?: Venue;
+  studentCount: number;
+  targetCollege?: College;
+  invigilators?: string;
+  semester: Semester;
+  sessionId: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Complaint {
-  id: string
-  name: string
-  email: string
-  department: string
-  subject: string
-  message: string
-  status: ComplaintStatus
-  userId?: string
-  user?: User
-  createdAt?: string
-  updatedAt?: string
+  id: string;
+  userId?: string;
+  name: string;
+  email: string;
+  department: string;
+  subject: string;
+  message: string;
+  status: ComplaintStatus;
+  resolvedBy?: string;
+  resolvedAt?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface VerificationCode {
-  id: string
-  code: string
-  role: Role
-  expiresAt?: string | null
-  maxUses?: number | null
-  currentUses: number
-  isActive: boolean
-  createdAt?: string
-  updatedAt?: string
+  id: string;
+  code: string;
+  role: Role;
+  description?: string;
+  isActive: boolean;
+  currentUses: number; // Mapped from usageCount in backend
+  maxUses?: number; // Mapped from maxUsage in backend
+  expiresAt?: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // Form Data Types
