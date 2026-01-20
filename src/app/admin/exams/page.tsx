@@ -400,11 +400,11 @@ export default function ExamsPage() {
                     <div className="space-y-2">
                       <Label>Target College (optional, for GST)</Label>
                       <Select
-                        value={formData.targetCollege || ''}
+                        value={formData.targetCollege || "none"}
                         onValueChange={value =>
                           setFormData(prev => ({
                             ...prev,
-                            targetCollege: value as College,
+                            targetCollege: value === "none" ? undefined : (value as College),
                           }))
                         }
                       >
@@ -412,7 +412,7 @@ export default function ExamsPage() {
                           <SelectValue placeholder="Select college (optional)" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">None</SelectItem>
+                          <SelectItem value="none">None</SelectItem>
                           {collegeOptions.map(college => (
                             <SelectItem key={college.value} value={college.value}>
                               {college.label}
@@ -560,5 +560,3 @@ export default function ExamsPage() {
     </div>
   )
 }
-
-

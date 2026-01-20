@@ -25,7 +25,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { BookOpen, ArrowLeft, User as UserIcon } from "lucide-react";
 import { apiClient } from "@/lib/api";
-import { Department, Level, User } from "@/types";
+import { Department, Level, Lecturer } from "@/types";
 
 export default function CreateCoursePage() {
   const router = useRouter();
@@ -33,14 +33,14 @@ export default function CreateCoursePage() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [lecturers, setLecturers] = useState<User[]>([]);
+  const [lecturers, setLecturers] = useState<Lecturer[]>([]);
   const [formData, setFormData] = useState({
     code: "",
     name: "",
     level: "",
     credits: "",
     departmentCode: "",
-    lecturerEmail: "none",
+    lecturerEmail: "",
     overview: "",
     isGeneral: false,
     isLocked: false,
@@ -70,13 +70,16 @@ export default function CreateCoursePage() {
           setDepartments(deptResponse.data.data.items);
         }
 
-        // Fetch lecturers
-        const lecturerResponse = await apiClient.getUsers({
-          limit: 100,
-          role: "LECTURER",
-        });
+        // Fetch lecturers (Using getLecturers to get department info)
+        const lecturerResponse = await apiClient.getLecturers({ limit: 100 });
         if (lecturerResponse.success && lecturerResponse.data) {
-          setLecturers(lecturerResponse.data.data.items);
+          // Check if data is paginated or array and set accordingly
+          const items =
+            (lecturerResponse.data as any).data?.items ??
+            (Array.isArray(lecturerResponse.data)
+              ? lecturerResponse.data
+              : []);
+          setLecturers(items);
         }
       } catch (error) {
         console.error("Failed to fetch data:", error);
@@ -90,7 +93,9 @@ export default function CreateCoursePage() {
     return null;
   }
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
@@ -141,7 +146,10 @@ export default function CreateCoursePage() {
         level: formData.level as Level,
         credits: credits,
         departmentCode: formData.departmentCode,
-        lecturerEmail: formData.lecturerEmail && formData.lecturerEmail !== 'none' ? formData.lecturerEmail : undefined,
+        lecturerEmail:
+          formData.lecturerEmail && formData.lecturerEmail !== "none"
+            ? formData.lecturerEmail
+            : undefined,
         overview: formData.overview.trim() || undefined,
         isGeneral: formData.isGeneral,
         isLocked: formData.isLocked,
@@ -324,7 +332,7 @@ export default function CreateCoursePage() {
                       <SelectItem value="none">No lecturer assigned</SelectItem>
                       {lecturers.map((lecturer) => (
                         <SelectItem key={lecturer.id} value={lecturer.email}>
-                          {lecturer.name} ({lecturer.email})
+                          {lecturer.name} — {lecturer.department?.name || lecturer.departmentCode}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -353,7 +361,12 @@ export default function CreateCoursePage() {
                       id="isGeneral"
                       name="isGeneral"
                       checked={formData.isGeneral}
-                      onChange={(e) => setFormData(prev => ({ ...prev, isGeneral: e.target.checked }))}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          isGeneral: e.target.checked,
+                        }))
+                      }
                       className="rounded border-gray-300"
                     />
                     <Label htmlFor="isGeneral" className="cursor-pointer">
@@ -370,7 +383,12 @@ export default function CreateCoursePage() {
                         id="isLocked"
                         name="isLocked"
                         checked={formData.isLocked}
-                        onChange={(e) => setFormData(prev => ({ ...prev, isLocked: e.target.checked }))}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            isLocked: e.target.checked,
+                          }))
+                        }
                         className="rounded border-gray-300"
                       />
                       <Label htmlFor="isLocked" className="cursor-pointer">
