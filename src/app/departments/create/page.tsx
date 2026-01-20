@@ -8,16 +8,25 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/hooks/use-toast'
 import { Building2, ArrowLeft } from 'lucide-react'
 import { apiClient } from '@/lib/api'
+import { Lecturer } from '@/types'
 
 export default function CreateDepartmentPage() {
   const router = useRouter()
   const { isAuthenticated, isAdmin, isLecturer } = useAuth()
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
+  const [lecturers, setLecturers] = useState<Lecturer[]>([])
   const [formData, setFormData] = useState({
     name: '',
     code: '',
@@ -32,6 +41,24 @@ export default function CreateDepartmentPage() {
       router.push('/auth/login')
       return
     }
+
+    const fetchLecturers = async () => {
+      try {
+        const lecturerResponse = await apiClient.getLecturers({ limit: 100 });
+        if (lecturerResponse.success && lecturerResponse.data) {
+          const items =
+            (lecturerResponse.data as any).data?.items ??
+            (Array.isArray(lecturerResponse.data)
+              ? lecturerResponse.data
+              : []);
+          setLecturers(items);
+        }
+      } catch (error) {
+        console.error("Failed to fetch lecturers:", error);
+      }
+    };
+
+    fetchLecturers();
   }, [isAuthenticated, isStaff, router])
 
   // Redirect if not authenticated or not staff
@@ -41,6 +68,13 @@ export default function CreateDepartmentPage() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }))
+  }
+
+  const handleSelectChange = (name: string, value: string) => {
     setFormData(prev => ({
       ...prev,
       [name]: value
@@ -65,7 +99,7 @@ export default function CreateDepartmentPage() {
         name: formData.name.trim(),
         code: formData.code.trim().toUpperCase(),
         description: formData.description.trim() || undefined,
-        hodEmail: formData.hodEmail.trim() || undefined,
+        hodEmail: formData.hodEmail && formData.hodEmail !== "none" ? formData.hodEmail : undefined,
       })
 
       if (response.success) {
@@ -173,15 +207,25 @@ export default function CreateDepartmentPage() {
                 </div>
 
                 <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="hodEmail">Head of Department Email (Optional)</Label>
-                  <Input
-                    id="hodEmail"
-                    name="hodEmail"
-                    type="email"
-                    placeholder="e.g., prof.alan@uni.edu"
+                  <Label htmlFor="hodEmail">Head of Department (Optional)</Label>
+                  <Select
                     value={formData.hodEmail}
-                    onChange={handleInputChange}
-                  />
+                    onValueChange={(value) =>
+                      handleSelectChange("hodEmail", value)
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Head of Department" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No HOD assigned</SelectItem>
+                      {lecturers.map((lecturer) => (
+                        <SelectItem key={lecturer.id} value={lecturer.email}>
+                          {lecturer.name} — {lecturer.department?.name || lecturer.departmentCode}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <p className="text-xs text-muted-foreground">
                     Automatically links Head of Department to this department
                   </p>
