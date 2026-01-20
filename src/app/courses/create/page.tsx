@@ -40,7 +40,7 @@ export default function CreateCoursePage() {
     level: "",
     credits: "",
     departmentCode: "",
-    lecturerEmail: "",
+    lecturerEmail: "none",
     overview: "",
     isGeneral: false,
     isLocked: false,
@@ -141,7 +141,7 @@ export default function CreateCoursePage() {
         level: formData.level as Level,
         credits: credits,
         departmentCode: formData.departmentCode,
-        lecturerEmail: formData.lecturerEmail || undefined,
+        lecturerEmail: formData.lecturerEmail && formData.lecturerEmail !== 'none' ? formData.lecturerEmail : undefined,
         overview: formData.overview.trim() || undefined,
         isGeneral: formData.isGeneral,
         isLocked: formData.isLocked,
@@ -321,7 +321,7 @@ export default function CreateCoursePage() {
                       <SelectValue placeholder="Select a lecturer (optional)" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">No lecturer assigned</SelectItem>
+                      <SelectItem value="none">No lecturer assigned</SelectItem>
                       {lecturers.map((lecturer) => (
                         <SelectItem key={lecturer.id} value={lecturer.email}>
                           {lecturer.name} ({lecturer.email})

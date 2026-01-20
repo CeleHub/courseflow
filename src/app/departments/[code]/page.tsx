@@ -34,7 +34,22 @@ export default function DepartmentDetailsPage() {
         const response = await apiClient.getDepartmentFullDetails(code)
 
         if (response.success && response.data) {
-          setDetails(response.data as DepartmentFullDetails)
+          // Handle different possible response structures
+          const data = response.data as any
+          
+          // Check if response is nested in a 'data' property
+          const departmentData = data.data || data.department || data
+          const coursesData = data.courses || data.data?.courses || []
+          
+          // Ensure we have a valid department object
+          if (!departmentData || !departmentData.name) {
+            throw new Error('Invalid department data structure')
+          }
+          
+          setDetails({
+            department: departmentData,
+            courses: Array.isArray(coursesData) ? coursesData : []
+          })
         } else {
           toast({
             title: "Error",
@@ -47,7 +62,7 @@ export default function DepartmentDetailsPage() {
         console.error('Failed to fetch department details:', error)
         toast({
           title: "Error",
-          description: "Failed to fetch department details",
+          description: error instanceof Error ? error.message : "Failed to fetch department details",
           variant: "destructive",
         })
         router.push('/departments')
@@ -92,11 +107,50 @@ export default function DepartmentDetailsPage() {
     )
   }
 
-  if (!details) {
-    return null
+  if (!details || !details.department) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
+        <Navigation />
+        <div className="container mx-auto px-4 py-8">
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">Department not found</p>
+            <Button
+              variant="outline"
+              onClick={() => router.push('/departments')}
+              className="mt-4"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Departments
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   const { department, courses } = details
+  
+  // Ensure department has required properties
+  if (!department.name) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
+        <Navigation />
+        <div className="container mx-auto px-4 py-8">
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">Invalid department data</p>
+            <Button
+              variant="outline"
+              onClick={() => router.push('/departments')}
+              className="mt-4"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Departments
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50 dark:from-slate-950 dark:via-blue-950/20 dark:to-slate-950">
@@ -142,7 +196,7 @@ export default function DepartmentDetailsPage() {
                   </div>
                 )}
 
-                {department.hod && (
+                {department.hod && department.hod.name && (
                   <div className="pt-4 border-t">
                     <p className="text-sm font-medium text-muted-foreground mb-3">Head of Department</p>
                     <div className="flex items-start gap-3">
@@ -151,13 +205,17 @@ export default function DepartmentDetailsPage() {
                       </div>
                       <div className="flex-1">
                         <p className="font-semibold">{department.hod.name}</p>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-                          <Mail className="h-3 w-3" />
-                          <span>{department.hod.email}</span>
-                        </div>
-                        <Badge variant="secondary" className="mt-2 text-xs">
-                          {department.hod.role}
-                        </Badge>
+                        {department.hod.email && (
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+                            <Mail className="h-3 w-3" />
+                            <span>{department.hod.email}</span>
+                          </div>
+                        )}
+                        {department.hod.role && (
+                          <Badge variant="secondary" className="mt-2 text-xs">
+                            {department.hod.role}
+                          </Badge>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -230,7 +288,7 @@ export default function DepartmentDetailsPage() {
                             </span>
                           </div>
 
-                          {course.lecturer && (
+                          {course.lecturer && course.lecturer.name && (
                             <div className="flex items-center gap-2 text-sm">
                               <div className="p-1.5 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
                                 <User className="h-4 w-4 text-blue-600 dark:text-blue-400" />
@@ -239,9 +297,11 @@ export default function DepartmentDetailsPage() {
                                 <p className="text-xs font-medium text-foreground truncate">
                                   {course.lecturer.name}
                                 </p>
-                                <p className="text-xs text-muted-foreground truncate">
-                                  {course.lecturer.email}
-                                </p>
+                                {course.lecturer.email && (
+                                  <p className="text-xs text-muted-foreground truncate">
+                                    {course.lecturer.email}
+                                  </p>
+                                )}
                               </div>
                             </div>
                           )}
