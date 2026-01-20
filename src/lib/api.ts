@@ -434,9 +434,9 @@ class ApiClient {
     name: string;
     level: string;
     credits: number;
+    semester: string;
     departmentCode: string;
     lecturerEmail?: string;
-    // v2.0 extras
     overview?: string;
     isGeneral?: boolean;
     isLocked?: boolean;
