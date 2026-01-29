@@ -25,11 +25,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { BookOpen, ArrowLeft, User as UserIcon } from "lucide-react";
 import { apiClient } from "@/lib/api";
+import { getItemsFromResponse } from "@/lib/utils";
 import { Department, Level, Lecturer, Semester } from "@/types";
 
 export default function CreateCoursePage() {
   const router = useRouter();
-  const { isAuthenticated, isAdmin, isLecturer } = useAuth();
+  const { isAuthenticated, isAdmin, isLecturer, isHod } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -47,7 +48,7 @@ export default function CreateCoursePage() {
     isLocked: false,
   });
 
-  const isStaff = isAdmin || isLecturer;
+  const isStaff = isAdmin || isLecturer || isHod;
 
   const levelOptions = [
     { value: Level.LEVEL_100, label: "100 Level" },
@@ -65,21 +66,14 @@ export default function CreateCoursePage() {
 
     const fetchData = async () => {
       try {
-        // Fetch departments
-        const deptResponse = await apiClient.getDepartments({ limit: 100 });
-        if (deptResponse.success && deptResponse.data) {
-          setDepartments(deptResponse.data.data.items);
-        }
-
-        // Fetch lecturers (Using getLecturers to get department info)
-        const lecturerResponse = await apiClient.getLecturers({ limit: 100 });
-        if (lecturerResponse.success && lecturerResponse.data) {
-          // Check if data is paginated or array and set accordingly
-          const items =
-            (lecturerResponse.data as any).data?.items ??
-            (Array.isArray(lecturerResponse.data) ? lecturerResponse.data : []);
-          setLecturers(items);
-        }
+        const [deptResponse, lecturerResponse] = await Promise.all([
+          apiClient.getDepartments({ limit: 100 }),
+          apiClient.getLecturers({ limit: 100 }),
+        ]);
+        const deptResult = getItemsFromResponse(deptResponse);
+        const lecturerResult = getItemsFromResponse(lecturerResponse);
+        if (deptResult) setDepartments(deptResult.items);
+        if (lecturerResult) setLecturers(lecturerResult.items);
       } catch (error) {
         console.error("Failed to fetch data:", error);
       }
@@ -149,7 +143,7 @@ export default function CreateCoursePage() {
         lecturerEmail:
           formData.lecturerEmail && formData.lecturerEmail !== "none"
             ? formData.lecturerEmail
-            : undefined,
+            : "",
         overview: formData.overview.trim() || undefined,
         isGeneral: formData.isGeneral,
         isLocked: formData.isLocked,

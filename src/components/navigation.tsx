@@ -49,7 +49,8 @@ import {
 } from 'lucide-react'
 
 export function Navigation() {
-  const { user, logout, isAuthenticated, isAdmin, isLecturer } = useAuth()
+  const { user, logout, isAuthenticated, isAdmin, isLecturer, isHod } = useAuth()
+  const isStaff = isAdmin || isLecturer || isHod
   const router = useRouter()
   const pathname = usePathname()
   const [isOpen, setIsOpen] = useState(false)
@@ -59,8 +60,10 @@ export function Navigation() {
     const fetchActiveSession = async () => {
       try {
         const response = await apiClient.getActiveAcademicSession()
-        if (response.success && response.data) {
+        if (response.success && response.data != null) {
           setActiveSession(response.data as AcademicSession)
+        } else {
+          setActiveSession(null)
         }
       } catch (error) {
         console.error('Failed to fetch active session:', error)
@@ -127,12 +130,6 @@ export function Navigation() {
       show: isAdmin,
     },
     {
-      title: 'Venues',
-      href: '/admin/venues',
-      icon: Building2,
-      show: isAdmin,
-    },
-    {
       title: 'Verification Codes',
       href: '/admin/verification-codes',
       icon: ClipboardList,
@@ -173,11 +170,11 @@ export function Navigation() {
             </Link>
           ))}
 
-          {(isAdmin || isLecturer) && (
+          {isStaff && (
             <>
               <div className="border-t pt-3">
                 <p className="px-3 text-sm font-medium text-muted-foreground mb-2">
-                  {isAdmin ? 'Admin' : 'Lecturer'}
+                  {isAdmin ? 'Admin' : isHod ? 'HOD' : 'Lecturer'}
                 </p>
                 {adminItems.filter(item => item.show).map((item) => (
                   <Link
@@ -262,12 +259,12 @@ export function Navigation() {
               </Link>
             ))}
 
-            {(isAdmin || isLecturer) && (
+            {isStaff && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm">
                     <Settings className="h-4 w-4 mr-1" />
-                    {isAdmin ? 'Admin' : 'Lecturer'}
+                    {isAdmin ? 'Admin' : isHod ? 'HOD' : 'Lecturer'}
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">

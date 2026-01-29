@@ -4,7 +4,30 @@ import { useCallback, useEffect, useState } from 'react'
 import { Navigation } from '@/components/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { apiClient } from '@/lib/api'
-import { Course, Exam, Venue, CreateExamData, College, Semester } from '@/types'
+import { getItemsFromResponse } from '@/lib/utils'
+import { Course, ExamSchedule, CreateExamData, College, Semester, VenueType } from '@/types'
+
+const EXAM_VENUE_OPTIONS: { value: VenueType; label: string }[] = [
+  { value: VenueType.UNIVERSITY_ICT_CENTER, label: 'University ICT Center' },
+  { value: VenueType.ICT_LAB_1, label: 'ICT Lab 1' },
+  { value: VenueType.ICT_LAB_2, label: 'ICT Lab 2' },
+  { value: VenueType.LECTURE_HALL_1, label: 'Lecture Hall 1' },
+  { value: VenueType.LECTURE_HALL_2, label: 'Lecture Hall 2' },
+  { value: VenueType.LECTURE_HALL_3, label: 'Lecture Hall 3' },
+  { value: VenueType.AUDITORIUM_A, label: 'Auditorium A' },
+  { value: VenueType.AUDITORIUM_B, label: 'Auditorium B' },
+  { value: VenueType.SEMINAR_ROOM_A, label: 'Seminar Room A' },
+  { value: VenueType.SEMINAR_ROOM_B, label: 'Seminar Room B' },
+  { value: VenueType.ROOM_101, label: 'Room 101' },
+  { value: VenueType.ROOM_102, label: 'Room 102' },
+  { value: VenueType.ROOM_201, label: 'Room 201' },
+  { value: VenueType.ROOM_202, label: 'Room 202' },
+  { value: VenueType.ROOM_301, label: 'Room 301' },
+  { value: VenueType.ROOM_302, label: 'Room 302' },
+  { value: VenueType.COMPUTER_LAB, label: 'Computer Lab' },
+  { value: VenueType.SCIENCE_LAB_1, label: 'Science Lab 1' },
+  { value: VenueType.SCIENCE_LAB_2, label: 'Science Lab 2' },
+]
 import {
   Card,
   CardContent,
@@ -42,9 +65,8 @@ export default function ExamsPage() {
   const { isAuthenticated, isAdmin } = useAuth()
   const { toast } = useToast()
 
-  const [exams, setExams] = useState<Exam[]>([])
+  const [exams, setExams] = useState<ExamSchedule[]>([])
   const [courses, setCourses] = useState<Course[]>([])
-  const [venues, setVenues] = useState<Venue[]>([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -57,7 +79,7 @@ export default function ExamsPage() {
   ]
   const [formData, setFormData] = useState<CreateExamData>({
     courseCode: '',
-    venueId: '',
+    venue: VenueType.LECTURE_HALL_1,
     date: '',
     startTime: '',
     endTime: '',
@@ -69,37 +91,20 @@ export default function ExamsPage() {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true)
-      const examParams: any = { page: 1, limit: 50 }
+      const examParams: Record<string, unknown> = { page: 1, limit: 50 }
       if (selectedSemester && selectedSemester !== 'all') {
         examParams.semester = selectedSemester
       }
 
-      const [examsRes, coursesRes, venuesRes] = await Promise.all([
+      const [examsRes, coursesRes] = await Promise.all([
         apiClient.getExams(examParams),
         apiClient.getCourses({ limit: 200 }),
-        apiClient.getVenues({ page: 1, limit: 100 }),
       ])
 
-      if (examsRes.success && examsRes.data && 'data' in examsRes.data) {
-        const items =
-          (examsRes.data as any).data?.items ??
-          (Array.isArray((examsRes.data as any).data) ? (examsRes.data as any).data : [])
-        setExams(items as Exam[])
-      }
-
-      if (coursesRes.success && coursesRes.data && 'data' in coursesRes.data) {
-        const items =
-          (coursesRes.data as any).data?.items ??
-          (Array.isArray((coursesRes.data as any).data) ? (coursesRes.data as any).data : [])
-        setCourses(items as Course[])
-      }
-
-      if (venuesRes.success && venuesRes.data && 'data' in venuesRes.data) {
-        const items =
-          (venuesRes.data as any).data?.items ??
-          (Array.isArray((venuesRes.data as any).data) ? (venuesRes.data as any).data : [])
-        setVenues(items as Venue[])
-      }
+      const examsResult = getItemsFromResponse(examsRes)
+      const coursesResult = getItemsFromResponse(coursesRes)
+      if (examsResult) setExams(examsResult.items as ExamSchedule[])
+      if (coursesResult) setCourses(coursesResult.items)
     } catch (error) {
       console.error('Failed to fetch exams data:', error)
       toast({
@@ -150,11 +155,11 @@ export default function ExamsPage() {
 
     if (
       !formData.courseCode ||
-      !formData.venueId ||
+      !formData.venue ||
       !formData.date ||
       !formData.startTime ||
       !formData.endTime ||
-      !formData.invigilators.trim() ||
+      !formData.invigilators?.trim() ||
       !formData.studentCount
     ) {
       toast({
@@ -181,7 +186,7 @@ export default function ExamsPage() {
         setIsCreateDialogOpen(false)
         setFormData({
           courseCode: '',
-          venueId: '',
+          venue: VenueType.LECTURE_HALL_1,
           date: '',
           startTime: '',
           endTime: '',
@@ -331,19 +336,18 @@ export default function ExamsPage() {
                   <div className="space-y-2">
                     <Label>Venue</Label>
                     <Select
-                      value={formData.venueId}
+                      value={formData.venue}
                       onValueChange={value =>
-                        setFormData(prev => ({ ...prev, venueId: value }))
+                        setFormData(prev => ({ ...prev, venue: value as VenueType }))
                       }
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select venue" />
                       </SelectTrigger>
                       <SelectContent>
-                        {venues.map(venue => (
-                          <SelectItem key={venue.id} value={venue.id}>
-                            {venue.name} (Cap: {venue.capacity}
-                            {venue.isIct ? ', ICT' : ''})
+                        {EXAM_VENUE_OPTIONS.map(opt => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -487,7 +491,6 @@ export default function ExamsPage() {
               <div className="space-y-4">
                 {exams.map(exam => {
                   const course = exam.course || courses.find(c => c.code === exam.courseCode)
-                  const venue = exam.venue || venues.find(v => v.id === exam.venueId)
                   return (
                     <div
                       key={exam.id}
@@ -515,11 +518,7 @@ export default function ExamsPage() {
                         </p>
                         <p className="text-xs text-muted-foreground flex items-center gap-1">
                           <MapPin className="h-3 w-3" />
-                          {venue
-                            ? `${venue.name} • Cap ${venue.capacity}${
-                                venue.isIct ? ' • ICT' : ''
-                              }`
-                            : '—'}
+                          {exam.venue}
                           <span className="mx-1">•</span>
                           {exam.studentCount} students
                           {exam.targetCollege && (

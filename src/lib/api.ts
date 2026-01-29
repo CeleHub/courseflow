@@ -1,12 +1,47 @@
 import {
   ApiResponse,
   PaginatedResponse,
+  PaginationParams,
+  LoginData,
+  RegisterData,
+  ForgotPasswordData,
+  ResetPasswordData,
+  CreateDepartmentData,
+  UpdateDepartmentData,
+  DepartmentFilterParams,
+  CreateLecturerData,
+  UpdateLecturerData,
+  CreateCourseData,
+  UpdateCourseData,
+  CourseFilterParams,
+  CreateScheduleData,
+  UpdateScheduleData,
+  ScheduleFilterParams,
   CreateAcademicSessionData,
   UpdateAcademicSessionData,
-  CreateVenueData,
-  UpdateVenueData,
   CreateExamData,
   UpdateExamData,
+  CreateComplaintData,
+  UpdateComplaintData,
+  ComplaintFilterParams,
+  CreateVerificationCodeData,
+  UpdateVerificationCodeData,
+  BulkUploadResult,
+  AuthResponse,
+  User,
+  Department,
+  Lecturer,
+  Course,
+  Schedule,
+  AcademicSession,
+  ExamSchedule,
+  Complaint,
+  VerificationCode,
+  DepartmentStatistics,
+  CourseStatistics,
+  ScheduleStatistics,
+  SessionStatistics,
+  LecturerDashboardStats,
 } from "@/types";
 
 const API_BASE_URL = "https://courseflow-backend-s16i.onrender.com/api/v1";
@@ -37,75 +72,20 @@ class ApiClient {
     return this.token;
   }
 
-  private normalizeResponse(data: any, endpoint: string): ApiResponse<any> {
-    // For direct auth responses (login, register)
-    if (data.user && data.access_token) {
-      return {
-        success: true,
-        data: data,
-        timestamp: new Date().toISOString(),
-      };
-    }
-
-    // For verification codes endpoint (returns array directly)
-    if (endpoint.includes("/verification-codes") && Array.isArray(data)) {
-      return {
-        success: true,
-        data: data,
-        timestamp: new Date().toISOString(),
-      };
-    }
-
-    // For paginated responses from backend
-    if (data.data && Array.isArray(data.data) && data.total !== undefined) {
-      return {
-        success: true,
-        data: {
-          data: {
-            items: data.data,
-            pagination: {
-              page: data.page || 1,
-              limit: data.limit || 10,
-              total: data.total,
-              totalPages:
-                data.totalPages || Math.ceil(data.total / (data.limit || 10)),
-              hasNext: data.page < data.totalPages,
-              hasPrev: data.page > 1,
-            },
-          },
-        },
-        timestamp: new Date().toISOString(),
-      };
-    }
-
-    // For non-paginated array responses
-    if (Array.isArray(data)) {
-      return {
-        success: true,
-        data: data,
-        timestamp: new Date().toISOString(),
-      };
-    }
-
-    // For single item responses or already normalized responses
-    if (data.success !== undefined) {
-      return data;
-    }
-
-    // Default: wrap the data
-    return {
-      success: true,
-      data: data,
-      timestamp: new Date().toISOString(),
-    };
+  private buildQueryString(params?: Record<string, any>): string {
+    if (!params) return "";
+    const filtered = Object.entries(params).filter(
+      ([_, v]) => v !== undefined && v !== null && v !== ""
+    );
+    if (filtered.length === 0) return "";
+    return "?" + new URLSearchParams(filtered as any).toString();
   }
 
-  async request<T>(
+  private async request<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
     const url = `${this.baseURL}${endpoint}`;
-
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       ...(options.headers as Record<string, string>),
@@ -116,10 +96,7 @@ class ApiClient {
     }
 
     try {
-      const response = await fetch(url, {
-        ...options,
-        headers,
-      });
+      const response = await fetch(url, { ...options, headers });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -135,7 +112,18 @@ class ApiClient {
       }
 
       const data = await response.json();
-      return this.normalizeResponse(data, endpoint);
+      
+      // Backend wraps responses in { success, data, message }
+      if (data.success !== undefined) {
+        return data;
+      }
+
+      // Handle direct responses (auth, arrays, etc)
+      return {
+        success: true,
+        data,
+        timestamp: new Date().toISOString(),
+      };
     } catch (error) {
       console.error("API Request Error:", error);
       return {
@@ -148,16 +136,60 @@ class ApiClient {
     }
   }
 
-  async downloadFile(endpoint: string): Promise<ApiResponse<string>> {
-    const url = `${this.baseURL}${endpoint}`;
-    const headers: Record<string, string> = {};
+  private async uploadFile<T>(
+    endpoint: string,
+    file: File
+  ): Promise<ApiResponse<T>> {
+    const formData = new FormData();
+    formData.append("file", file);
 
+    const headers: Record<string, string> = {};
     if (this.token) {
       headers.Authorization = `Bearer ${this.token}`;
     }
 
     try {
-      const response = await fetch(url, {
+      const response = await fetch(`${this.baseURL}${endpoint}`, {
+        method: "POST",
+        body: formData,
+        headers,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        return {
+          success: false,
+          error: errorData.message || errorData.error || "Upload failed",
+          statusCode: response.status,
+          timestamp: new Date().toISOString(),
+        };
+      }
+
+      const data = await response.json();
+      return {
+        success: true,
+        data,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error:
+          error instanceof Error ? error.message : "Network error occurred",
+        statusCode: 0,
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  private async downloadFile(endpoint: string): Promise<ApiResponse<string>> {
+    const headers: Record<string, string> = {};
+    if (this.token) {
+      headers.Authorization = `Bearer ${this.token}`;
+    }
+
+    try {
+      const response = await fetch(`${this.baseURL}${endpoint}`, {
         method: "GET",
         headers,
       });
@@ -191,484 +223,424 @@ class ApiClient {
     }
   }
 
-  // Auth endpoints
-  async login(email: string, password: string) {
-    return this.request("/auth/login", {
+  // ============ AUTH ============
+  async login(data: LoginData) {
+    return this.request<AuthResponse>("/auth/login", {
       method: "POST",
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify(data),
     });
   }
 
-  async register(data: {
-    matricNO: string;
-    email: string;
-    password: string;
-    name?: string;
-    role?: string;
-    verificationCode?: string;
-  }) {
-    return this.request("/auth/register", {
+  async register(data: RegisterData) {
+    return this.request<AuthResponse>("/auth/register", {
       method: "POST",
       body: JSON.stringify(data),
     });
   }
 
   async getCurrentUser() {
-    return this.request("/auth/me");
+    return this.request<{ data: User }>("/auth/me");
   }
 
-  // Verification code endpoints
-  async getVerificationCodes() {
-    return this.request<any[]>("/auth/verification-codes");
+  async forgotPassword(data: ForgotPasswordData) {
+    return this.request<{ message: string; resetToken?: string }>(
+      "/auth/forgot-password",
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      }
+    );
   }
 
-  async createVerificationCode(data: {
-    code: string;
-    role: string;
-    expiresAt?: string;
-    maxUses?: number;
-  }) {
-    return this.request("/auth/verification-codes", {
+  async resetPassword(data: ResetPasswordData) {
+    return this.request<{ message: string }>("/auth/reset-password", {
       method: "POST",
       body: JSON.stringify(data),
     });
   }
 
-  async updateVerificationCode(
-    id: string,
-    data: Partial<{
-      code: string;
-      role: string;
-      expiresAt: string;
-      maxUses: number;
-      isActive: boolean;
-    }>
-  ) {
-    return this.request(`/auth/verification-codes/${id}`, {
+  // ============ VERIFICATION CODES ============
+  async getVerificationCodes() {
+    return this.request<VerificationCode[]>("/auth/verification-codes");
+  }
+
+  async getVerificationCode(id: string) {
+    return this.request<VerificationCode>(`/auth/verification-codes/${id}`);
+  }
+
+  async createVerificationCode(data: CreateVerificationCodeData) {
+    return this.request<VerificationCode>("/auth/verification-codes", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateVerificationCode(id: string, data: UpdateVerificationCodeData) {
+    return this.request<VerificationCode>(`/auth/verification-codes/${id}`, {
       method: "PATCH",
       body: JSON.stringify(data),
     });
   }
 
   async deleteVerificationCode(id: string) {
-    return this.request(`/auth/verification-codes/${id}`, {
+    return this.request<VerificationCode>(`/auth/verification-codes/${id}`, {
       method: "DELETE",
     });
   }
 
-  // User management endpoints - FIXED
-  async getUsers(params?: {
-    page?: number;
-    limit?: number;
-    role?: string;
-    search?: string;
-    orderBy?: string;
-    orderDirection?: string;
-  }) {
-    const queryString = params
-      ? new URLSearchParams(params as any).toString()
-      : "";
-    return this.request<PaginatedResponse<any>>(
-      `/users${queryString ? `?${queryString}` : ""}`
+  // ============ USERS ============
+  async getUsers(params?: PaginationParams) {
+    return this.request<PaginatedResponse<User> | User[]>(
+      `/users${this.buildQueryString(params)}`
     );
   }
 
-  // Academic Sessions (v2.0)
-  async getAcademicSessions(params?: { page?: number; limit?: number }) {
-    const queryString = params
-      ? new URLSearchParams(params as any).toString()
-      : "";
-    return this.request<PaginatedResponse<any>>(
-      `/academic-sessions${queryString ? `?${queryString}` : ""}`
-    );
+  async getUser(matricNO: string) {
+    return this.request<User>(`/users/${matricNO}`);
   }
 
-  async createAcademicSession(data: CreateAcademicSessionData) {
-    return this.request("/academic-sessions", {
-      method: "POST",
-      body: JSON.stringify(data),
-    });
-  }
-
-  async getActiveAcademicSession() {
-    return this.request("/academic-sessions/active");
-  }
-
-  async activateAcademicSession(id: string) {
-    return this.request(`/academic-sessions/${id}/activate`, {
-      method: "PATCH",
-    });
-  }
-
-  async updateAcademicSession(id: string, data: UpdateAcademicSessionData) {
-    return this.request(`/academic-sessions/${id}`, {
+  async updateUser(matricNO: string, data: Partial<User>) {
+    return this.request<User>(`/users/${matricNO}`, {
       method: "PATCH",
       body: JSON.stringify(data),
     });
   }
 
-  async deleteAcademicSession(id: string) {
-    return this.request(`/academic-sessions/${id}`, {
+  async deleteUser(matricNO: string) {
+    return this.request<User>(`/users/${matricNO}`, {
       method: "DELETE",
     });
   }
 
-  // Department endpoints - FIXED with proper filters
-  async getDepartments(params?: {
-    page?: number;
-    limit?: number;
-    search?: string;
-    orderBy?: string;
-    orderDirection?: string;
-  }) {
-    const queryString = params
-      ? new URLSearchParams(params as any).toString()
-      : "";
-    return this.request<PaginatedResponse<any>>(
-      `/departments${queryString ? `?${queryString}` : ""}`
+  // ============ DEPARTMENTS ============
+  async getDepartments(params?: DepartmentFilterParams) {
+    return this.request<PaginatedResponse<Department> | Department[]>(
+      `/departments${this.buildQueryString(params)}`
     );
   }
 
-  async createDepartment(
-    data: { name: string; code: string } & {
-      // v2.0 optional fields
-      description?: string;
-      hodEmail?: string;
-    }
-  ) {
-    return this.request("/departments", {
-      method: "POST",
-      body: JSON.stringify(data),
-    });
+  async getDepartment(code: string) {
+    return this.request<Department>(`/departments/${code}`);
   }
 
   async getDepartmentFullDetails(code: string) {
-    return this.request(`/departments/${code}/full-details`);
+    return this.request<Department>(`/departments/${code}/full-details`);
+  }
+
+  async getDepartmentStatistics() {
+    return this.request<DepartmentStatistics>("/departments/statistics");
+  }
+
+  async createDepartment(data: CreateDepartmentData) {
+    return this.request<Department>("/departments", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateDepartment(code: string, data: UpdateDepartmentData) {
+    return this.request<Department>(`/departments/${code}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteDepartment(code: string) {
+    return this.request<Department>(`/departments/${code}`, {
+      method: "DELETE",
+    });
   }
 
   async uploadDepartmentsBulk(file: File) {
-    const formData = new FormData();
-    formData.append("file", file);
-
-    const url = `${this.baseURL}/departments/bulk/upload`;
-    const headers: Record<string, string> = {};
-
-    if (this.token) {
-      headers.Authorization = `Bearer ${this.token}`;
-    }
-
-    try {
-      const response = await fetch(url, {
-        method: "POST",
-        body: formData,
-        headers,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        return {
-          success: false,
-          error: errorData.message || errorData.error || "Upload failed",
-          statusCode: response.status,
-          timestamp: new Date().toISOString(),
-        };
-      }
-
-      const data = await response.json();
-      return this.normalizeResponse(data, "/departments/bulk/upload");
-    } catch (error) {
-      return {
-        success: false,
-        error:
-          error instanceof Error ? error.message : "Network error occurred",
-        statusCode: 0,
-        timestamp: new Date().toISOString(),
-      };
-    }
+    return this.uploadFile<BulkUploadResult<Department>>(
+      "/departments/bulk/upload",
+      file
+    );
   }
 
   async getDepartmentsBulkTemplate() {
     return this.downloadFile("/departments/bulk/template");
   }
 
-  async getLecturers(params?: {
-    page?: number;
-    limit?: number;
-    search?: string;
-    orderBy?: string;
-    orderDirection?: string;
-  })  {
-    const queryString = params
-      ? new URLSearchParams(params as any).toString()
-      : "";
-    return this.request<PaginatedResponse<any>>(
-      `/lecturers${queryString ? `?${queryString}` : ""}`
+  // ============ LECTURERS ============
+  async getLecturers(params?: PaginationParams) {
+    return this.request<PaginatedResponse<Lecturer> | Lecturer[]>(
+      `/lecturers${this.buildQueryString(params)}`
     );
   }
 
-  // Course endpoints - FIXED with lecturer support
-  async getCourses(params?: {
-    page?: number;
-    limit?: number;
-    departmentCode?: string;
-    level?: string;
-    search?: string;
-    lecturerEmail?: string;
-    // v2.0 filters
-    isGeneral?: string;
-    includeGeneral?: string;
-    semester?: string;
-    orderBy?: string;
-    orderDirection?: string;
-  }) {
-    const queryString = params
-      ? new URLSearchParams(params as any).toString()
-      : "";
-    return this.request<PaginatedResponse<any>>(
-      `/courses${queryString ? `?${queryString}` : ""}`
+  async getLecturer(id: string) {
+    return this.request<Lecturer>(`/lecturers/${id}`);
+  }
+
+  async getLecturersByDepartment(departmentCode: string) {
+    return this.request<Lecturer[]>(`/lecturers/department/${departmentCode}`);
+  }
+
+  async searchLecturers(searchTerm: string) {
+    return this.request<Lecturer[]>(`/lecturers/search/${searchTerm}`);
+  }
+
+  async getLecturerDashboard() {
+    return this.request<LecturerDashboardStats>(
+      "/lecturers/dashboard/stats"
     );
   }
 
-  async createCourse(data: {
-    code: string;
-    name: string;
-    level: string;
-    credits: number;
-    semester: string;
-    departmentCode: string;
-    lecturerEmail?: string;
-    overview?: string;
-    isGeneral?: boolean;
-    isLocked?: boolean;
-  }) {
-    return this.request("/courses", {
+  async getLecturerCourses() {
+    return this.request<{
+      lecturer: Lecturer;
+      courses: Course[];
+    }>("/lecturers/dashboard/my-courses");
+  }
+
+  async getLecturerSchedule() {
+    return this.request<{
+      lecturer: Lecturer;
+      activeSession: AcademicSession | null;
+      schedulesByDay: Record<string, Schedule[]>;
+      totalSchedules: number;
+    }>("/lecturers/dashboard/my-schedule");
+  }
+
+  async createLecturer(data: CreateLecturerData) {
+    return this.request<Lecturer>("/lecturers", {
       method: "POST",
       body: JSON.stringify(data),
     });
   }
 
+  async updateLecturer(id: string, data: UpdateLecturerData) {
+    return this.request<Lecturer>(`/lecturers/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteLecturer(id: string) {
+    return this.request<Lecturer>(`/lecturers/${id}`, {
+      method: "DELETE",
+    });
+  }
+
+  // ============ COURSES ============
+  async getCourses(params?: CourseFilterParams) {
+    return this.request<PaginatedResponse<Course> | Course[]>(
+      `/courses${this.buildQueryString(params)}`
+    );
+  }
+
+  async getCourse(code: string) {
+    return this.request<Course>(`/courses/${code}`);
+  }
+
+  async getCoursesWithoutSchedules() {
+    return this.request<Course[]>("/courses/without-schedules");
+  }
+
+  async getCourseStatistics() {
+    return this.request<CourseStatistics>("/courses/statistics");
+  }
+
+  async createCourse(data: CreateCourseData) {
+    return this.request<Course>("/courses", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateCourse(code: string, data: UpdateCourseData) {
+    return this.request<Course>(`/courses/${code}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteCourse(code: string) {
+    return this.request<Course>(`/courses/${code}`, {
+      method: "DELETE",
+    });
+  }
+
   async uploadCoursesBulk(file: File) {
-    const formData = new FormData();
-    formData.append("file", file);
-
-    const url = `${this.baseURL}/courses/bulk/upload`;
-    const headers: Record<string, string> = {};
-
-    if (this.token) {
-      headers.Authorization = `Bearer ${this.token}`;
-    }
-
-    try {
-      const response = await fetch(url, {
-        method: "POST",
-        body: formData,
-        headers,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        return {
-          success: false,
-          error: errorData.message || errorData.error || "Upload failed",
-          statusCode: response.status,
-          timestamp: new Date().toISOString(),
-        };
-      }
-
-      const data = await response.json();
-      return this.normalizeResponse(data, "/courses/bulk/upload");
-    } catch (error) {
-      return {
-        success: false,
-        error:
-          error instanceof Error ? error.message : "Network error occurred",
-        statusCode: 0,
-        timestamp: new Date().toISOString(),
-      };
-    }
+    return this.uploadFile<BulkUploadResult<Course>>(
+      "/courses/bulk/upload",
+      file
+    );
   }
 
   async getCoursesBulkTemplate() {
     return this.downloadFile("/courses/bulk/template");
   }
 
-  // Schedule endpoints - FIXED
-  async getSchedules(params?: {
-    page?: number;
-    limit?: number;
-    courseCode?: string;
-    departmentCode?: string;
-    level?: string;
-    dayOfWeek?: string;
-    semester?: string;
-    search?: string;
-    orderBy?: string;
-    orderDirection?: string;
-  }) {
-    const queryString = params
-      ? new URLSearchParams(params as any).toString()
-      : "";
-    return this.request<PaginatedResponse<any>>(
-      `/schedules${queryString ? `?${queryString}` : ""}`
+  // ============ SCHEDULES ============
+  async getSchedules(params?: ScheduleFilterParams) {
+    return this.request<PaginatedResponse<Schedule> | Schedule[]>(
+      `/schedules${this.buildQueryString(params)}`
     );
   }
 
-  async createSchedule(data: {
-    courseCode: string;
-    dayOfWeek: string;
-    startTime: string;
-    endTime: string;
-    venue: string;
-    type: string;
-  }) {
-    return this.request("/schedules", {
+  async getSchedule(id: string) {
+    return this.request<Schedule>(`/schedules/${id}`);
+  }
+
+  async getScheduleStatistics() {
+    return this.request<ScheduleStatistics>("/schedules/statistics");
+  }
+
+  async createSchedule(data: CreateScheduleData) {
+    return this.request<Schedule>("/schedules", {
       method: "POST",
       body: JSON.stringify(data),
     });
   }
 
+  async updateSchedule(id: string, data: UpdateScheduleData) {
+    return this.request<Schedule>(`/schedules/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteSchedule(id: string) {
+    return this.request<Schedule>(`/schedules/${id}`, {
+      method: "DELETE",
+    });
+  }
+
   async uploadSchedulesBulk(file: File) {
-    const formData = new FormData();
-    formData.append("file", file);
-
-    const url = `${this.baseURL}/schedules/bulk/upload`;
-    const headers: Record<string, string> = {};
-
-    if (this.token) {
-      headers.Authorization = `Bearer ${this.token}`;
-    }
-
-    try {
-      const response = await fetch(url, {
-        method: "POST",
-        body: formData,
-        headers,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        return {
-          success: false,
-          error: errorData.message || errorData.error || "Upload failed",
-          statusCode: response.status,
-          timestamp: new Date().toISOString(),
-        };
-      }
-
-      const data = await response.json();
-      return this.normalizeResponse(data, "/schedules/bulk/upload");
-    } catch (error) {
-      return {
-        success: false,
-        error:
-          error instanceof Error ? error.message : "Network error occurred",
-        statusCode: 0,
-        timestamp: new Date().toISOString(),
-      };
-    }
+    return this.uploadFile<BulkUploadResult<Schedule>>(
+      "/schedules/bulk/upload",
+      file
+    );
   }
 
   async getSchedulesBulkTemplate() {
     return this.downloadFile("/schedules/bulk/template");
   }
 
-  // Venues (v2.0)
-  async getVenues(params?: { page?: number; limit?: number }) {
-    const queryString = params
-      ? new URLSearchParams(params as any).toString()
-      : "";
-    return this.request<PaginatedResponse<any>>(
-      `/venues${queryString ? `?${queryString}` : ""}`
+  // ============ ACADEMIC SESSIONS ============
+  async getAcademicSessions(params?: PaginationParams) {
+    return this.request<PaginatedResponse<AcademicSession> | AcademicSession[]>(
+      `/academic-sessions${this.buildQueryString(params)}`
     );
   }
 
-  async createVenue(data: CreateVenueData) {
-    return this.request("/venues", {
+  async getAcademicSession(id: string) {
+    return this.request<AcademicSession>(`/academic-sessions/${id}`);
+  }
+
+  async getActiveAcademicSession() {
+    return this.request<AcademicSession | null>("/academic-sessions/active");
+  }
+
+  async getSessionStatistics(id: string) {
+    return this.request<SessionStatistics>(
+      `/academic-sessions/${id}/statistics`
+    );
+  }
+
+  async createAcademicSession(data: CreateAcademicSessionData) {
+    return this.request<AcademicSession>("/academic-sessions", {
       method: "POST",
       body: JSON.stringify(data),
     });
   }
 
-  async updateVenue(id: string, data: UpdateVenueData) {
-    return this.request(`/venues/${id}`, {
+  async updateAcademicSession(id: string, data: UpdateAcademicSessionData) {
+    return this.request<AcademicSession>(`/academic-sessions/${id}`, {
       method: "PATCH",
       body: JSON.stringify(data),
     });
   }
 
-  async deleteVenue(id: string) {
-    return this.request(`/venues/${id}`, {
+  async activateAcademicSession(id: string) {
+    return this.request<AcademicSession>(`/academic-sessions/${id}/activate`, {
+      method: "PATCH",
+    });
+  }
+
+  async archiveAcademicSession(id: string) {
+    return this.request<AcademicSession>(`/academic-sessions/${id}/archive`, {
+      method: "PATCH",
+    });
+  }
+
+  async deleteAcademicSession(id: string) {
+    return this.request<AcademicSession>(`/academic-sessions/${id}`, {
       method: "DELETE",
     });
   }
 
-  // Complaint endpoints - FIXED
-  async getComplaints(params?: {
-    page?: number;
-    limit?: number;
-    status?: string;
-    department?: string;
-    search?: string;
-    orderBy?: string;
-    orderDirection?: string;
-  }) {
-    const queryString = params
-      ? new URLSearchParams(params as any).toString()
-      : "";
-    return this.request<PaginatedResponse<any>>(
-      `/complaints${queryString ? `?${queryString}` : ""}`
+  // ============ EXAMS ============
+  async getExams(params?: PaginationParams) {
+    return this.request<PaginatedResponse<ExamSchedule> | ExamSchedule[]>(
+      `/exams${this.buildQueryString(params)}`
     );
   }
 
-  async getMyComplaints() {
-    return this.request("/complaints/my-complaints");
-  }
-
-  async createComplaint(data: {
-    name: string;
-    email: string;
-    department: string;
-    subject: string;
-    message: string;
-  }) {
-    return this.request("/complaints", {
-      method: "POST",
-      body: JSON.stringify(data),
-    });
-  }
-
-  async updateComplaintStatus(id: string, status: string) {
-    return this.request(`/complaints/${id}/status?status=${status}`, {
-      method: "PATCH",
-    });
-  }
-
-  // Exams (v2.0)
-  async getExams(params?: { page?: number; limit?: number }) {
-    const queryString = params
-      ? new URLSearchParams(params as any).toString()
-      : "";
-    return this.request<PaginatedResponse<any>>(
-      `/exams${queryString ? `?${queryString}` : ""}`
-    );
+  async getExam(id: string) {
+    return this.request<ExamSchedule>(`/exams/${id}`);
   }
 
   async createExam(data: CreateExamData) {
-    return this.request("/exams", {
+    return this.request<ExamSchedule>("/exams", {
       method: "POST",
       body: JSON.stringify(data),
     });
   }
 
   async updateExam(id: string, data: UpdateExamData) {
-    return this.request(`/exams/${id}`, {
+    return this.request<ExamSchedule>(`/exams/${id}`, {
       method: "PATCH",
       body: JSON.stringify(data),
     });
   }
 
   async deleteExam(id: string) {
-    return this.request(`/exams/${id}`, {
+    return this.request<ExamSchedule>(`/exams/${id}`, {
+      method: "DELETE",
+    });
+  }
+
+  // ============ COMPLAINTS ============
+  async getComplaints(params?: ComplaintFilterParams) {
+    return this.request<PaginatedResponse<Complaint> | Complaint[]>(
+      `/complaints${this.buildQueryString(params)}`
+    );
+  }
+
+  async getMyComplaints() {
+    return this.request<Complaint[]>("/complaints/my-complaints");
+  }
+
+  async getPendingComplaints() {
+    return this.request<Complaint[]>("/complaints/pending");
+  }
+
+  async getResolvedComplaints() {
+    return this.request<Complaint[]>("/complaints/resolved");
+  }
+
+  async getComplaint(id: string) {
+    return this.request<Complaint>(`/complaints/${id}`);
+  }
+
+  async createComplaint(data: CreateComplaintData) {
+    return this.request<Complaint>("/complaints", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateComplaintStatus(id: string, status: string) {
+    return this.request<Complaint>(`/complaints/${id}/status?status=${status}`, {
+      method: "PATCH",
+    });
+  }
+
+  async deleteComplaint(id: string) {
+    return this.request<Complaint>(`/complaints/${id}`, {
       method: "DELETE",
     });
   }

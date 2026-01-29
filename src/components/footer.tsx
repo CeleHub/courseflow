@@ -22,7 +22,6 @@ export function Footer() {
   const adminPages = [
     { href: '/admin/users', label: 'Users', icon: Users },
     { href: '/admin/academic-sessions', label: 'Academic Sessions', icon: Calendar },
-    { href: '/admin/venues', label: 'Venues', icon: Building2 },
     { href: '/admin/exams', label: 'Exams', icon: ClipboardList },
     { href: '/admin/verification-codes', label: 'Verification Codes', icon: Settings },
   ]

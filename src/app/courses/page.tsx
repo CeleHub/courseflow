@@ -46,14 +46,15 @@ import {
   User as UserIcon,
 } from "lucide-react";
 import { apiClient } from "@/lib/api";
+import { getItemsFromResponse } from "@/lib/utils";
 import { Course, Department, Level, Semester } from "@/types";
 
 export default function CoursesPage() {
   const router = useRouter();
-  const { isAuthenticated, isAdmin, isLecturer } = useAuth();
+  const { isAuthenticated, isAdmin, isLecturer, isHod } = useAuth();
   const { toast } = useToast();
 
-  const isStaff = isAdmin || isLecturer;
+  const isStaff = isAdmin || isLecturer || isHod;
   const [courses, setCourses] = useState<Course[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
@@ -85,9 +86,8 @@ export default function CoursesPage() {
     const fetchDepartments = async () => {
       try {
         const response = await apiClient.getDepartments({ limit: 100 });
-        if (response.success && response.data) {
-          setDepartments(response.data.data.items);
-        }
+        const result = getItemsFromResponse(response);
+        if (result) setDepartments(result.items);
       } catch (error) {
         console.error("Failed to fetch departments:", error);
       }
@@ -123,10 +123,10 @@ export default function CoursesPage() {
         params.semester = selectedSemester;
 
       const response = await apiClient.getCourses(params);
-
-      if (response.success && response.data) {
-        setCourses(response.data.data.items);
-        setTotalPages(response.data.data.pagination.totalPages);
+      const result = getItemsFromResponse(response);
+      if (result) {
+        setCourses(result.items);
+        setTotalPages(result.totalPages);
       }
     } catch (error) {
       console.error("Failed to fetch courses:", error);
@@ -216,8 +216,8 @@ export default function CoursesPage() {
   const handleDownloadTemplate = async () => {
     try {
       const response = await apiClient.getCoursesBulkTemplate();
-      if (response.success && response.data) {
-        const blob = new Blob([response.data as string], { type: "text/csv" });
+      if (response.success && typeof response.data === "string") {
+        const blob = new Blob([response.data], { type: "text/csv" });
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;

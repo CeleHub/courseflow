@@ -17,6 +17,7 @@ import {
   RefreshCw
 } from 'lucide-react'
 import { apiClient } from '@/lib/api'
+import { getItemsFromResponse } from '@/lib/utils'
 import { User as UserType, Role } from '@/types'
 
 export default function AdminUsersPage() {
@@ -29,13 +30,9 @@ export default function AdminUsersPage() {
   const fetchUsers = async () => {
     try {
       setLoading(true)
-      // CHANGE: Added { page: 1, limit: 50 } to ensure backend returns paginated object
       const response = await apiClient.getUsers({ page: 1, limit: 50 })
-
-      if (response.success && response.data) {
-        // Now this path exists because we forced pagination
-        setUsers(response.data.data?.items || [])
-      }
+      const result = getItemsFromResponse(response)
+      if (result) setUsers(result.items)
     } catch (error) {
       console.error('Failed to fetch users:', error)
     } finally {
@@ -49,10 +46,10 @@ export default function AdminUsersPage() {
     }
   }, [isAuthenticated, isAdmin])
 
-  const filteredUsers = users.filter(user =>
-    user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.matricNO.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredUsers = users.filter(u =>
+    (u.name ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    u.matricNO.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
   const getRoleIcon = (role: Role) => {

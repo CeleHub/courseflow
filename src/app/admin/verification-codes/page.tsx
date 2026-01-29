@@ -38,7 +38,7 @@ export default function AdminVerificationCodesPage() {
     code: '',
     role: Role.STUDENT,
     expiresAt: '',
-    maxUses: 1
+    maxUsage: 1
   })
 
   const fetchVerificationCodes = useCallback(async () => {
@@ -82,7 +82,7 @@ export default function AdminVerificationCodesPage() {
       const codeData = {
         ...newCode,
         expiresAt: newCode.expiresAt || undefined,
-        maxUses: newCode.maxUses || undefined
+        maxUsage: newCode.maxUsage || undefined
       }
 
       const response = await apiClient.createVerificationCode(codeData)
@@ -97,7 +97,7 @@ export default function AdminVerificationCodesPage() {
           code: '',
           role: Role.STUDENT,
           expiresAt: '',
-          maxUses: 1
+          maxUsage: 1
         })
         fetchVerificationCodes()
       } else {
@@ -304,13 +304,13 @@ export default function AdminVerificationCodesPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="maxUses">Max Uses (optional)</Label>
+                      <Label htmlFor="maxUsage">Max Usage (optional)</Label>
                       <Input
-                        id="maxUses"
+                        id="maxUsage"
                         type="number"
                         min="1"
-                        value={newCode.maxUses}
-                        onChange={(e) => setNewCode(prev => ({ ...prev, maxUses: parseInt(e.target.value) || 1 }))}
+                        value={newCode.maxUsage}
+                        onChange={(e) => setNewCode(prev => ({ ...prev, maxUsage: parseInt(e.target.value) || 1 }))}
                         placeholder="Maximum number of uses"
                       />
                     </div>
@@ -386,7 +386,7 @@ export default function AdminVerificationCodesPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {codes.reduce((total, code) => total + code.currentUses, 0)}
+                  {codes.reduce((total, code) => total + code.usageCount, 0)}
                 </div>
               </CardContent>
             </Card>
@@ -438,8 +438,8 @@ export default function AdminVerificationCodesPage() {
                         </TableCell>
                         <TableCell>
                           <span className="text-sm">
-                            {code.currentUses}
-                            {code.maxUses && ` / ${code.maxUses}`}
+                            {code.usageCount}
+                            {code.maxUsage && ` / ${code.maxUsage}`}
                           </span>
                         </TableCell>
                         <TableCell>

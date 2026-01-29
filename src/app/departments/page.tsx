@@ -24,6 +24,7 @@ import {
   Clock
 } from 'lucide-react'
 import { apiClient } from '@/lib/api'
+import { getItemsFromResponse } from '@/lib/utils'
 import { Department } from '@/types'
 
 export default function DepartmentsPage() {
@@ -45,16 +46,14 @@ export default function DepartmentsPage() {
   const fetchDepartments = useCallback(async () => {
     try {
       setLoading(true)
-      const params = {
+      const response = await apiClient.getDepartments({
         page: currentPage,
         limit: 12,
-      }
-
-      const response = await apiClient.getDepartments(params)
-
-      if (response.success && response.data) {
-        setDepartments(response.data.data.items)
-        setTotalPages(response.data.data.pagination.totalPages)
+      })
+      const result = getItemsFromResponse(response)
+      if (result) {
+        setDepartments(result.items)
+        setTotalPages(result.totalPages)
       }
     } catch (error) {
       console.error('Failed to fetch departments:', error)
@@ -124,9 +123,8 @@ export default function DepartmentsPage() {
   const handleDownloadTemplate = async () => {
     try {
       const response = await apiClient.getDepartmentsBulkTemplate()
-      if (response.success && response.data) {
-        // Create a download link for the template
-        const blob = new Blob([response.data as string], { type: 'text/csv' })
+      if (response.success && typeof response.data === 'string') {
+        const blob = new Blob([response.data], { type: 'text/csv' })
         const url = window.URL.createObjectURL(blob)
         const link = document.createElement('a')
         link.href = url
@@ -344,13 +342,13 @@ export default function DepartmentsPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-3 pt-3 border-t">
-                      {department._count && (
+                      {(department as { _count?: { courses: number } })._count && (
                         <div className="flex items-center gap-3 text-sm">
                           <div className="p-1.5 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
                             <BookOpen className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                           </div>
                           <span className="text-muted-foreground">
-                            <span className="font-semibold text-foreground">{department._count.courses}</span> Course{department._count.courses !== 1 ? 's' : ''} Available
+                            <span className="font-semibold text-foreground">{(department as { _count?: { courses: number } })._count!.courses}</span> Course{(department as { _count?: { courses: number } })._count!.courses !== 1 ? 's' : ''} Available
                           </span>
                         </div>
                       )}

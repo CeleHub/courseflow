@@ -1,26 +1,20 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react'
-import { User, AuthResponse } from '@/types'
+import { User, AuthResponse, LoginData, RegisterData, Role } from '@/types'
 import { apiClient } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 
 interface AuthContextType {
   user: User | null
   loading: boolean
-  login: (email: string, password: string) => Promise<boolean>
-  register: (data: {
-    matricNO: string
-    email: string
-    password: string
-    name?: string
-    role?: string
-    verificationCode?: string
-  }) => Promise<boolean>
+  login: (data: LoginData) => Promise<boolean>
+  register: (data: RegisterData) => Promise<boolean>
   logout: () => void
   isAuthenticated: boolean
   isAdmin: boolean
   isLecturer: boolean
+  isHod: boolean
   isStudent: boolean
 }
 
@@ -49,10 +43,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           // Validate token with backend
           const response = await apiClient.getCurrentUser()
-          if (response.success && response.data) {
-            setUser(response.data as User)
-            // Update localStorage with fresh user data
-            localStorage.setItem('user', JSON.stringify(response.data))
+          let userData: User | null = null
+          if (response.success && response.data != null) {
+            const raw = response.data as { data?: User } | User
+            userData = (raw as { data?: User }).data ?? (raw as User)
+          }
+          if (userData) {
+            setUser(userData)
+            localStorage.setItem('user', JSON.stringify(userData))
           } else {
             // Token is invalid, clear it
             logout()
@@ -68,10 +66,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     validateToken()
   }, [logout])
 
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = async (data: LoginData): Promise<boolean> => {
     try {
       setLoading(true)
-      const response = await apiClient.login(email, password)
+      const response = await apiClient.login(data)
 
       if (response.success && response.data) {
         const authData = response.data as AuthResponse
@@ -83,7 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         toast({
           title: "Login Successful",
-          description: `Welcome back, ${authData.user.name}!`,
+          description: `Welcome back, ${authData.user.name ?? authData.user.email}!`,
         })
 
         return true
@@ -107,14 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const register = async (data: {
-    matricNO: string
-    email: string
-    password: string
-    name?: string
-    role?: string
-    verificationCode?: string
-  }): Promise<boolean> => {
+  const register = async (data: RegisterData): Promise<boolean> => {
     try {
       setLoading(true)
       const response = await apiClient.register(data)
@@ -129,7 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         toast({
           title: "Registration Successful",
-          description: `Welcome to CourseFlow, ${authData.user.name}!`,
+          description: `Welcome to CourseFlow, ${authData.user.name ?? authData.user.email}!`,
         })
 
         return true
@@ -161,9 +152,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     register,
     logout,
     isAuthenticated: !!user,
-    isAdmin: user?.role === 'ADMIN',
-    isLecturer: user?.role === 'LECTURER',
-    isStudent: user?.role === 'STUDENT',
+    isAdmin: user?.role === Role.ADMIN,
+    isLecturer: user?.role === Role.LECTURER,
+    isHod: user?.role === Role.HOD,
+    isStudent: user?.role === Role.STUDENT,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

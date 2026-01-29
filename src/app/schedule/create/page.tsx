@@ -12,11 +12,34 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/hooks/use-toast'
 import { Calendar, ArrowLeft } from 'lucide-react'
 import { apiClient } from '@/lib/api'
-import { Course, DayOfWeek, ClassType } from '@/types'
+import { getItemsFromResponse } from '@/lib/utils'
+import { Course, DayOfWeek, VenueType } from '@/types'
+
+const VENUE_OPTIONS: { value: VenueType; label: string }[] = [
+  { value: VenueType.UNIVERSITY_ICT_CENTER, label: 'University ICT Center' },
+  { value: VenueType.ICT_LAB_1, label: 'ICT Lab 1' },
+  { value: VenueType.ICT_LAB_2, label: 'ICT Lab 2' },
+  { value: VenueType.LECTURE_HALL_1, label: 'Lecture Hall 1' },
+  { value: VenueType.LECTURE_HALL_2, label: 'Lecture Hall 2' },
+  { value: VenueType.LECTURE_HALL_3, label: 'Lecture Hall 3' },
+  { value: VenueType.AUDITORIUM_A, label: 'Auditorium A' },
+  { value: VenueType.AUDITORIUM_B, label: 'Auditorium B' },
+  { value: VenueType.SEMINAR_ROOM_A, label: 'Seminar Room A' },
+  { value: VenueType.SEMINAR_ROOM_B, label: 'Seminar Room B' },
+  { value: VenueType.ROOM_101, label: 'Room 101' },
+  { value: VenueType.ROOM_102, label: 'Room 102' },
+  { value: VenueType.ROOM_201, label: 'Room 201' },
+  { value: VenueType.ROOM_202, label: 'Room 202' },
+  { value: VenueType.ROOM_301, label: 'Room 301' },
+  { value: VenueType.ROOM_302, label: 'Room 302' },
+  { value: VenueType.COMPUTER_LAB, label: 'Computer Lab' },
+  { value: VenueType.SCIENCE_LAB_1, label: 'Science Lab 1' },
+  { value: VenueType.SCIENCE_LAB_2, label: 'Science Lab 2' },
+]
 
 export default function CreateSchedulePage() {
   const router = useRouter()
-  const { isAuthenticated, isAdmin, isLecturer } = useAuth()
+  const { isAuthenticated, isAdmin, isLecturer, isHod } = useAuth()
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
   const [courses, setCourses] = useState<Course[]>([])
@@ -25,11 +48,10 @@ export default function CreateSchedulePage() {
     dayOfWeek: '',
     startTime: '',
     endTime: '',
-    venue: '',
-    type: '',
+    venue: '' as VenueType | '',
   })
 
-  const isStaff = isAdmin || isLecturer
+  const isStaff = isAdmin || isLecturer || isHod
 
   const dayOptions = [
     { value: DayOfWeek.MONDAY, label: 'Monday' },
@@ -41,13 +63,6 @@ export default function CreateSchedulePage() {
     { value: DayOfWeek.SUNDAY, label: 'Sunday' },
   ]
 
-  const typeOptions = [
-    { value: ClassType.LECTURE, label: 'Lecture' },
-    { value: ClassType.SEMINAR, label: 'Seminar' },
-    { value: ClassType.LAB, label: 'Lab' },
-    { value: ClassType.TUTORIAL, label: 'Tutorial' },
-  ]
-
   useEffect(() => {
     if (!isAuthenticated || !isStaff) {
       router.push('/auth/login')
@@ -57,9 +72,8 @@ export default function CreateSchedulePage() {
     const fetchCourses = async () => {
       try {
         const response = await apiClient.getCourses({ limit: 100 })
-        if (response.success && response.data) {
-          setCourses(response.data.data.items)
-        }
+        const result = getItemsFromResponse(response)
+        if (result) setCourses(result.items)
       } catch (error) {
         console.error('Failed to fetch courses:', error)
       }
@@ -101,7 +115,7 @@ export default function CreateSchedulePage() {
     e.preventDefault()
 
     if (!formData.courseCode || !formData.dayOfWeek || !formData.startTime ||
-        !formData.endTime || !formData.venue.trim() || !formData.type) {
+        !formData.endTime || !formData.venue) {
       toast({
         title: "Validation Error",
         description: "Please fill in all required fields",
@@ -126,8 +140,7 @@ export default function CreateSchedulePage() {
         dayOfWeek: formData.dayOfWeek as DayOfWeek,
         startTime: formData.startTime,
         endTime: formData.endTime,
-        venue: formData.venue.trim(),
-        type: formData.type as ClassType,
+        venue: formData.venue as VenueType,
       })
 
       if (response.success) {
@@ -224,15 +237,15 @@ export default function CreateSchedulePage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="type">Class Type *</Label>
-                  <Select value={formData.type} onValueChange={(value) => handleSelectChange('type', value)}>
+                  <Label htmlFor="venue">Venue *</Label>
+                  <Select value={formData.venue} onValueChange={(value) => handleSelectChange('venue', value)}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select type" />
+                      <SelectValue placeholder="Select venue" />
                     </SelectTrigger>
                     <SelectContent>
-                      {typeOptions.map((type) => (
-                        <SelectItem key={type.value} value={type.value}>
-                          {type.label}
+                      {VENUE_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -263,18 +276,6 @@ export default function CreateSchedulePage() {
                   />
                 </div>
 
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="venue">Venue *</Label>
-                  <Input
-                    id="venue"
-                    name="venue"
-                    type="text"
-                    placeholder="e.g., Room 101, Lab A"
-                    value={formData.venue}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
               </div>
 
               <div className="flex gap-4 pt-4">
