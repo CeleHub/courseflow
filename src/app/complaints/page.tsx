@@ -21,6 +21,7 @@ import {
   Plus
 } from 'lucide-react'
 import { apiClient } from '@/lib/api'
+import { getItemsFromResponse } from '@/lib/utils'
 import { Complaint, ComplaintStatus, Department } from '@/types'
 import { useToast } from '@/hooks/use-toast'
 
@@ -56,18 +57,14 @@ export default function ComplaintsPage() {
   const fetchComplaints = useCallback(async () => {
     try {
       setLoading(true)
-
       if (isAdmin) {
-        // CHANGE: Added { page: 1, limit: 50 } here
         const response = await apiClient.getComplaints({ page: 1, limit: 50 })
-        if (response.success && response.data) {
-          setComplaints(response.data.data?.items || [])
-        }
+        const result = getItemsFromResponse(response)
+        if (result) setComplaints(result.items)
       } else {
         const response = await apiClient.getMyComplaints()
-        if (response.success && response.data) {
-          // This part was already correct for flat arrays
-          setComplaints(Array.isArray(response.data) ? response.data : [])
+        if (response.success && Array.isArray(response.data)) {
+          setComplaints(response.data)
         }
       }
     } catch (error) {
@@ -81,9 +78,8 @@ export default function ComplaintsPage() {
     const fetchDepartments = async () => {
       try {
         const response = await apiClient.getDepartments({ limit: 100 })
-        if (response.success && response.data) {
-          setDepartments(response.data.data.items)
-        }
+        const result = getItemsFromResponse(response)
+        if (result) setDepartments(result.items)
       } catch (error) {
         console.error('Failed to fetch departments:', error)
       }

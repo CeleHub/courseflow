@@ -19,11 +19,12 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/hooks/use-toast'
 import { Building2, ArrowLeft } from 'lucide-react'
 import { apiClient } from '@/lib/api'
+import { getItemsFromResponse } from '@/lib/utils'
 import { Lecturer } from '@/types'
 
 export default function CreateDepartmentPage() {
   const router = useRouter()
-  const { isAuthenticated, isAdmin, isLecturer } = useAuth()
+  const { isAuthenticated, isAdmin, isLecturer, isHod } = useAuth()
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
   const [lecturers, setLecturers] = useState<Lecturer[]>([])
@@ -34,7 +35,7 @@ export default function CreateDepartmentPage() {
     hodEmail: '',
   })
 
-  const isStaff = isAdmin || isLecturer
+  const isStaff = isAdmin || isLecturer || isHod
 
   useEffect(() => {
     if (!isAuthenticated || !isStaff) {
@@ -44,21 +45,15 @@ export default function CreateDepartmentPage() {
 
     const fetchLecturers = async () => {
       try {
-        const lecturerResponse = await apiClient.getLecturers({ limit: 100 });
-        if (lecturerResponse.success && lecturerResponse.data) {
-          const items =
-            (lecturerResponse.data as any).data?.items ??
-            (Array.isArray(lecturerResponse.data)
-              ? lecturerResponse.data
-              : []);
-          setLecturers(items);
-        }
+        const response = await apiClient.getLecturers({ limit: 100 })
+        const result = getItemsFromResponse(response)
+        if (result) setLecturers(result.items)
       } catch (error) {
-        console.error("Failed to fetch lecturers:", error);
+        console.error('Failed to fetch lecturers:', error)
       }
-    };
+    }
 
-    fetchLecturers();
+    fetchLecturers()
   }, [isAuthenticated, isStaff, router])
 
   // Redirect if not authenticated or not staff

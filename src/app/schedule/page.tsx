@@ -27,7 +27,8 @@ import {
   ChevronDown
 } from 'lucide-react'
 import { apiClient } from '@/lib/api'
-import { Schedule, Department, Level, DayOfWeek, ClassType, Semester } from '@/types'
+import { getItemsFromResponse } from '@/lib/utils'
+import { Schedule, Department, Level, DayOfWeek, Semester } from '@/types'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,11 +42,10 @@ import html2canvas from 'html2canvas'
 
 export default function SchedulePage() {
   const router = useRouter()
-  const { isAuthenticated, isAdmin, isLecturer } = useAuth()
+  const { isAuthenticated, isAdmin, isLecturer, isHod } = useAuth()
   const { toast } = useToast()
 
-  // Check if user is staff (admin or lecturer)
-  const isStaff = isAdmin || isLecturer
+  const isStaff = isAdmin || isLecturer || isHod
   const [schedules, setSchedules] = useState<Schedule[]>([])
   const [departments, setDepartments] = useState<Department[]>([])
   const [loading, setLoading] = useState(true)
@@ -87,9 +87,8 @@ export default function SchedulePage() {
     const fetchDepartments = async () => {
       try {
         const response = await apiClient.getDepartments({ limit: 100 })
-        if (response.success && response.data) {
-          setDepartments(response.data.data.items)
-        }
+        const result = getItemsFromResponse(response)
+        if (result) setDepartments(result.items)
       } catch (error) {
         console.error('Failed to fetch departments:', error)
       }
@@ -112,10 +111,10 @@ export default function SchedulePage() {
       if (selectedSemester && selectedSemester !== 'all') params.semester = selectedSemester
 
       const response = await apiClient.getSchedules(params)
-
-      if (response.success && response.data) {
-        setSchedules(response.data.data.items)
-        setTotalPages(response.data.data.pagination.totalPages)
+      const result = getItemsFromResponse(response)
+      if (result) {
+        setSchedules(result.items)
+        setTotalPages(result.totalPages)
       }
     } catch (error) {
       console.error('Failed to fetch schedules:', error)
@@ -200,9 +199,8 @@ export default function SchedulePage() {
   const handleDownloadTemplate = async () => {
     try {
       const response = await apiClient.getSchedulesBulkTemplate()
-      if (response.success && response.data) {
-        // Create a download link for the template
-        const blob = new Blob([response.data as string], { type: 'text/csv' })
+      if (response.success && typeof response.data === 'string') {
+        const blob = new Blob([response.data], { type: 'text/csv' })
         const url = window.URL.createObjectURL(blob)
         const link = document.createElement('a')
         link.href = url
@@ -270,64 +268,32 @@ export default function SchedulePage() {
   // Fetch all schedules for export (not just current page)
   const fetchAllSchedulesForExport = async (): Promise<Schedule[]> => {
     try {
-      // Always fetch from API with filters, don't rely on current page data
-      const params: any = {
+      const params: Record<string, unknown> = {
         page: 1,
-        limit: 100, // Reasonable limit per page
+        limit: 100,
       }
-
       if (selectedDepartment && selectedDepartment !== 'all') params.departmentCode = selectedDepartment
       if (selectedLevel && selectedLevel !== 'all') params.level = selectedLevel
       if (selectedDay && selectedDay !== 'all') params.dayOfWeek = selectedDay
       if (searchTerm) params.search = searchTerm
 
-      const response = await apiClient.getSchedules(params)
-      if (!response.success || !response.data) {
-        throw new Error('Failed to fetch schedules')
+      const firstResponse = await apiClient.getSchedules(params)
+      const firstResult = getItemsFromResponse(firstResponse)
+      if (!firstResult) throw new Error('Failed to fetch schedules')
+
+      let allSchedules = [...firstResult.items]
+      for (let page = 2; page <= firstResult.totalPages; page++) {
+        const pageResponse = await apiClient.getSchedules({ ...params, page })
+        const pageResult = getItemsFromResponse(pageResponse)
+        if (pageResult) allSchedules = [...allSchedules, ...pageResult.items]
       }
 
-      // Based on fetchSchedules, the structure is: response.data.data.items
-      let allSchedules: Schedule[] = []
-      let totalPagesCount = 1
-
-      // Parse response structure (matches fetchSchedules structure)
-      if (response.data.data && typeof response.data.data === 'object') {
-        if ('items' in response.data.data && Array.isArray((response.data.data as any).items)) {
-          allSchedules = (response.data.data as any).items
-          if ('pagination' in response.data.data && (response.data.data as any).pagination) {
-            totalPagesCount = (response.data.data as any).pagination.totalPages || 1
-          }
-        } else if (Array.isArray(response.data.data)) {
-          allSchedules = response.data.data
-        }
-      }
-
-      // Fetch all remaining pages
-      for (let page = 2; page <= totalPagesCount; page++) {
-        const pageParams = { ...params, page }
-        const pageResponse = await apiClient.getSchedules(pageParams)
-        
-        if (pageResponse.success && pageResponse.data) {
-          let pageItems: Schedule[] = []
-          
-          if (pageResponse.data.data && typeof pageResponse.data.data === 'object') {
-            if ('items' in pageResponse.data.data && Array.isArray((pageResponse.data.data as any).items)) {
-              pageItems = (pageResponse.data.data as any).items
-            } else if (Array.isArray(pageResponse.data.data)) {
-              pageItems = pageResponse.data.data
-            }
-          }
-          
-          allSchedules = [...allSchedules, ...pageItems]
-        }
-      }
-
-      // Apply client-side search filter if search param wasn't supported by API
       if (searchTerm && allSchedules.length > 0) {
+        const term = searchTerm.toLowerCase()
         const filtered = allSchedules.filter(schedule =>
-          schedule.course?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          schedule.course?.code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          schedule.venue?.toLowerCase().includes(searchTerm.toLowerCase())
+          schedule.course?.name?.toLowerCase().includes(term) ||
+          schedule.course?.code?.toLowerCase().includes(term) ||
+          String(schedule.venue).toLowerCase().includes(term)
         )
         // Use filtered results if we got matches
         if (filtered.length > 0) {
@@ -340,19 +306,9 @@ export default function SchedulePage() {
       if (courseCodes.length > 0) {
         try {
           const coursesResponse = await apiClient.getCourses({ limit: 1000 })
-          if (coursesResponse.success && coursesResponse.data) {
-            let courses: any[] = []
-            
-            // Parse courses response structure
-            if (coursesResponse.data.data && typeof coursesResponse.data.data === 'object') {
-              if ('items' in coursesResponse.data.data && Array.isArray((coursesResponse.data.data as any).items)) {
-                courses = (coursesResponse.data.data as any).items
-              } else if (Array.isArray(coursesResponse.data.data)) {
-                courses = coursesResponse.data.data
-              }
-            } else if (Array.isArray(coursesResponse.data)) {
-              courses = coursesResponse.data
-            }
+          const coursesResult = getItemsFromResponse(coursesResponse)
+          const courses = coursesResult?.items ?? []
+          if (courses.length > 0) {
 
             // Create a map of course codes to courses with lecturer info
             const courseMap = new Map<string, any>()
@@ -372,7 +328,6 @@ export default function SchedulePage() {
                     course: {
                       ...schedule.course,
                       lecturer: enrichedCourse.lecturer || schedule.course.lecturer,
-                      lecturerEmail: enrichedCourse.lecturerEmail || schedule.course.lecturerEmail,
                     }
                   } as Schedule
                 }
@@ -420,7 +375,7 @@ export default function SchedulePage() {
 
       // Build grid with all schedules
       const timeSlots = getTimeSlots(allSchedules)
-      const grid: Record<string, Record<string, { code: string; venue: string; type?: string }[]>> = {}
+      const grid: Record<string, Record<string, { code: string; venue: string }[]>> = {}
 
       dayOptions.forEach(day => {
         grid[day.value] = {}
@@ -434,12 +389,10 @@ export default function SchedulePage() {
         const timeSlot = `${schedule.startTime}-${schedule.endTime}`
         const courseCode = schedule.course?.code || 'N/A'
         const venue = schedule.venue
-        const type = schedule.type
-
         if (!grid[day]) grid[day] = {}
         if (!grid[day][timeSlot]) grid[day][timeSlot] = []
         
-        grid[day][timeSlot].push({ code: courseCode, venue, type })
+        grid[day][timeSlot].push({ code: courseCode, venue })
       })
 
       // Build course details
@@ -455,12 +408,12 @@ export default function SchedulePage() {
         if (!schedule.course) return
         const code = schedule.course.code
         if (!courseMap.has(code)) {
-          // Get lecturer name from lecturer object, or use lecturerEmail, or fallback to N/A
+          // Get lecturer name from lecturer object, or email, or fallback to N/A
           let lecturerName = 'N/A'
           if (schedule.course.lecturer?.name) {
             lecturerName = schedule.course.lecturer.name
-          } else if (schedule.course.lecturerEmail) {
-            lecturerName = schedule.course.lecturerEmail
+          } else if (schedule.course.lecturer?.email) {
+            lecturerName = schedule.course.lecturer.email
           }
           
           courseMap.set(code, {
@@ -567,7 +520,7 @@ export default function SchedulePage() {
 
       // Build grid with all schedules
       const timeSlots = getTimeSlots(allSchedules)
-      const grid: Record<string, Record<string, { code: string; venue: string; type?: string }[]>> = {}
+      const grid: Record<string, Record<string, { code: string; venue: string }[]>> = {}
 
       dayOptions.forEach(day => {
         grid[day.value] = {}
@@ -581,12 +534,10 @@ export default function SchedulePage() {
         const timeSlot = `${schedule.startTime}-${schedule.endTime}`
         const courseCode = schedule.course?.code || 'N/A'
         const venue = schedule.venue
-        const type = schedule.type
-
         if (!grid[day]) grid[day] = {}
         if (!grid[day][timeSlot]) grid[day][timeSlot] = []
         
-        grid[day][timeSlot].push({ code: courseCode, venue, type })
+        grid[day][timeSlot].push({ code: courseCode, venue })
       })
 
       // Build course details
@@ -602,12 +553,12 @@ export default function SchedulePage() {
         if (!schedule.course) return
         const code = schedule.course.code
         if (!courseMap.has(code)) {
-          // Get lecturer name from lecturer object, or use lecturerEmail, or fallback to N/A
+          // Get lecturer name from lecturer object, or email, or fallback to N/A
           let lecturerName = 'N/A'
           if (schedule.course.lecturer?.name) {
             lecturerName = schedule.course.lecturer.name
-          } else if (schedule.course.lecturerEmail) {
-            lecturerName = schedule.course.lecturerEmail
+          } else if (schedule.course.lecturer?.email) {
+            lecturerName = schedule.course.lecturer.email
           }
           
           courseMap.set(code, {
@@ -707,7 +658,7 @@ export default function SchedulePage() {
 
       // Build grid with all schedules
       const timeSlots = getTimeSlots(allSchedules)
-      const grid: Record<string, Record<string, { code: string; venue: string; type?: string }[]>> = {}
+      const grid: Record<string, Record<string, { code: string; venue: string }[]>> = {}
 
       dayOptions.forEach(day => {
         grid[day.value] = {}
@@ -721,12 +672,10 @@ export default function SchedulePage() {
         const timeSlot = `${schedule.startTime}-${schedule.endTime}`
         const courseCode = schedule.course?.code || 'N/A'
         const venue = schedule.venue
-        const type = schedule.type
-
         if (!grid[day]) grid[day] = {}
         if (!grid[day][timeSlot]) grid[day][timeSlot] = []
         
-        grid[day][timeSlot].push({ code: courseCode, venue, type })
+        grid[day][timeSlot].push({ code: courseCode, venue })
       })
 
       // Build course details
@@ -742,12 +691,12 @@ export default function SchedulePage() {
         if (!schedule.course) return
         const code = schedule.course.code
         if (!courseMap.has(code)) {
-          // Get lecturer name from lecturer object, or use lecturerEmail, or fallback to N/A
+          // Get lecturer name from lecturer object, or email, or fallback to N/A
           let lecturerName = 'N/A'
           if (schedule.course.lecturer?.name) {
             lecturerName = schedule.course.lecturer.name
-          } else if (schedule.course.lecturerEmail) {
-            lecturerName = schedule.course.lecturerEmail
+          } else if (schedule.course.lecturer?.email) {
+            lecturerName = schedule.course.lecturer.email
           }
           
           courseMap.set(code, {
@@ -850,7 +799,7 @@ export default function SchedulePage() {
 
       // Build grid with all schedules
       const timeSlots = getTimeSlots(allSchedules)
-      const grid: Record<string, Record<string, { code: string; venue: string; type?: string }[]>> = {}
+      const grid: Record<string, Record<string, { code: string; venue: string }[]>> = {}
 
       dayOptions.forEach(day => {
         grid[day.value] = {}
@@ -864,12 +813,10 @@ export default function SchedulePage() {
         const timeSlot = `${schedule.startTime}-${schedule.endTime}`
         const courseCode = schedule.course?.code || 'N/A'
         const venue = schedule.venue
-        const type = schedule.type
-
         if (!grid[day]) grid[day] = {}
         if (!grid[day][timeSlot]) grid[day][timeSlot] = []
         
-        grid[day][timeSlot].push({ code: courseCode, venue, type })
+        grid[day][timeSlot].push({ code: courseCode, venue })
       })
 
       // Build course details
@@ -885,12 +832,12 @@ export default function SchedulePage() {
         if (!schedule.course) return
         const code = schedule.course.code
         if (!courseMap.has(code)) {
-          // Get lecturer name from lecturer object, or use lecturerEmail, or fallback to N/A
+          // Get lecturer name from lecturer object, or email, or fallback to N/A
           let lecturerName = 'N/A'
           if (schedule.course.lecturer?.name) {
             lecturerName = schedule.course.lecturer.name
-          } else if (schedule.course.lecturerEmail) {
-            lecturerName = schedule.course.lecturerEmail
+          } else if (schedule.course.lecturer?.email) {
+            lecturerName = schedule.course.lecturer.email
           }
           
           courseMap.set(code, {
@@ -998,15 +945,7 @@ export default function SchedulePage() {
     }
   }
 
-  const getClassTypeBadgeColor = (type: ClassType) => {
-    switch (type) {
-      case ClassType.LECTURE: return 'bg-blue-100 text-blue-800'
-      case ClassType.SEMINAR: return 'bg-green-100 text-green-800'
-      case ClassType.LAB: return 'bg-purple-100 text-purple-800'
-      case ClassType.TUTORIAL: return 'bg-orange-100 text-orange-800'
-      default: return 'bg-gray-100 text-gray-800'
-    }
-  }
+  const getVenueBadgeColor = () => 'bg-blue-100 text-blue-800 dark:bg-blue-950/30 dark:text-blue-300'
 
   const formatTime = (time: string) => {
     try {
@@ -1320,8 +1259,8 @@ export default function SchedulePage() {
                                   <div className="flex items-start justify-between mb-2">
                                     <div className="flex-1">
                                       <div className="flex items-center gap-2 mb-2">
-                                        <Badge className={getClassTypeBadgeColor(schedule.type)}>
-                                          {schedule.type}
+                                        <Badge className={getVenueBadgeColor()}>
+                                          {schedule.venue}
                                         </Badge>
                                         <Badge variant="outline" className="font-mono text-xs">
                                           {schedule.course?.code}

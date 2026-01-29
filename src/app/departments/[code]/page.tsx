@@ -8,23 +8,16 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ArrowLeft, Building2, User, BookOpen, GraduationCap, Mail, Users } from 'lucide-react'
 import { apiClient } from '@/lib/api'
-import { Course, Department, User as UserType, Level } from '@/types'
+import { Course, Department, Level } from '@/types'
 import { useToast } from '@/hooks/use-toast'
-
-interface DepartmentFullDetails {
-  department: Department & {
-    description?: string
-    hod?: UserType
-  }
-  courses: Course[]
-}
 
 export default function DepartmentDetailsPage() {
   const params = useParams()
   const router = useRouter()
   const { toast } = useToast()
   const code = params.code as string
-  const [details, setDetails] = useState<DepartmentFullDetails | null>(null)
+  const [department, setDepartment] = useState<Department | null>(null)
+  const [courses, setCourses] = useState<Course[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -34,22 +27,12 @@ export default function DepartmentDetailsPage() {
         const response = await apiClient.getDepartmentFullDetails(code)
 
         if (response.success && response.data) {
-          // Handle different possible response structures
-          const data = response.data as any
-          
-          // Check if response is nested in a 'data' property
-          const departmentData = data.data || data.department || data
-          const coursesData = data.courses || data.data?.courses || []
-          
-          // Ensure we have a valid department object
-          if (!departmentData || !departmentData.name) {
-            throw new Error('Invalid department data structure')
+          const dept = response.data as Department
+          if (!dept?.name) {
+            throw new Error('Invalid department data')
           }
-          
-          setDetails({
-            department: departmentData,
-            courses: Array.isArray(coursesData) ? coursesData : []
-          })
+          setDepartment(dept)
+          setCourses(Array.isArray(dept.courses) ? dept.courses : [])
         } else {
           toast({
             title: "Error",
@@ -107,37 +90,13 @@ export default function DepartmentDetailsPage() {
     )
   }
 
-  if (!details || !details.department) {
+  if (!department) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
         <Navigation />
         <div className="container mx-auto px-4 py-8">
           <div className="text-center py-12">
             <p className="text-muted-foreground">Department not found</p>
-            <Button
-              variant="outline"
-              onClick={() => router.push('/departments')}
-              className="mt-4"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Departments
-            </Button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  const { department, courses } = details
-  
-  // Ensure department has required properties
-  if (!department.name) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
-        <Navigation />
-        <div className="container mx-auto px-4 py-8">
-          <div className="text-center py-12">
-            <p className="text-muted-foreground">Invalid department data</p>
             <Button
               variant="outline"
               onClick={() => router.push('/departments')}

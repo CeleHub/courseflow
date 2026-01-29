@@ -19,15 +19,17 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { apiClient } from '@/lib/api'
+import { getItemsFromResponse } from '@/lib/utils'
 
 export default function DashboardPage() {
-  const { user, isAuthenticated, isAdmin, isLecturer } = useAuth()
+  const { user, isAuthenticated, isAdmin, isLecturer, isHod } = useAuth()
+  const isStaff = isAdmin || isLecturer || isHod
   const [stats, setStats] = useState({
     totalCourses: 0,
     totalDepartments: 0,
     totalComplaints: 0,
     myComplaints: 0,
-    recentActivity: []
+    recentActivity: [] as unknown[],
   })
   const [loading, setLoading] = useState(true)
 
@@ -37,25 +39,24 @@ export default function DashboardPage() {
     const fetchDashboardData = async () => {
       try {
         setLoading(true)
-        // Fetch dashboard statistics
-        const [coursesRes, departmentsRes, complaintsRes] = await Promise.all([
+        const [coursesRes, departmentsRes, complaintsRes, myComplaintsRes] = await Promise.all([
           apiClient.getCourses({ limit: 1 }),
           apiClient.getDepartments({ limit: 1 }),
-          isAuthenticated ? apiClient.getComplaints({ limit: 1 }) : Promise.resolve({ 
-            success: false, 
-            data: null,
-            error: 'Not authenticated',
-            statusCode: 401,
-            timestamp: new Date().toISOString()
-          })
+          isAuthenticated ? apiClient.getComplaints({ limit: 1 }) : Promise.resolve({ success: false, data: undefined }),
+          isAuthenticated ? apiClient.getMyComplaints() : Promise.resolve({ success: false, data: undefined }),
         ])
 
+        const coursesResult = getItemsFromResponse(coursesRes)
+        const departmentsResult = getItemsFromResponse(departmentsRes)
+        const complaintsResult = getItemsFromResponse(complaintsRes)
+        const myList = myComplaintsRes.success && Array.isArray(myComplaintsRes.data) ? myComplaintsRes.data : []
+
         setStats({
-          totalCourses: (coursesRes.success && coursesRes.data?.data?.pagination?.total) || 0,
-          totalDepartments: (departmentsRes.success && departmentsRes.data?.data?.pagination?.total) || 0,
-          totalComplaints: (complaintsRes.success && complaintsRes.data?.data?.pagination?.total) || 0,
-          myComplaints: 0, // This would need a separate endpoint
-          recentActivity: [] // This would need a separate endpoint
+          totalCourses: coursesResult?.total ?? 0,
+          totalDepartments: departmentsResult?.total ?? 0,
+          totalComplaints: complaintsResult?.total ?? 0,
+          myComplaints: myList.length,
+          recentActivity: [],
         })
       } catch (error) {
         console.error('Failed to fetch dashboard data:', error)
@@ -241,13 +242,13 @@ export default function DashboardPage() {
         </div>
 
         {/* Admin Actions */}
-        {(isAdmin || isLecturer) && (
+        {isStaff && (
           <div className="mb-10">
             <h2 className="text-3xl font-bold mb-6 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-              {isAdmin ? 'Administrative' : 'Lecturer'} Tools
+              {isAdmin ? 'Administrative' : isHod ? 'HOD' : 'Lecturer'} Tools
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {adminActions.filter(action => isAdmin).map((action, index) => (
+              {adminActions.filter(() => isAdmin).map((action, index) => (
                 <Card 
                   key={index} 
                   className="transition-all hover:shadow-xl hover:scale-[1.02] cursor-pointer border-2 hover:border-primary/20 group"

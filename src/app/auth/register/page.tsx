@@ -14,13 +14,22 @@ import { Loader2, Mail, Lock, Eye, EyeOff, User, IdCard, Shield } from 'lucide-r
 import { Role } from '@/types'
 
 export default function RegisterPage() {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    matricNO: string
+    email: string
+    password: string
+    name: string
+    role: Role
+    verificationCode: string
+    departmentCode?: string
+  }>({
     matricNO: '',
     email: '',
     password: '',
     name: '',
     role: Role.STUDENT,
     verificationCode: '',
+    departmentCode: '',
   })
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -143,12 +152,13 @@ export default function RegisterPage() {
                     <SelectContent>
                       <SelectItem value={Role.STUDENT}>Student</SelectItem>
                       <SelectItem value={Role.LECTURER}>Lecturer</SelectItem>
+                      <SelectItem value={Role.HOD}>HOD</SelectItem>
                       <SelectItem value={Role.ADMIN}>Admin</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
-                {(formData.role === Role.LECTURER || formData.role === Role.ADMIN) && (
+                {(formData.role === Role.LECTURER || formData.role === Role.HOD || formData.role === Role.ADMIN) && (
                   <div className="space-y-2">
                     <Label htmlFor="verificationCode">Verification Code</Label>
                     <div className="relative">

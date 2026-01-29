@@ -37,6 +37,7 @@ import {
   RefreshCw,
   Trash2,
 } from 'lucide-react'
+import { getItemsFromResponse } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 
 export default function AcademicSessionsPage() {
@@ -66,14 +67,10 @@ export default function AcademicSessionsPage() {
         apiClient.getActiveAcademicSession(),
       ])
 
-      if (listRes.success && listRes.data && 'data' in listRes.data) {
-        const items =
-          (listRes.data as any).data?.items ??
-          (Array.isArray((listRes.data as any).data) ? (listRes.data as any).data : [])
-        setSessions(items as AcademicSession[])
-      }
+      const listResult = getItemsFromResponse(listRes)
+      if (listResult) setSessions(listResult.items as AcademicSession[])
 
-      if (activeRes.success && activeRes.data) {
+      if (activeRes.success && activeRes.data != null) {
         setActiveSession(activeRes.data as AcademicSession)
       } else {
         setActiveSession(null)
