@@ -20,19 +20,19 @@ import { useToast } from '@/hooks/use-toast'
 import { Building2, ArrowLeft } from 'lucide-react'
 import { apiClient } from '@/lib/api'
 import { getItemsFromResponse } from '@/lib/utils'
-import { Lecturer } from '@/types'
+import { Role, User } from '@/types'
 
 export default function CreateDepartmentPage() {
   const router = useRouter()
   const { isAuthenticated, isAdmin, isLecturer, isHod } = useAuth()
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
-  const [lecturers, setLecturers] = useState<Lecturer[]>([])
+  const [hodCandidates, setHodCandidates] = useState<User[]>([])
   const [formData, setFormData] = useState({
     name: '',
     code: '',
     description: '',
-    hodEmail: '',
+    hodId: '',
   })
 
   const isStaff = isAdmin || isLecturer || isHod
@@ -43,17 +43,22 @@ export default function CreateDepartmentPage() {
       return
     }
 
-    const fetchLecturers = async () => {
+    const fetchHodCandidates = async () => {
       try {
-        const response = await apiClient.getLecturers({ limit: 100 })
-        const result = getItemsFromResponse(response)
-        if (result) setLecturers(result.items)
+        const [hodRes, lecturerRes] = await Promise.all([
+          apiClient.getUsers({ role: Role.HOD, limit: 100 }),
+          apiClient.getUsers({ role: Role.LECTURER, limit: 100 }),
+        ])
+        const hodResult = getItemsFromResponse<User>(hodRes)
+        const lecturerResult = getItemsFromResponse<User>(lecturerRes)
+        const combined = [...(hodResult?.items ?? []), ...(lecturerResult?.items ?? [])]
+        setHodCandidates(combined)
       } catch (error) {
-        console.error('Failed to fetch lecturers:', error)
+        console.error('Failed to fetch HOD candidates:', error)
       }
     }
 
-    fetchLecturers()
+    fetchHodCandidates()
   }, [isAuthenticated, isStaff, router])
 
   // Redirect if not authenticated or not staff
@@ -94,7 +99,7 @@ export default function CreateDepartmentPage() {
         name: formData.name.trim(),
         code: formData.code.trim().toUpperCase(),
         description: formData.description.trim() || undefined,
-        hodEmail: formData.hodEmail && formData.hodEmail !== "none" ? formData.hodEmail : undefined,
+        hodId: formData.hodId && formData.hodId !== "none" ? formData.hodId : undefined,
       })
 
       if (response.success) {
@@ -202,11 +207,11 @@ export default function CreateDepartmentPage() {
                 </div>
 
                 <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="hodEmail">Head of Department (Optional)</Label>
+                  <Label htmlFor="hodId">Head of Department (Optional)</Label>
                   <Select
-                    value={formData.hodEmail}
+                    value={formData.hodId}
                     onValueChange={(value) =>
-                      handleSelectChange("hodEmail", value)
+                      handleSelectChange("hodId", value)
                     }
                   >
                     <SelectTrigger>
@@ -214,9 +219,9 @@ export default function CreateDepartmentPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">No HOD assigned</SelectItem>
-                      {lecturers.map((lecturer) => (
-                        <SelectItem key={lecturer.id} value={lecturer.email}>
-                          {lecturer.name} — {lecturer.department?.name || lecturer.departmentCode}
+                      {hodCandidates.map((user) => (
+                        <SelectItem key={user.id} value={user.id}>
+                          {user.name ?? user.email} — {user.department?.name ?? user.departmentCode ?? "—"}
                         </SelectItem>
                       ))}
                     </SelectContent>

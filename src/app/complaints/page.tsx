@@ -59,12 +59,15 @@ export default function ComplaintsPage() {
       setLoading(true)
       if (isAdmin) {
         const response = await apiClient.getComplaints({ page: 1, limit: 50 })
-        const result = getItemsFromResponse(response)
+        const result = getItemsFromResponse<Complaint>(response)
         if (result) setComplaints(result.items)
       } else {
         const response = await apiClient.getMyComplaints()
-        if (response.success && Array.isArray(response.data)) {
-          setComplaints(response.data)
+        if (response.success && response.data) {
+          const items = Array.isArray(response.data)
+            ? response.data
+            : (response.data as { data?: Complaint[] })?.data ?? []
+          setComplaints(items)
         }
       }
     } catch (error) {
@@ -78,7 +81,7 @@ export default function ComplaintsPage() {
     const fetchDepartments = async () => {
       try {
         const response = await apiClient.getDepartments({ limit: 100 })
-        const result = getItemsFromResponse(response)
+        const result = getItemsFromResponse<Department>(response)
         if (result) setDepartments(result.items)
       } catch (error) {
         console.error('Failed to fetch departments:', error)

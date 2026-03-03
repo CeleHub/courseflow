@@ -5,7 +5,7 @@ import { Navigation } from '@/components/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { apiClient } from '@/lib/api'
 import { getItemsFromResponse } from '@/lib/utils'
-import { Course, ExamSchedule, CreateExamData, College, Semester, VenueType } from '@/types'
+import { Course, Exam, CreateExamData, College, Semester, VenueType } from '@/types'
 
 const EXAM_VENUE_OPTIONS: { value: VenueType; label: string }[] = [
   { value: VenueType.UNIVERSITY_ICT_CENTER, label: 'University ICT Center' },
@@ -65,7 +65,7 @@ export default function ExamsPage() {
   const { isAuthenticated, isAdmin } = useAuth()
   const { toast } = useToast()
 
-  const [exams, setExams] = useState<ExamSchedule[]>([])
+  const [exams, setExams] = useState<Exam[]>([])
   const [courses, setCourses] = useState<Course[]>([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
@@ -103,8 +103,8 @@ export default function ExamsPage() {
 
       const examsResult = getItemsFromResponse(examsRes)
       const coursesResult = getItemsFromResponse(coursesRes)
-      if (examsResult) setExams(examsResult.items as ExamSchedule[])
-      if (coursesResult) setCourses(coursesResult.items)
+      if (examsResult) setExams(examsResult.items as Exam[])
+      if (coursesResult) setCourses(coursesResult.items as Course[])
     } catch (error) {
       console.error('Failed to fetch exams data:', error)
       toast({

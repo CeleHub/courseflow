@@ -47,7 +47,10 @@ export default function AdminVerificationCodesPage() {
       const response = await apiClient.getVerificationCodes()
 
       if (response.success && response.data) {
-        setCodes(response.data)
+        const items = Array.isArray(response.data)
+          ? response.data
+          : (response.data as { data?: VerificationCode[] })?.data ?? []
+        setCodes(items)
       }
     } catch (error) {
       console.error('Failed to fetch verification codes:', error)

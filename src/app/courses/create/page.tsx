@@ -26,7 +26,7 @@ import { useToast } from "@/hooks/use-toast";
 import { BookOpen, ArrowLeft, User as UserIcon } from "lucide-react";
 import { apiClient } from "@/lib/api";
 import { getItemsFromResponse } from "@/lib/utils";
-import { Department, Level, Lecturer, Semester } from "@/types";
+import { Department, Level, Role, Semester, User } from "@/types";
 
 export default function CreateCoursePage() {
   const router = useRouter();
@@ -34,7 +34,7 @@ export default function CreateCoursePage() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [lecturers, setLecturers] = useState<Lecturer[]>([]);
+  const [lecturers, setLecturers] = useState<User[]>([]);
   const [formData, setFormData] = useState({
     code: "",
     name: "",
@@ -42,7 +42,7 @@ export default function CreateCoursePage() {
     credits: "",
     semester: "FIRST",
     departmentCode: "",
-    lecturerEmail: "",
+    lecturerId: "",
     overview: "",
     isGeneral: false,
     isLocked: false,
@@ -66,14 +66,19 @@ export default function CreateCoursePage() {
 
     const fetchData = async () => {
       try {
-        const [deptResponse, lecturerResponse] = await Promise.all([
+        const [deptResponse, lecturerResponse, hodResponse] = await Promise.all([
           apiClient.getDepartments({ limit: 100 }),
-          apiClient.getLecturers({ limit: 100 }),
+          apiClient.getUsers({ role: Role.LECTURER, limit: 100 }),
+          apiClient.getUsers({ role: Role.HOD, limit: 100 }),
         ]);
-        const deptResult = getItemsFromResponse(deptResponse);
-        const lecturerResult = getItemsFromResponse(lecturerResponse);
+        const deptResult = getItemsFromResponse<Department>(deptResponse);
+        const lecturerResult = getItemsFromResponse<User>(lecturerResponse);
+        const hodResult = getItemsFromResponse<User>(hodResponse);
         if (deptResult) setDepartments(deptResult.items);
-        if (lecturerResult) setLecturers(lecturerResult.items);
+        if (lecturerResult || hodResult) {
+          const lecturersList = [...(lecturerResult?.items ?? []), ...(hodResult?.items ?? [])];
+          setLecturers(lecturersList);
+        }
       } catch (error) {
         console.error("Failed to fetch data:", error);
       }
@@ -140,10 +145,10 @@ export default function CreateCoursePage() {
         credits: credits,
         semester: formData.semester as Semester,
         departmentCode: formData.departmentCode,
-        lecturerEmail:
-          formData.lecturerEmail && formData.lecturerEmail !== "none"
-            ? formData.lecturerEmail
-            : "",
+        lecturerId:
+          formData.lecturerId && formData.lecturerId !== "none"
+            ? formData.lecturerId
+            : undefined,
         overview: formData.overview.trim() || undefined,
         isGeneral: formData.isGeneral,
         isLocked: formData.isLocked,
@@ -327,16 +332,16 @@ export default function CreateCoursePage() {
                 </div>
 
                 <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="lecturerEmail">
+                  <Label htmlFor="lecturerId">
                     <div className="flex items-center gap-2">
                       <UserIcon className="h-4 w-4" />
                       Assigned Lecturer (Optional)
                     </div>
                   </Label>
                   <Select
-                    value={formData.lecturerEmail}
+                    value={formData.lecturerId}
                     onValueChange={(value) =>
-                      handleSelectChange("lecturerEmail", value)
+                      handleSelectChange("lecturerId", value)
                     }
                   >
                     <SelectTrigger>
@@ -345,9 +350,9 @@ export default function CreateCoursePage() {
                     <SelectContent>
                       <SelectItem value="none">No lecturer assigned</SelectItem>
                       {lecturers.map((lecturer) => (
-                        <SelectItem key={lecturer.id} value={lecturer.email}>
-                          {lecturer.name} —{" "}
-                          {lecturer.department?.name || lecturer.departmentCode}
+                        <SelectItem key={lecturer.id} value={lecturer.id}>
+                          {lecturer.name ?? lecturer.email} —{" "}
+                          {lecturer.department?.name ?? lecturer.departmentCode ?? "—"}
                         </SelectItem>
                       ))}
                     </SelectContent>

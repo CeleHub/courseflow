@@ -86,7 +86,7 @@ export default function CoursesPage() {
     const fetchDepartments = async () => {
       try {
         const response = await apiClient.getDepartments({ limit: 100 });
-        const result = getItemsFromResponse(response);
+        const result = getItemsFromResponse<Department>(response);
         if (result) setDepartments(result.items);
       } catch (error) {
         console.error("Failed to fetch departments:", error);
@@ -123,7 +123,7 @@ export default function CoursesPage() {
         params.semester = selectedSemester;
 
       const response = await apiClient.getCourses(params);
-      const result = getItemsFromResponse(response);
+      const result = getItemsFromResponse<Course>(response);
       if (result) {
         setCourses(result.items);
         setTotalPages(result.totalPages);
@@ -552,11 +552,13 @@ export default function CoursesPage() {
                         <div className="flex items-center gap-2 text-sm">
                           <div className="flex-1 min-w-0">
                             <p className="text-xs font-medium text-foreground truncate">
-                              {course.lecturer.name}
+                              {course.lecturer.name ?? course.lecturer.email}
                             </p>
-                            <p className="text-xs text-muted-foreground truncate">
-                              {course.lecturer.email}
-                            </p>
+                            {course.lecturer.email && (
+                              <p className="text-xs text-muted-foreground truncate">
+                                {course.lecturer.email}
+                              </p>
+                            )}
                           </div>
                         </div>
                       ) : (

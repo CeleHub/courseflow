@@ -36,27 +36,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [toast])
 
   useEffect(() => {
-    // Check if user is logged in on mount and validate token
     const validateToken = async () => {
       const token = apiClient.getToken()
       if (token) {
         try {
-          // Validate token with backend
           const response = await apiClient.getCurrentUser()
           let userData: User | null = null
           if (response.success && response.data != null) {
-            const raw = response.data as { data?: User } | User
-            userData = (raw as { data?: User }).data ?? (raw as User)
+            const raw = response.data as { user?: User } | User
+            userData = (raw as { user?: User }).user ?? (raw as User)
+            if (userData && !("id" in userData)) userData = null
           }
           if (userData) {
             setUser(userData)
-            localStorage.setItem('user', JSON.stringify(userData))
+            localStorage.setItem("user", JSON.stringify(userData))
           } else {
-            // Token is invalid, clear it
             logout()
           }
         } catch (error) {
-          console.error('Token validation failed:', error)
+          console.error("Token validation failed:", error)
           logout()
         }
       }
@@ -69,19 +67,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (data: LoginData): Promise<boolean> => {
     try {
       setLoading(true)
-      const response = await apiClient.login(data)
+      const response = await apiClient.login(data.email, data.password)
 
       if (response.success && response.data) {
         const authData = response.data as AuthResponse
-        setUser(authData.user)
+        setUser(authData.user as User)
         apiClient.setToken(authData.access_token)
 
         // Store user data in localStorage
-        localStorage.setItem('user', JSON.stringify(authData.user))
+        localStorage.setItem('user', JSON.stringify(authData.user as User))
 
         toast({
           title: "Login Successful",
-          description: `Welcome back, ${authData.user.name ?? authData.user.email}!`,
+          description: `Welcome back, ${authData.user?.name ?? authData.user?.email ?? "User"}!`,
         })
 
         return true
@@ -112,15 +110,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (response.success && response.data) {
         const authData = response.data as AuthResponse
-        setUser(authData.user)
+        setUser(authData.user as User)
         apiClient.setToken(authData.access_token)
 
         // Store user data in localStorage
-        localStorage.setItem('user', JSON.stringify(authData.user))
+        localStorage.setItem('user', JSON.stringify(authData.user as User))
 
         toast({
           title: "Registration Successful",
-          description: `Welcome to CourseFlow, ${authData.user.name ?? authData.user.email}!`,
+          description: `Welcome to CourseFlow, ${authData.user?.name ?? authData.user?.email ?? "User"}!`,
         })
 
         return true
