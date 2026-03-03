@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
@@ -12,6 +12,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Loader2, Mail, Lock, Eye, EyeOff, User, IdCard, Shield } from 'lucide-react'
 import { Role } from '@/types'
+import { useToast } from '@/hooks/use-toast'
+import { apiClient } from '@/lib/api'
+import { getItemsFromResponse } from '@/lib/utils'
+import type { Department } from '@/types'
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState<{
@@ -33,16 +37,46 @@ export default function RegisterPage() {
   })
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [departments, setDepartments] = useState<Department[]>([])
 
   const { register } = useAuth()
+  const { toast } = useToast()
   const router = useRouter()
+
+  const needsDepartment = formData.role !== Role.ADMIN
+  const departmentRequired = formData.role === Role.LECTURER || formData.role === Role.HOD
+
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        const response = await apiClient.getDepartments({ limit: 100 })
+        const result = getItemsFromResponse<Department>(response)
+        if (result) setDepartments(result.items)
+      } catch (error) {
+        console.error('Failed to fetch departments:', error)
+      }
+    }
+    fetchDepartments()
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (departmentRequired && !formData.departmentCode?.trim()) {
+      toast({
+        title: 'Validation Error',
+        description: 'Please select your department',
+        variant: 'destructive',
+      })
+      return
+    }
     setIsLoading(true)
 
     try {
-      const success = await register(formData)
+      const payload = { ...formData }
+      if (formData.role === Role.ADMIN) {
+        delete payload.departmentCode
+      }
+      const success = await register(payload)
       if (success) {
         router.push('/dashboard')
       }
@@ -54,7 +88,13 @@ export default function RegisterPage() {
   }
 
   const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
+    setFormData(prev => {
+      const next = { ...prev, [field]: value }
+      if (field === 'role' && value === Role.ADMIN) {
+        next.departmentCode = ''
+      }
+      return next
+    })
   }
 
   return (
@@ -175,6 +215,35 @@ export default function RegisterPage() {
                     </div>
                     <p className="text-xs text-muted-foreground">
                       Contact admin for {formData.role.toLowerCase()} verification code
+                    </p>
+                  </div>
+                )}
+
+                {needsDepartment && (
+                  <div className="space-y-2">
+                    <Label htmlFor="departmentCode">
+                      Department {departmentRequired && <span className="text-red-500">*</span>}
+                    </Label>
+                    <Select
+                      value={formData.departmentCode ?? ''}
+                      onValueChange={(value) => handleInputChange('departmentCode', value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select your department" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">Select department</SelectItem>
+                        {departments.map((dept) => (
+                          <SelectItem key={dept.code} value={dept.code}>
+                            {dept.name} ({dept.code})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      {departmentRequired
+                        ? 'Required for lecturers and HODs'
+                        : 'Optional for students'}
                     </p>
                   </div>
                 )}
