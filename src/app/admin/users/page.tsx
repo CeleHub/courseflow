@@ -31,7 +31,7 @@ export default function AdminUsersPage() {
     try {
       setLoading(true)
       const response = await apiClient.getUsers({ page: 1, limit: 50 })
-      const result = getItemsFromResponse(response)
+      const result = getItemsFromResponse<UserType>(response)
       if (result) setUsers(result.items)
     } catch (error) {
       console.error('Failed to fetch users:', error)
@@ -55,6 +55,7 @@ export default function AdminUsersPage() {
   const getRoleIcon = (role: Role) => {
     switch (role) {
       case Role.ADMIN: return Shield
+      case Role.HOD: return User
       case Role.LECTURER: return User
       case Role.STUDENT: return GraduationCap
       default: return User
@@ -64,6 +65,7 @@ export default function AdminUsersPage() {
   const getRoleBadgeColor = (role: Role) => {
     switch (role) {
       case Role.ADMIN: return 'bg-red-100 text-red-800'
+      case Role.HOD: return 'bg-purple-100 text-purple-800'
       case Role.LECTURER: return 'bg-blue-100 text-blue-800'
       case Role.STUDENT: return 'bg-green-100 text-green-800'
       default: return 'bg-gray-100 text-gray-800'
@@ -178,7 +180,7 @@ export default function AdminUsersPage() {
                                 <User className="h-4 w-4 text-primary" />
                               </div>
                               <div>
-                                <div className="font-medium">{user.name}</div>
+                                <div className="font-medium">{user.name ?? user.email}</div>
                                 <div className="text-sm text-muted-foreground">{user.email}</div>
                               </div>
                             </div>
@@ -244,7 +246,7 @@ export default function AdminUsersPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {users.filter(u => u.role === Role.LECTURER || u.role === Role.ADMIN).length}
+                {users.filter(u => u.role === Role.LECTURER || u.role === Role.HOD || u.role === Role.ADMIN).length}
               </div>
               <p className="text-xs text-muted-foreground">Lecturers & Admins</p>
             </CardContent>

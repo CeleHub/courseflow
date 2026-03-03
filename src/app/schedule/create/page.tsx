@@ -72,7 +72,7 @@ export default function CreateSchedulePage() {
     const fetchCourses = async () => {
       try {
         const response = await apiClient.getCourses({ limit: 100 })
-        const result = getItemsFromResponse(response)
+        const result = getItemsFromResponse<Course>(response)
         if (result) setCourses(result.items)
       } catch (error) {
         console.error('Failed to fetch courses:', error)

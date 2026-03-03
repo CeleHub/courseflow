@@ -1,47 +1,23 @@
 import {
   ApiResponse,
   PaginatedResponse,
-  PaginationParams,
-  LoginData,
-  RegisterData,
-  ForgotPasswordData,
-  ResetPasswordData,
-  CreateDepartmentData,
-  UpdateDepartmentData,
-  DepartmentFilterParams,
-  CreateLecturerData,
-  UpdateLecturerData,
-  CreateCourseData,
-  UpdateCourseData,
-  CourseFilterParams,
-  CreateScheduleData,
-  UpdateScheduleData,
-  ScheduleFilterParams,
   CreateAcademicSessionData,
   UpdateAcademicSessionData,
   CreateExamData,
   UpdateExamData,
+  CreateDepartmentData,
+  UpdateDepartmentData,
+  CreateCourseData,
+  UpdateCourseData,
+  CreateScheduleData,
+  UpdateScheduleData,
   CreateComplaintData,
-  UpdateComplaintData,
-  ComplaintFilterParams,
   CreateVerificationCodeData,
-  UpdateVerificationCodeData,
-  BulkUploadResult,
-  AuthResponse,
-  User,
-  Department,
-  Lecturer,
-  Course,
-  Schedule,
-  AcademicSession,
-  ExamSchedule,
-  Complaint,
-  VerificationCode,
-  DepartmentStatistics,
-  CourseStatistics,
-  ScheduleStatistics,
-  SessionStatistics,
-  LecturerDashboardStats,
+  RegisterData,
+  UserFilterParams,
+  CourseFilterParams,
+  ScheduleFilterParams,
+  DepartmentFilterParams,
 } from "@/types";
 
 const API_BASE_URL = "https://courseflow-backend-s16i.onrender.com/api/v1";
@@ -72,81 +48,97 @@ class ApiClient {
     return this.token;
   }
 
-  private buildQueryString(params?: Record<string, any>): string {
-    if (!params) return "";
-    const filtered = Object.entries(params).filter(
-      ([_, v]) => v !== undefined && v !== null && v !== ""
-    );
-    if (filtered.length === 0) return "";
-    return "?" + new URLSearchParams(filtered as any).toString();
+  private normalizeResponse(data: any, endpoint: string): ApiResponse<any> {
+    // Auth responses (login / register)
+    if (data.user && data.access_token) {
+      return { success: true, data, timestamp: new Date().toISOString() };
+    }
+
+    // Paginated responses { data: [...], total, page, limit, totalPages }
+    if (data.data && Array.isArray(data.data) && data.total !== undefined) {
+      return {
+        success: true,
+        data: {
+          data: {
+            items: data.data,
+            pagination: {
+              page: data.page || 1,
+              limit: data.limit || 10,
+              total: data.total,
+              totalPages:
+                data.totalPages || Math.ceil(data.total / (data.limit || 10)),
+              hasNext: (data.page || 1) < (data.totalPages || 1),
+              hasPrev: (data.page || 1) > 1,
+            },
+          },
+        },
+        timestamp: new Date().toISOString(),
+      };
+    }
+
+    // Plain array responses
+    if (Array.isArray(data)) {
+      return { success: true, data, timestamp: new Date().toISOString() };
+    }
+
+    // Already a normalized { success, data, ... } envelope
+    if (data.success !== undefined) return data;
+
+    // Fallback
+    return { success: true, data, timestamp: new Date().toISOString() };
   }
 
-  private async request<T>(
+  async request<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
     const url = `${this.baseURL}${endpoint}`;
+
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       ...(options.headers as Record<string, string>),
     };
 
-    if (this.token) {
-      headers.Authorization = `Bearer ${this.token}`;
-    }
+    if (this.token) headers.Authorization = `Bearer ${this.token}`;
 
     try {
       const response = await fetch(url, { ...options, headers });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        // Backend sends { message: string | string[] } on errors
+        const message = Array.isArray(errorData.message)
+          ? errorData.message.join(", ")
+          : errorData.message || errorData.error || `HTTP ${response.status}`;
         return {
           success: false,
-          error:
-            errorData.message ||
-            errorData.error ||
-            `HTTP ${response.status}: ${response.statusText}`,
+          error: message,
           statusCode: response.status,
           timestamp: new Date().toISOString(),
         };
       }
 
       const data = await response.json();
-      
-      // Backend wraps responses in { success, data, message }
-      if (data.success !== undefined) {
-        return data;
-      }
-
-      // Handle direct responses (auth, arrays, etc)
-      return {
-        success: true,
-        data,
-        timestamp: new Date().toISOString(),
-      };
+      return this.normalizeResponse(data, endpoint);
     } catch (error) {
-      console.error("API Request Error:", error);
       return {
         success: false,
-        error:
-          error instanceof Error ? error.message : "Network error occurred",
+        error: error instanceof Error ? error.message : "Network error",
         statusCode: 0,
         timestamp: new Date().toISOString(),
       };
     }
   }
 
-  private async uploadFile<T>(
+  private async uploadFile(
     endpoint: string,
     file: File
-  ): Promise<ApiResponse<T>> {
+  ): Promise<ApiResponse<any>> {
     const formData = new FormData();
     formData.append("file", file);
 
     const headers: Record<string, string> = {};
-    if (this.token) {
-      headers.Authorization = `Bearer ${this.token}`;
-    }
+    if (this.token) headers.Authorization = `Bearer ${this.token}`;
 
     try {
       const response = await fetch(`${this.baseURL}${endpoint}`, {
@@ -157,36 +149,32 @@ class ApiClient {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        const message = Array.isArray(errorData.message)
+          ? errorData.message.join(", ")
+          : errorData.message || errorData.error || "Upload failed";
         return {
           success: false,
-          error: errorData.message || errorData.error || "Upload failed",
+          error: message,
           statusCode: response.status,
           timestamp: new Date().toISOString(),
         };
       }
 
       const data = await response.json();
-      return {
-        success: true,
-        data,
-        timestamp: new Date().toISOString(),
-      };
+      return this.normalizeResponse(data, endpoint);
     } catch (error) {
       return {
         success: false,
-        error:
-          error instanceof Error ? error.message : "Network error occurred",
+        error: error instanceof Error ? error.message : "Network error",
         statusCode: 0,
         timestamp: new Date().toISOString(),
       };
     }
   }
 
-  private async downloadFile(endpoint: string): Promise<ApiResponse<string>> {
+  async downloadFile(endpoint: string): Promise<ApiResponse<string>> {
     const headers: Record<string, string> = {};
-    if (this.token) {
-      headers.Authorization = `Bearer ${this.token}`;
-    }
+    if (this.token) headers.Authorization = `Bearer ${this.token}`;
 
     try {
       const response = await fetch(`${this.baseURL}${endpoint}`, {
@@ -198,451 +186,420 @@ class ApiClient {
         const errorData = await response.json().catch(() => ({}));
         return {
           success: false,
-          error:
-            errorData.error ||
-            `HTTP ${response.status}: ${response.statusText}`,
+          error: errorData.error || `HTTP ${response.status}`,
           statusCode: response.status,
           timestamp: new Date().toISOString(),
         };
       }
 
-      const fileContent = await response.text();
       return {
         success: true,
-        data: fileContent,
+        data: await response.text(),
         timestamp: new Date().toISOString(),
       };
     } catch (error) {
       return {
         success: false,
-        error:
-          error instanceof Error ? error.message : "Network error occurred",
+        error: error instanceof Error ? error.message : "Network error",
         statusCode: 0,
         timestamp: new Date().toISOString(),
       };
     }
   }
 
-  // ============ AUTH ============
-  async login(data: LoginData) {
-    return this.request<AuthResponse>("/auth/login", {
-      method: "POST",
-      body: JSON.stringify(data),
-    });
-  }
-
-  async register(data: RegisterData) {
-    return this.request<AuthResponse>("/auth/register", {
-      method: "POST",
-      body: JSON.stringify(data),
-    });
-  }
-
-  async getCurrentUser() {
-    return this.request<{ data: User }>("/auth/me");
-  }
-
-  async forgotPassword(data: ForgotPasswordData) {
-    return this.request<{ message: string; resetToken?: string }>(
-      "/auth/forgot-password",
-      {
-        method: "POST",
-        body: JSON.stringify(data),
-      }
+  private buildQuery(params?: Record<string, any>): string {
+    if (!params) return "";
+    // Drop undefined / null values so they don't appear as "key=undefined"
+    const clean = Object.fromEntries(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== null)
     );
+    const qs = new URLSearchParams(clean as any).toString();
+    return qs ? `?${qs}` : "";
   }
 
-  async resetPassword(data: ResetPasswordData) {
-    return this.request<{ message: string }>("/auth/reset-password", {
+  // ─── Auth ──────────────────────────────────────────────────────────────────
+
+  login(email: string, password: string) {
+    return this.request("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+    });
+  }
+
+  register(data: RegisterData) {
+    return this.request("/auth/register", {
       method: "POST",
       body: JSON.stringify(data),
     });
   }
 
-  // ============ VERIFICATION CODES ============
-  async getVerificationCodes() {
-    return this.request<VerificationCode[]>("/auth/verification-codes");
+  getCurrentUser() {
+    return this.request("/auth/me");
   }
 
-  async getVerificationCode(id: string) {
-    return this.request<VerificationCode>(`/auth/verification-codes/${id}`);
+  forgotPassword(email: string) {
+    return this.request("/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
   }
 
-  async createVerificationCode(data: CreateVerificationCodeData) {
-    return this.request<VerificationCode>("/auth/verification-codes", {
+  resetPassword(token: string, newPassword: string) {
+    return this.request("/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify({ token, newPassword }),
+    });
+  }
+
+  // ─── Verification Codes ────────────────────────────────────────────────────
+
+  getVerificationCodes() {
+    return this.request<any[]>("/auth/verification-codes");
+  }
+
+  createVerificationCode(data: CreateVerificationCodeData) {
+    return this.request("/auth/verification-codes", {
       method: "POST",
       body: JSON.stringify(data),
     });
   }
 
-  async updateVerificationCode(id: string, data: UpdateVerificationCodeData) {
-    return this.request<VerificationCode>(`/auth/verification-codes/${id}`, {
+  updateVerificationCode(
+    id: string,
+    data: Partial<CreateVerificationCodeData> & { isActive?: boolean }
+  ) {
+    return this.request(`/auth/verification-codes/${id}`, {
       method: "PATCH",
       body: JSON.stringify(data),
     });
   }
 
-  async deleteVerificationCode(id: string) {
-    return this.request<VerificationCode>(`/auth/verification-codes/${id}`, {
+  deleteVerificationCode(id: string) {
+    return this.request(`/auth/verification-codes/${id}`, {
       method: "DELETE",
     });
   }
 
-  // ============ USERS ============
-  async getUsers(params?: PaginationParams) {
-    return this.request<PaginatedResponse<User> | User[]>(
-      `/users${this.buildQueryString(params)}`
+  // ─── Users ─────────────────────────────────────────────────────────────────
+  //
+  // One endpoint covers ALL roles.
+  // To get lecturers:  getUsers({ role: Role.LECTURER })
+  // To get HODs:       getUsers({ role: Role.HOD })
+  // To get students:   getUsers({ role: Role.STUDENT })
+  // No separate /lecturers route exists anymore.
+
+  getUsers(params?: UserFilterParams) {
+    return this.request<PaginatedResponse<any>>(
+      `/users${this.buildQuery(params)}`
     );
   }
 
-  async getUser(matricNO: string) {
-    return this.request<User>(`/users/${matricNO}`);
+  getUserById(id: string) {
+    return this.request(`/users/${id}`);
   }
 
-  async updateUser(matricNO: string, data: Partial<User>) {
-    return this.request<User>(`/users/${matricNO}`, {
+  updateUser(id: string, data: Partial<{
+    name: string;
+    phone: string;
+    departmentCode: string;
+    role: string;
+    isActive: boolean;
+  }>) {
+    return this.request(`/users/${id}`, {
       method: "PATCH",
       body: JSON.stringify(data),
     });
   }
 
-  async deleteUser(matricNO: string) {
-    return this.request<User>(`/users/${matricNO}`, {
-      method: "DELETE",
-    });
+  deleteUser(id: string) {
+    return this.request(`/users/${id}`, { method: "DELETE" });
   }
 
-  // ============ DEPARTMENTS ============
-  async getDepartments(params?: DepartmentFilterParams) {
-    return this.request<PaginatedResponse<Department> | Department[]>(
-      `/departments${this.buildQueryString(params)}`
+  // ─── Lecturer self-service (must be authenticated as LECTURER / HOD) ───────
+
+  getLecturerDashboard() {
+    return this.request("/users/me/dashboard");
+  }
+
+  getLecturerCourses() {
+    return this.request("/users/me/courses");
+  }
+
+  getLecturerSchedule() {
+    return this.request("/users/me/schedule");
+  }
+
+  // ─── Departments ───────────────────────────────────────────────────────────
+
+  getDepartments(params?: DepartmentFilterParams) {
+    return this.request<PaginatedResponse<any>>(
+      `/departments${this.buildQuery(params)}`
     );
   }
 
-  async getDepartment(code: string) {
-    return this.request<Department>(`/departments/${code}`);
+  getDepartmentByCode(code: string) {
+    return this.request(`/departments/${code}`);
   }
 
-  async getDepartmentFullDetails(code: string) {
-    return this.request<Department>(`/departments/${code}/full-details`);
+  getDepartmentFullDetails(code: string) {
+    return this.request(`/departments/${code}/full-details`);
   }
 
-  async getDepartmentStatistics() {
-    return this.request<DepartmentStatistics>("/departments/statistics");
+  getDepartmentStatistics() {
+    return this.request("/departments/statistics");
   }
 
-  async createDepartment(data: CreateDepartmentData) {
-    return this.request<Department>("/departments", {
+  createDepartment(data: CreateDepartmentData) {
+    // data.hodId is a User ID string — NOT an email
+    return this.request("/departments", {
       method: "POST",
       body: JSON.stringify(data),
     });
   }
 
-  async updateDepartment(code: string, data: UpdateDepartmentData) {
-    return this.request<Department>(`/departments/${code}`, {
+  updateDepartment(code: string, data: UpdateDepartmentData) {
+    return this.request(`/departments/${code}`, {
       method: "PATCH",
       body: JSON.stringify(data),
     });
   }
 
-  async deleteDepartment(code: string) {
-    return this.request<Department>(`/departments/${code}`, {
-      method: "DELETE",
-    });
+  deleteDepartment(code: string) {
+    return this.request(`/departments/${code}`, { method: "DELETE" });
   }
 
-  async uploadDepartmentsBulk(file: File) {
-    return this.uploadFile<BulkUploadResult<Department>>(
-      "/departments/bulk/upload",
-      file
-    );
-  }
-
-  async getDepartmentsBulkTemplate() {
+  getDepartmentsBulkTemplate() {
     return this.downloadFile("/departments/bulk/template");
   }
 
-  // ============ LECTURERS ============
-  async getLecturers(params?: PaginationParams) {
-    return this.request<PaginatedResponse<Lecturer> | Lecturer[]>(
-      `/lecturers${this.buildQueryString(params)}`
+  uploadDepartmentsBulk(file: File) {
+    return this.uploadFile("/departments/bulk/upload", file);
+  }
+
+  // ─── Courses ───────────────────────────────────────────────────────────────
+
+  getCourses(params?: CourseFilterParams) {
+    // Note: filter by lecturer uses lecturerId (User ID), not lecturerEmail
+    return this.request<PaginatedResponse<any>>(
+      `/courses${this.buildQuery(params)}`
     );
   }
 
-  async getLecturer(id: string) {
-    return this.request<Lecturer>(`/lecturers/${id}`);
+  getCourseByCode(code: string) {
+    return this.request(`/courses/${code}`);
   }
 
-  async getLecturersByDepartment(departmentCode: string) {
-    return this.request<Lecturer[]>(`/lecturers/department/${departmentCode}`);
+  getCoursesWithoutSchedules() {
+    return this.request("/courses/without-schedules");
   }
 
-  async searchLecturers(searchTerm: string) {
-    return this.request<Lecturer[]>(`/lecturers/search/${searchTerm}`);
+  getCourseStatistics() {
+    return this.request("/courses/statistics");
   }
 
-  async getLecturerDashboard() {
-    return this.request<LecturerDashboardStats>(
-      "/lecturers/dashboard/stats"
-    );
-  }
-
-  async getLecturerCourses() {
-    return this.request<{
-      lecturer: Lecturer;
-      courses: Course[];
-    }>("/lecturers/dashboard/my-courses");
-  }
-
-  async getLecturerSchedule() {
-    return this.request<{
-      lecturer: Lecturer;
-      activeSession: AcademicSession | null;
-      schedulesByDay: Record<string, Schedule[]>;
-      totalSchedules: number;
-    }>("/lecturers/dashboard/my-schedule");
-  }
-
-  async createLecturer(data: CreateLecturerData) {
-    return this.request<Lecturer>("/lecturers", {
+  createCourse(data: CreateCourseData) {
+    // data.lecturerId is a User ID — NOT an email
+    return this.request("/courses", {
       method: "POST",
       body: JSON.stringify(data),
     });
   }
 
-  async updateLecturer(id: string, data: UpdateLecturerData) {
-    return this.request<Lecturer>(`/lecturers/${id}`, {
+  updateCourse(code: string, data: UpdateCourseData) {
+    return this.request(`/courses/${code}`, {
       method: "PATCH",
       body: JSON.stringify(data),
     });
   }
 
-  async deleteLecturer(id: string) {
-    return this.request<Lecturer>(`/lecturers/${id}`, {
-      method: "DELETE",
-    });
+  deleteCourse(code: string) {
+    return this.request(`/courses/${code}`, { method: "DELETE" });
   }
 
-  // ============ COURSES ============
-  async getCourses(params?: CourseFilterParams) {
-    return this.request<PaginatedResponse<Course> | Course[]>(
-      `/courses${this.buildQueryString(params)}`
-    );
-  }
-
-  async getCourse(code: string) {
-    return this.request<Course>(`/courses/${code}`);
-  }
-
-  async getCoursesWithoutSchedules() {
-    return this.request<Course[]>("/courses/without-schedules");
-  }
-
-  async getCourseStatistics() {
-    return this.request<CourseStatistics>("/courses/statistics");
-  }
-
-  async createCourse(data: CreateCourseData) {
-    return this.request<Course>("/courses", {
-      method: "POST",
-      body: JSON.stringify(data),
-    });
-  }
-
-  async updateCourse(code: string, data: UpdateCourseData) {
-    return this.request<Course>(`/courses/${code}`, {
-      method: "PATCH",
-      body: JSON.stringify(data),
-    });
-  }
-
-  async deleteCourse(code: string) {
-    return this.request<Course>(`/courses/${code}`, {
-      method: "DELETE",
-    });
-  }
-
-  async uploadCoursesBulk(file: File) {
-    return this.uploadFile<BulkUploadResult<Course>>(
-      "/courses/bulk/upload",
-      file
-    );
-  }
-
-  async getCoursesBulkTemplate() {
+  getCoursesBulkTemplate() {
     return this.downloadFile("/courses/bulk/template");
   }
 
-  // ============ SCHEDULES ============
-  async getSchedules(params?: ScheduleFilterParams) {
-    return this.request<PaginatedResponse<Schedule> | Schedule[]>(
-      `/schedules${this.buildQueryString(params)}`
+  uploadCoursesBulk(file: File) {
+    // CSV column is still "lecturerEmail" — backend resolves to ID internally
+    return this.uploadFile("/courses/bulk/upload", file);
+  }
+
+  // ─── Schedules ─────────────────────────────────────────────────────────────
+
+  getSchedules(params?: ScheduleFilterParams) {
+    return this.request<PaginatedResponse<any>>(
+      `/schedules${this.buildQuery(params)}`
     );
   }
 
-  async getSchedule(id: string) {
-    return this.request<Schedule>(`/schedules/${id}`);
+  getScheduleById(id: string) {
+    return this.request(`/schedules/${id}`);
   }
 
-  async getScheduleStatistics() {
-    return this.request<ScheduleStatistics>("/schedules/statistics");
+  getScheduleStatistics() {
+    return this.request("/schedules/statistics");
   }
 
-  async createSchedule(data: CreateScheduleData) {
-    return this.request<Schedule>("/schedules", {
+  createSchedule(data: CreateScheduleData) {
+    // venue is a VenueType enum string — NOT a venue id
+    // there is no `type` field
+    return this.request("/schedules", {
       method: "POST",
       body: JSON.stringify(data),
     });
   }
 
-  async updateSchedule(id: string, data: UpdateScheduleData) {
-    return this.request<Schedule>(`/schedules/${id}`, {
+  updateSchedule(id: string, data: UpdateScheduleData) {
+    return this.request(`/schedules/${id}`, {
       method: "PATCH",
       body: JSON.stringify(data),
     });
   }
 
-  async deleteSchedule(id: string) {
-    return this.request<Schedule>(`/schedules/${id}`, {
-      method: "DELETE",
-    });
+  deleteSchedule(id: string) {
+    return this.request(`/schedules/${id}`, { method: "DELETE" });
   }
 
-  async uploadSchedulesBulk(file: File) {
-    return this.uploadFile<BulkUploadResult<Schedule>>(
-      "/schedules/bulk/upload",
-      file
-    );
-  }
-
-  async getSchedulesBulkTemplate() {
+  getSchedulesBulkTemplate() {
     return this.downloadFile("/schedules/bulk/template");
   }
 
-  // ============ ACADEMIC SESSIONS ============
-  async getAcademicSessions(params?: PaginationParams) {
-    return this.request<PaginatedResponse<AcademicSession> | AcademicSession[]>(
-      `/academic-sessions${this.buildQueryString(params)}`
+  uploadSchedulesBulk(file: File) {
+    return this.uploadFile("/schedules/bulk/upload", file);
+  }
+
+  // ─── Academic Sessions ─────────────────────────────────────────────────────
+
+  getAcademicSessions(params?: { page?: number; limit?: number }) {
+    return this.request<PaginatedResponse<any>>(
+      `/academic-sessions${this.buildQuery(params)}`
     );
   }
 
-  async getAcademicSession(id: string) {
-    return this.request<AcademicSession>(`/academic-sessions/${id}`);
+  getAcademicSessionById(id: string) {
+    return this.request(`/academic-sessions/${id}`);
   }
 
-  async getActiveAcademicSession() {
-    return this.request<AcademicSession | null>("/academic-sessions/active");
+  getActiveAcademicSession() {
+    return this.request("/academic-sessions/active");
   }
 
-  async getSessionStatistics(id: string) {
-    return this.request<SessionStatistics>(
-      `/academic-sessions/${id}/statistics`
-    );
+  getSessionStatistics(id: string) {
+    return this.request(`/academic-sessions/${id}/statistics`);
   }
 
-  async createAcademicSession(data: CreateAcademicSessionData) {
-    return this.request<AcademicSession>("/academic-sessions", {
+  createAcademicSession(data: CreateAcademicSessionData) {
+    return this.request("/academic-sessions", {
       method: "POST",
       body: JSON.stringify(data),
     });
   }
 
-  async updateAcademicSession(id: string, data: UpdateAcademicSessionData) {
-    return this.request<AcademicSession>(`/academic-sessions/${id}`, {
+  updateAcademicSession(id: string, data: UpdateAcademicSessionData) {
+    return this.request(`/academic-sessions/${id}`, {
       method: "PATCH",
       body: JSON.stringify(data),
     });
   }
 
-  async activateAcademicSession(id: string) {
-    return this.request<AcademicSession>(`/academic-sessions/${id}/activate`, {
+  activateAcademicSession(id: string) {
+    return this.request(`/academic-sessions/${id}/activate`, {
       method: "PATCH",
     });
   }
 
-  async archiveAcademicSession(id: string) {
-    return this.request<AcademicSession>(`/academic-sessions/${id}/archive`, {
+  archiveAcademicSession(id: string) {
+    return this.request(`/academic-sessions/${id}/archive`, {
       method: "PATCH",
     });
   }
 
-  async deleteAcademicSession(id: string) {
-    return this.request<AcademicSession>(`/academic-sessions/${id}`, {
-      method: "DELETE",
-    });
+  deleteAcademicSession(id: string) {
+    return this.request(`/academic-sessions/${id}`, { method: "DELETE" });
   }
 
-  // ============ EXAMS ============
-  async getExams(params?: PaginationParams) {
-    return this.request<PaginatedResponse<ExamSchedule> | ExamSchedule[]>(
-      `/exams${this.buildQueryString(params)}`
+  // ─── Exams ─────────────────────────────────────────────────────────────────
+
+  getExams(params?: { page?: number; limit?: number }) {
+    return this.request<PaginatedResponse<any>>(
+      `/exams${this.buildQuery(params)}`
     );
   }
 
-  async getExam(id: string) {
-    return this.request<ExamSchedule>(`/exams/${id}`);
+  getExamById(id: string) {
+    return this.request(`/exams/${id}`);
   }
 
-  async createExam(data: CreateExamData) {
-    return this.request<ExamSchedule>("/exams", {
+  createExam(data: CreateExamData) {
+    // venue   → VenueType enum string (e.g. "LECTURE_HALL_1"), NOT a venue id
+    // no venueId field exists
+    return this.request("/exams", {
       method: "POST",
       body: JSON.stringify(data),
     });
   }
 
-  async updateExam(id: string, data: UpdateExamData) {
-    return this.request<ExamSchedule>(`/exams/${id}`, {
+  updateExam(id: string, data: UpdateExamData) {
+    return this.request(`/exams/${id}`, {
       method: "PATCH",
       body: JSON.stringify(data),
     });
   }
 
-  async deleteExam(id: string) {
-    return this.request<ExamSchedule>(`/exams/${id}`, {
-      method: "DELETE",
-    });
+  deleteExam(id: string) {
+    return this.request(`/exams/${id}`, { method: "DELETE" });
   }
 
-  // ============ COMPLAINTS ============
-  async getComplaints(params?: ComplaintFilterParams) {
-    return this.request<PaginatedResponse<Complaint> | Complaint[]>(
-      `/complaints${this.buildQueryString(params)}`
+  // ─── Complaints ────────────────────────────────────────────────────────────
+
+  getComplaints(params?: {
+    page?: number;
+    limit?: number;
+    orderBy?: string;
+    orderDirection?: string;
+  }) {
+    return this.request<PaginatedResponse<any>>(
+      `/complaints${this.buildQuery(params)}`
     );
   }
 
-  async getMyComplaints() {
-    return this.request<Complaint[]>("/complaints/my-complaints");
+  getMyComplaints() {
+    return this.request("/complaints/my-complaints");
   }
 
-  async getPendingComplaints() {
-    return this.request<Complaint[]>("/complaints/pending");
+  getPendingComplaints() {
+    return this.request("/complaints/pending");
   }
 
-  async getResolvedComplaints() {
-    return this.request<Complaint[]>("/complaints/resolved");
+  getResolvedComplaints() {
+    return this.request("/complaints/resolved");
   }
 
-  async getComplaint(id: string) {
-    return this.request<Complaint>(`/complaints/${id}`);
-  }
-
-  async createComplaint(data: CreateComplaintData) {
-    return this.request<Complaint>("/complaints", {
+  createComplaint(data: CreateComplaintData) {
+    return this.request("/complaints", {
       method: "POST",
       body: JSON.stringify(data),
     });
   }
 
-  async updateComplaintStatus(id: string, status: string) {
-    return this.request<Complaint>(`/complaints/${id}/status?status=${status}`, {
+  /**
+   * status must be one of: "PENDING" | "IN_PROGRESS" | "RESOLVED" | "CLOSED"
+   */
+  updateComplaintStatus(id: string, status: string) {
+    return this.request(`/complaints/${id}/status?status=${status}`, {
       method: "PATCH",
     });
   }
 
-  async deleteComplaint(id: string) {
-    return this.request<Complaint>(`/complaints/${id}`, {
-      method: "DELETE",
-    });
+  // ─── Health ────────────────────────────────────────────────────────────────
+
+  healthCheck() {
+    return this.request("/health");
+  }
+
+  simpleHealthCheck() {
+    return this.request("/health/simple");
   }
 }
 

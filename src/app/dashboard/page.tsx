@@ -20,6 +20,7 @@ import {
 import Link from 'next/link'
 import { apiClient } from '@/lib/api'
 import { getItemsFromResponse } from '@/lib/utils'
+import type { Course, Department, Complaint } from '@/types'
 
 export default function DashboardPage() {
   const { user, isAuthenticated, isAdmin, isLecturer, isHod } = useAuth()
@@ -46,9 +47,9 @@ export default function DashboardPage() {
           isAuthenticated ? apiClient.getMyComplaints() : Promise.resolve({ success: false, data: undefined }),
         ])
 
-        const coursesResult = getItemsFromResponse(coursesRes)
-        const departmentsResult = getItemsFromResponse(departmentsRes)
-        const complaintsResult = getItemsFromResponse(complaintsRes)
+        const coursesResult = getItemsFromResponse<Course>(coursesRes)
+        const departmentsResult = getItemsFromResponse<Department>(departmentsRes)
+        const complaintsResult = getItemsFromResponse<Complaint>(complaintsRes)
         const myList = myComplaintsRes.success && Array.isArray(myComplaintsRes.data) ? myComplaintsRes.data : []
 
         setStats({

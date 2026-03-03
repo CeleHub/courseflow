@@ -50,7 +50,7 @@ export default function DepartmentsPage() {
         page: currentPage,
         limit: 12,
       })
-      const result = getItemsFromResponse(response)
+      const result = getItemsFromResponse<Department>(response)
       if (result) {
         setDepartments(result.items)
         setTotalPages(result.totalPages)

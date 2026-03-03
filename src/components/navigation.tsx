@@ -61,7 +61,9 @@ export function Navigation() {
       try {
         const response = await apiClient.getActiveAcademicSession()
         if (response.success && response.data != null) {
-          setActiveSession(response.data as AcademicSession)
+          const raw = response.data as { data?: AcademicSession } | AcademicSession
+          const session = (raw as { data?: AcademicSession }).data ?? (raw as AcademicSession)
+          setActiveSession(session?.id ? session : null)
         } else {
           setActiveSession(null)
         }

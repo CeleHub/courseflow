@@ -67,7 +67,7 @@ export default function AcademicSessionsPage() {
         apiClient.getActiveAcademicSession(),
       ])
 
-      const listResult = getItemsFromResponse(listRes)
+      const listResult = getItemsFromResponse<AcademicSession>(listRes)
       if (listResult) setSessions(listResult.items as AcademicSession[])
 
       if (activeRes.success && activeRes.data != null) {

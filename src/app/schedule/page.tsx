@@ -28,7 +28,7 @@ import {
 } from 'lucide-react'
 import { apiClient } from '@/lib/api'
 import { getItemsFromResponse } from '@/lib/utils'
-import { Schedule, Department, Level, DayOfWeek, Semester } from '@/types'
+import { Schedule, Department, Level, DayOfWeek, Semester, Course } from '@/types'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -87,7 +87,7 @@ export default function SchedulePage() {
     const fetchDepartments = async () => {
       try {
         const response = await apiClient.getDepartments({ limit: 100 })
-        const result = getItemsFromResponse(response)
+        const result = getItemsFromResponse<Department>(response)
         if (result) setDepartments(result.items)
       } catch (error) {
         console.error('Failed to fetch departments:', error)
@@ -111,7 +111,7 @@ export default function SchedulePage() {
       if (selectedSemester && selectedSemester !== 'all') params.semester = selectedSemester
 
       const response = await apiClient.getSchedules(params)
-      const result = getItemsFromResponse(response)
+      const result = getItemsFromResponse<Schedule>(response)
       if (result) {
         setSchedules(result.items)
         setTotalPages(result.totalPages)
@@ -278,13 +278,13 @@ export default function SchedulePage() {
       if (searchTerm) params.search = searchTerm
 
       const firstResponse = await apiClient.getSchedules(params)
-      const firstResult = getItemsFromResponse(firstResponse)
+      const firstResult = getItemsFromResponse<Schedule>(firstResponse)
       if (!firstResult) throw new Error('Failed to fetch schedules')
 
       let allSchedules = [...firstResult.items]
       for (let page = 2; page <= firstResult.totalPages; page++) {
         const pageResponse = await apiClient.getSchedules({ ...params, page })
-        const pageResult = getItemsFromResponse(pageResponse)
+        const pageResult = getItemsFromResponse<Schedule>(pageResponse)
         if (pageResult) allSchedules = [...allSchedules, ...pageResult.items]
       }
 
@@ -306,7 +306,7 @@ export default function SchedulePage() {
       if (courseCodes.length > 0) {
         try {
           const coursesResponse = await apiClient.getCourses({ limit: 1000 })
-          const coursesResult = getItemsFromResponse(coursesResponse)
+          const coursesResult = getItemsFromResponse<Course>(coursesResponse)
           const courses = coursesResult?.items ?? []
           if (courses.length > 0) {
 
@@ -1113,7 +1113,7 @@ export default function SchedulePage() {
                         </div>
 
                         <div className="text-xs text-muted-foreground space-y-1">
-                          <p>• CSV file should contain columns: courseCode, dayOfWeek, startTime, endTime, venue, type</p>
+                          <p>• CSV file should contain columns: courseCode, dayOfWeek, startTime, endTime, venue</p>
                           <p>• Download the template for the correct format</p>
                           <p>• Maximum file size: 5MB</p>
                         </div>

@@ -27,12 +27,14 @@ export default function DepartmentDetailsPage() {
         const response = await apiClient.getDepartmentFullDetails(code)
 
         if (response.success && response.data) {
-          const dept = response.data as Department
+          const raw = response.data as { data?: Department } | Department
+          const dept = (raw as { data?: Department }).data ?? (raw as Department)
           if (!dept?.name) {
             throw new Error('Invalid department data')
           }
           setDepartment(dept)
-          setCourses(Array.isArray(dept.courses) ? dept.courses : [])
+          const deptWithCourses = dept as Department & { courses?: Course[] }
+          setCourses(Array.isArray(deptWithCourses.courses) ? deptWithCourses.courses : [])
         } else {
           toast({
             title: "Error",
@@ -247,14 +249,14 @@ export default function DepartmentDetailsPage() {
                             </span>
                           </div>
 
-                          {course.lecturer && course.lecturer.name && (
+                          {course.lecturer && (
                             <div className="flex items-center gap-2 text-sm">
                               <div className="p-1.5 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
                                 <User className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                               </div>
                               <div className="flex-1 min-w-0">
                                 <p className="text-xs font-medium text-foreground truncate">
-                                  {course.lecturer.name}
+                                  {course.lecturer.name ?? course.lecturer.email}
                                 </p>
                                 {course.lecturer.email && (
                                   <p className="text-xs text-muted-foreground truncate">
