@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,6 +12,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Role } from "@/types";
 import { Menu, Bell, User, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -58,12 +65,15 @@ export function Topbar({
 }) {
   const { user, logout } = useAuth();
   const router = useRouter();
-  const pathname = usePathname();
+  const [mobileUserSheetOpen, setMobileUserSheetOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
     router.push("/login");
   };
+
+  const openMobileUserSheet = () => setMobileUserSheetOpen(true);
+  const closeMobileUserSheet = () => setMobileUserSheetOpen(false);
 
   return (
     <header
@@ -73,8 +83,8 @@ export function Topbar({
       )}
     >
       <div className="flex h-full items-center justify-between px-4 md:px-6">
-        {/* Left: Hamburger (mobile) or Logo (desktop) */}
-        <div className="flex items-center gap-3">
+        {/* Left: Hamburger (mobile) or CourseFlow (desktop) */}
+        <div className="flex items-center shrink-0">
           <Button
             variant="ghost"
             size="icon"
@@ -86,15 +96,25 @@ export function Topbar({
           </Button>
           <Link
             href="/dashboard"
+            className="hidden md:inline font-semibold text-lg text-indigo-600 hover:text-indigo-700 focus:outline focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 rounded-md"
+          >
+            CourseFlow
+          </Link>
+        </div>
+
+        {/* Center: CourseFlow (mobile only) */}
+        <div className="flex-1 flex justify-center min-w-0 md:hidden">
+          <Link
+            href="/dashboard"
             className="font-semibold text-lg text-indigo-600 hover:text-indigo-700 focus:outline focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 rounded-md"
           >
             CourseFlow
           </Link>
         </div>
 
-        {/* Right: Desktop - bell + role + avatar dropdown | Mobile - avatar only */}
-        <div className="flex items-center gap-3">
-          {/* Desktop: notification + role badge + avatar */}
+        {/* Right: Desktop - bell + role + avatar dropdown | Mobile - avatar (opens bottom sheet) */}
+        <div className="flex items-center gap-3 shrink-0">
+          {/* Desktop: notification + role badge + avatar dropdown */}
           <div className="hidden md:flex items-center gap-3">
             <Button
               variant="ghost"
@@ -116,34 +136,73 @@ export function Topbar({
             )}
           </div>
 
-          {/* User avatar + dropdown */}
+          {/* User avatar: dropdown (desktop) or bottom sheet (mobile) */}
           {user && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  className={cn(
-                    "flex items-center justify-center w-8 h-8 rounded-full text-white font-medium text-sm",
-                    getAvatarColor(user.name, user.email)
-                  )}
-                  aria-label="User menu"
-                >
-                  {getInitials(user.name, user.email)}
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="min-w-[180px]">
-                <DropdownMenuItem asChild>
-                  <Link href="/profile" className="cursor-pointer">
-                    <User className="mr-2 h-4 w-4" />
-                    My Profile
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-600">
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Sign Out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <>
+              {/* Mobile: avatar opens bottom sheet */}
+              <button
+                onClick={openMobileUserSheet}
+                className={cn(
+                  "md:hidden flex items-center justify-center min-w-[44px] min-h-[44px] w-8 h-8 rounded-full text-white font-medium text-sm touch-manipulation",
+                  getAvatarColor(user.name, user.email)
+                )}
+                aria-label="User menu"
+              >
+                {getInitials(user.name, user.email)}
+              </button>
+              <Sheet open={mobileUserSheetOpen} onOpenChange={setMobileUserSheetOpen}>
+                <SheetContent side="bottom" className="rounded-t-2xl">
+                  <SheetHeader>
+                    <SheetTitle className="sr-only">User menu</SheetTitle>
+                  </SheetHeader>
+                  <div className="flex flex-col gap-1 py-4">
+                    <Link
+                      href="/profile"
+                      onClick={closeMobileUserSheet}
+                      className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-100 text-gray-900 font-medium min-h-[44px]"
+                    >
+                      <User className="h-5 w-5 text-gray-500" />
+                      My Profile
+                    </Link>
+                    <button
+                      onClick={() => { closeMobileUserSheet(); handleLogout(); }}
+                      className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-100 text-red-600 font-medium min-h-[44px] text-left w-full"
+                    >
+                      <LogOut className="h-5 w-5" />
+                      Sign Out
+                    </button>
+                  </div>
+                </SheetContent>
+              </Sheet>
+
+              {/* Desktop: avatar dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className={cn(
+                      "hidden md:flex items-center justify-center w-8 h-8 rounded-full text-white font-medium text-sm",
+                      getAvatarColor(user.name, user.email)
+                    )}
+                    aria-label="User menu"
+                  >
+                    {getInitials(user.name, user.email)}
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="min-w-[180px]">
+                  <DropdownMenuItem asChild>
+                    <Link href="/profile" className="cursor-pointer">
+                      <User className="mr-2 h-4 w-4" />
+                      My Profile
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-600">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
           )}
         </div>
       </div>
