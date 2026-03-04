@@ -20,7 +20,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="flex pt-14 min-h-screen">
         {/* Spacer: sidebar width on md/lg so main content starts to the right */}
         <div className="hidden md:block w-12 lg:w-60 shrink-0" />
-        <main className="flex-1 min-w-0 px-4 md:px-5 lg:px-8 py-6">
+        <main className="flex-1 min-w-0 px-4 sm:px-5 lg:px-8 py-4 lg:py-6">
           <div className="max-w-[1600px] mx-auto">{children}</div>
         </main>
       </div>
