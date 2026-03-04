@@ -47,7 +47,7 @@ export default function CreateCoursePage() {
     isLocked: false,
   });
 
-  const isStaff = isAdmin || isLecturer || isHod;
+  const canCreate = isAdmin || isHod; /* LECTURER is read-only per 0.1 */
 
   const levelOptions = [
     { value: Level.LEVEL_100, label: "100 Level" },
@@ -58,8 +58,8 @@ export default function CreateCoursePage() {
   ];
 
   useEffect(() => {
-    if (!isAuthenticated || !isStaff) {
-      router.push("/auth/login");
+    if (!isAuthenticated || !canCreate) {
+      router.replace(!isAuthenticated ? "/login" : "/dashboard");
       return;
     }
 
@@ -84,9 +84,9 @@ export default function CreateCoursePage() {
     };
 
     fetchData();
-  }, [isAuthenticated, isStaff, router]);
+  }, [isAuthenticated, canCreate, router]);
 
-  if (!isAuthenticated || !isStaff) {
+  if (!isAuthenticated || !canCreate) {
     return null;
   }
 

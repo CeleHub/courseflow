@@ -28,7 +28,7 @@ export default function CreateSchedulePage() {
     isFixed: false,
   })
 
-  const isStaff = isAdmin || isLecturer || isHod
+  const canCreate = isAdmin || isHod /* LECTURER is read-only per 0.1 */
 
   const dayOptions = [
     { value: DayOfWeek.MONDAY, label: 'Monday' },
@@ -41,8 +41,8 @@ export default function CreateSchedulePage() {
   ]
 
   useEffect(() => {
-    if (!isAuthenticated || !isStaff) {
-      router.push('/login')
+    if (!isAuthenticated || !canCreate) {
+      router.replace(!isAuthenticated ? '/login' : '/dashboard')
       return
     }
 
@@ -57,10 +57,9 @@ export default function CreateSchedulePage() {
     }
 
     fetchCourses()
-  }, [isAuthenticated, isStaff, router])
+  }, [isAuthenticated, canCreate, router])
 
-  // Redirect if not authenticated or not staff
-  if (!isAuthenticated || !isStaff) {
+  if (!isAuthenticated || !canCreate) {
     return null
   }
 

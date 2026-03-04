@@ -34,11 +34,11 @@ export default function CreateDepartmentPage() {
     hodId: '',
   })
 
-  const isStaff = isAdmin || isLecturer || isHod
+  const canCreate = isAdmin /* Only ADMIN can create departments per 0.1; HOD mutates own dept's courses/schedules only */
 
   useEffect(() => {
-    if (!isAuthenticated || !isStaff) {
-      router.push('/login')
+    if (!isAuthenticated || !canCreate) {
+      router.replace(!isAuthenticated ? '/login' : '/dashboard')
       return
     }
 
@@ -58,10 +58,9 @@ export default function CreateDepartmentPage() {
     }
 
     fetchHodCandidates()
-  }, [isAuthenticated, isStaff, router])
+  }, [isAuthenticated, canCreate, router])
 
-  // Redirect if not authenticated or not staff
-  if (!isAuthenticated || !isStaff) {
+  if (!isAuthenticated || !canCreate) {
     return null
   }
 

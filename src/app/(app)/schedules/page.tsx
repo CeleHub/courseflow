@@ -46,7 +46,8 @@ export default function SchedulePage() {
   const { isAuthenticated, isAdmin, isLecturer, isHod, user } = useAuth()
   const { toast } = useToast()
 
-  const isStaff = isAdmin || isLecturer || isHod
+  const isStaff = isAdmin || isLecturer || isHod /* for read access */
+  const canMutateSchedules = isAdmin || isHod /* LECTURER is read-only per 0.1 */
   const [schedules, setSchedules] = useState<Schedule[]>([])
   const [departments, setDepartments] = useState<Department[]>([])
   const [sessions, setSessions] = useState<AcademicSession[]>([])
@@ -955,7 +956,7 @@ export default function SchedulePage() {
                 List
               </button>
             </div>
-            {isStaff && (
+            {canMutateSchedules && (
               <>
                 <Button variant="outline" size="sm" onClick={() => router.push('/schedules/create')}>
                   <Plus className="h-4 w-4 mr-2" />
@@ -968,7 +969,7 @@ export default function SchedulePage() {
             )}
           </div>
         </div>
-        {isStaff && (
+        {canMutateSchedules && (
           <div className="md:hidden flex gap-2 mb-4">
             <Button variant="outline" size="sm" className="flex-1" onClick={() => router.push('/schedules/create')}>
               <Plus className="h-4 w-4 mr-2" />
@@ -1070,7 +1071,7 @@ export default function SchedulePage() {
                 </Select>
               )}
 
-              {isAuthenticated && isStaff && (
+              {isAuthenticated && canMutateSchedules && (
                 <>
                   <Button variant="outline" onClick={handleDownloadTemplate}>
                     <Download className="h-4 w-4 mr-2" />

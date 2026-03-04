@@ -235,19 +235,21 @@ export default function CoursesPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Courses</h1>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={handleDownloadTemplate}>
-            <Download className="h-4 w-4 mr-2" />
-            Download Template
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setIsUploadOpen(true)}>
-            <Upload className="h-4 w-4 mr-2" />
-            Upload CSV
-          </Button>
           {isStaff && (
-            <Button size="sm" onClick={() => router.push("/courses/create")}>
-              <Plus className="h-4 w-4 mr-2" />
-              New Course
-            </Button>
+            <>
+              <Button variant="ghost" size="sm" onClick={handleDownloadTemplate}>
+                <Download className="h-4 w-4 mr-2" />
+                Download Template
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setIsUploadOpen(true)}>
+                <Upload className="h-4 w-4 mr-2" />
+                Upload CSV
+              </Button>
+              <Button size="sm" onClick={() => router.push("/courses/create")}>
+                <Plus className="h-4 w-4 mr-2" />
+                New Course
+              </Button>
+            </>
           )}
         </div>
       </div>

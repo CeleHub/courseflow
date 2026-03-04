@@ -12,6 +12,9 @@ const ROUTE_ROLES: Record<string, Role[]> = {
   "/students": [Role.ADMIN, Role.HOD],
   "/verification-codes": [Role.ADMIN],
   "/health": [Role.ADMIN],
+  "/courses/create": [Role.ADMIN, Role.HOD],
+  "/schedules/create": [Role.ADMIN, Role.HOD],
+  "/departments/create": [Role.ADMIN],
 };
 
 function getBasePath(pathname: string): string | null {
