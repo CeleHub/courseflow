@@ -543,9 +543,9 @@ If mixed: show a two-section result:
 
 ---
 
-## 7. Courses — `/courses`
+## 7. Courses — `/courses` ✅
 
-### 7.1 Page Layout
+### 7.1 Page Layout ✅
 
 **Page header row (flex, space-between, flex-wrap, gap 12px):**
 - Left: "Courses" heading.
@@ -555,7 +555,7 @@ If mixed: show a two-section result:
 
 **Courses table / card list (margin-top 16px).** See §7.3.
 
-### 7.2 Filter Bar
+### 7.2 Filter Bar ✅
 
 **Desktop:** White card, rounded-xl, border, padding 12px 20px, horizontal flex row, flex-wrap, gap 12px.
 
@@ -569,7 +569,7 @@ Elements:
 
 **Mobile:** Search input (full width) + "Filters (N)" button on same row. Tapping "Filters" opens bottom sheet with all other controls stacked, plus "Apply" and "Clear All" buttons.
 
-### 7.3 Courses Table
+### 7.3 Courses Table ✅
 
 **Desktop/Tablet:** White card, rounded-xl, border, shadow-sm. Table with sticky header row (background: white, `z-index: 10`).
 
@@ -613,7 +613,7 @@ Elements:
 
 Tapping the card body opens the Course Detail Sheet.
 
-### 7.4 Course Detail Sheet
+### 7.4 Course Detail Sheet ✅
 
 **Desktop:** Slide-in panel from the right. Width 480px. Overlays content with a backdrop. Enters with slide-left animation (250ms).
 
@@ -633,7 +633,7 @@ Tapping the card body opens the Course Detail Sheet.
 
 **Footer (ADMIN/HOD only):** "Edit Course" button (full width on mobile, outline indigo).
 
-### 7.5 Create/Edit Course Modal
+### 7.5 Create/Edit Course Modal ✅
 
 **Width (desktop):** 560px.
 
@@ -655,11 +655,11 @@ Tapping the card body opens the Course Detail Sheet.
 
 ---
 
-## 8. Schedules — `/schedules`
+## 8. Schedules — `/schedules` ✅
 
 This is the most complex page. Two view modes: **Timetable (default)** and **List**.
 
-### 8.1 Page Layout
+### 8.1 Page Layout ✅
 
 **Page header row (flex, space-between, flex-wrap, gap 12px):**
 - Left: "Schedules" heading + session badge showing active session name and semester (e.g. "2024/2025 · First Semester", indigo pill, 13px).
@@ -671,7 +671,7 @@ This is the most complex page. Two view modes: **Timetable (default)** and **Lis
 
 **Content area (margin-top 16px).** Timetable or List based on toggle.
 
-### 8.2 Filter Bar
+### 8.2 Filter Bar ✅
 
 **Desktop:** White card, rounded-xl, border, padding 12px 20px, horizontal flex row, flex-wrap, gap 12px.
 
@@ -685,7 +685,7 @@ Elements:
 
 **Mobile:** Search + "Filters (N)" pattern same as Departments and Courses.
 
-### 8.3 Timetable View — Desktop (≥ 768px)
+### 8.3 Timetable View — Desktop (≥ 768px) ✅
 
 The timetable is a CSS Grid calendar.
 
@@ -746,7 +746,7 @@ Course Name (11px gray-600, single line, ellipsis)
 
 **Empty cell on hover (ADMIN/HOD only):** Shows a dashed border (border-dashed, gray-300) and a centered "+" icon (gray-400). Clicking opens the Create Schedule Modal pre-filled with that day and start time.
 
-### 8.4 Timetable View — Mobile (< 768px)
+### 8.4 Timetable View — Mobile (< 768px) ✅
 
 The full 5-column grid is replaced with a **day-picker + single-day vertical timeline**.
 
@@ -769,7 +769,7 @@ Height: 72px. Rounded-lg. Same color coding as desktop. Tapping opens Schedule D
 
 **Empty time slots on mobile:** Show a faint dashed row. ADMIN/HOD: tapping an empty slot opens Create Schedule Modal.
 
-### 8.5 List View
+### 8.5 List View ✅
 
 White card, rounded-xl, border, shadow-sm. Sortable table.
 
@@ -803,7 +803,7 @@ White card, rounded-xl, border, shadow-sm. Sortable table.
 └───────────────────────────────────────────────┘
 ```
 
-### 8.6 Generate Schedules Modal
+### 8.6 Generate Schedules Modal ✅
 
 **Width (desktop):** 520px.
 
@@ -853,7 +853,7 @@ Skipped          2 locked departments
 [Close]   [Try Again]
 ```
 
-### 8.7 Create/Edit Schedule Modal
+### 8.7 Create/Edit Schedule Modal ✅
 
 **Width (desktop):** 480px.
 
@@ -872,7 +872,7 @@ Skipped          2 locked departments
 
 **End time display:** Render as a read-only input or a gray well, clearly labeled "End time (auto-calculated)".
 
-### 8.8 Schedule Detail Sheet
+### 8.8 Schedule Detail Sheet ✅
 
 **Desktop:** Slide-in from right, width 420px, with backdrop.
 **Mobile:** Full-screen.
@@ -891,7 +891,7 @@ Skipped          2 locked departments
 
 ---
 
-## 9. Exams — `/exams`
+## 9. Exams — `/exams` ✅
 
 ### 9.1 Page Layout
 
@@ -984,7 +984,7 @@ When the selected course is not CBT, all options are enabled and no banner is sh
 
 ---
 
-## 10. Users — `/lecturers` and `/students`
+## 10. Users — `/lecturers` and `/students` ✅
 
 These are two separate routes sharing one component with a `role` prop.
 
@@ -1047,7 +1047,7 @@ On create: `apiClient.createUser(data)`. On edit: `apiClient.updateUser(id, data
 
 ---
 
-## 11. Complaints — `/complaints`
+## 11. Complaints — `/complaints` ✅
 
 ### 11.1 Role Behaviour
 
@@ -1136,7 +1136,7 @@ On submit: `apiClient.createComplaint(data)`. On success: close modal, re-fetch 
 
 ---
 
-## 12. Verification Codes — `/verification-codes` (ADMIN only)
+## 12. Verification Codes — `/verification-codes` (ADMIN only) ✅
 
 ### 12.1 Page Layout
 
@@ -1207,7 +1207,7 @@ Key-value: Department, Matric/Staff Number, Account created date, Last login.
 
 ---
 
-## 14. Toast Notifications
+## 14. Toast Notifications ✅
 
 **Position:** Top-right corner, fixed, `z-index: 9999`, margin 16px from right and top edges.
 
@@ -1252,7 +1252,7 @@ Key-value: Department, Matric/Staff Number, Account created date, Last login.
 
 ---
 
-## 15. Confirmation Dialogs
+## 15. Confirmation Dialogs ✅
 
 All destructive or irreversible actions require a confirmation dialog before the API call is made.
 
@@ -1287,7 +1287,7 @@ Body text (14px gray-500, centered)
 
 ---
 
-## 16. Empty States
+## 16. Empty States ✅
 
 Every list, table, and grid must have a designed empty state.
 
@@ -1306,7 +1306,7 @@ Every list, table, and grid must have a designed empty state.
 
 ---
 
-## 17. Pagination
+## 17. Pagination ✅
 
 **Desktop pagination controls (below every paginated list/table):**
 
@@ -1331,7 +1331,7 @@ The per-page select moves inside the Filter bottom sheet on mobile.
 
 ---
 
-## 18. Loading States
+## 18. Loading States ✅
 
 ### 18.1 Page Skeletons
 
@@ -1360,7 +1360,7 @@ When re-fetching data after a filter change or after a mutation (not a full page
 
 ---
 
-## 19. Error Handling
+## 19. Error Handling ✅
 
 ### 19.1 Inline Form Errors
 
@@ -1405,7 +1405,7 @@ When `apiClient.request` returns `statusCode: 0` (network failure), show a persi
 
 ---
 
-## 20. Responsive Behaviour Summary
+## 20. Responsive Behaviour Summary ✅
 
 | Breakpoint | Key changes |
 |-----------|-------------|
@@ -1416,7 +1416,7 @@ When `apiClient.request` returns `statusCode: 0` (network failure), show a persi
 
 ---
 
-## 21. Data Refresh Strategy
+## 21. Data Refresh Strategy ✅
 
 - After every successful mutation (create, update, delete), re-fetch the affected list. Do not use stale data.
 - After Generate Schedules succeeds, fully re-fetch the schedules list and re-render the timetable.
@@ -1426,7 +1426,7 @@ When `apiClient.request` returns `statusCode: 0` (network failure), show a persi
 
 ---
 
-## Health — `/health` (ADMIN only)
+## Health — `/health` (ADMIN only) ✅
 
 ### Page Layout
 

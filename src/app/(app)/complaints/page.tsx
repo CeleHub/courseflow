@@ -1,376 +1,484 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { apiClient } from '@/lib/api'
+import { getItemsFromResponse } from '@/lib/utils'
+import { Complaint, ComplaintStatus } from '@/types'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
-  MessageCircle,
-  Send,
-  Clock,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
-  Plus
-} from 'lucide-react'
-import { apiClient } from '@/lib/api'
-import { getItemsFromResponse } from '@/lib/utils'
-import { Complaint, ComplaintStatus, Department } from '@/types'
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { MessageCircle, MoreVertical, Eye, Plus, Search } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 
+const STATUS_BADGES: Record<ComplaintStatus, string> = {
+  [ComplaintStatus.PENDING]: 'bg-amber-100 text-amber-800',
+  [ComplaintStatus.IN_PROGRESS]: 'bg-blue-100 text-blue-800',
+  [ComplaintStatus.RESOLVED]: 'bg-green-100 text-green-800',
+  [ComplaintStatus.CLOSED]: 'bg-gray-100 text-gray-800',
+}
+
+function formatRelative(iso: string): string {
+  const d = new Date(iso)
+  const now = new Date()
+  const diffMs = now.getTime() - d.getTime()
+  const diffDays = Math.floor(diffMs / 86400000)
+  if (diffDays === 0) return 'Today'
+  if (diffDays === 1) return 'Yesterday'
+  if (diffDays < 7) return `${diffDays} days ago`
+  return d.toLocaleDateString()
+}
+
 export default function ComplaintsPage() {
-  const { user, isAuthenticated, isAdmin } = useAuth()
+  const { user, isAdmin, isHod } = useAuth()
   const { toast } = useToast()
+  const isManager = isAdmin || isHod
+
   const [complaints, setComplaints] = useState<Complaint[]>([])
-  const [departments, setDepartments] = useState<Department[]>([])
   const [loading, setLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState<'all' | ComplaintStatus>('all')
+  const [searchTerm, setSearchTerm] = useState('')
+  const [orderBy, setOrderBy] = useState<'newest' | 'oldest'>('newest')
+  const [detailComplaint, setDetailComplaint] = useState<Complaint | null>(null)
+  const [isSubmitOpen, setIsSubmitOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [statusLoading, setStatusLoading] = useState<string | null>(null)
+
   const [formData, setFormData] = useState({
-    name: user?.name || '',
-    email: user?.email || '',
+    name: user?.name ?? '',
+    email: user?.email ?? '',
     department: '',
     subject: '',
-    message: ''
+    message: '',
   })
-
-  const statusColors = {
-    [ComplaintStatus.PENDING]: 'bg-yellow-100 text-yellow-800',
-    [ComplaintStatus.IN_PROGRESS]: 'bg-blue-100 text-blue-800',
-    [ComplaintStatus.RESOLVED]: 'bg-green-100 text-green-800',
-    [ComplaintStatus.CLOSED]: 'bg-gray-100 text-gray-800',
-  }
-
-  const statusIcons = {
-    [ComplaintStatus.PENDING]: Clock,
-    [ComplaintStatus.IN_PROGRESS]: AlertCircle,
-    [ComplaintStatus.RESOLVED]: CheckCircle,
-    [ComplaintStatus.CLOSED]: XCircle,
-  }
 
   const fetchComplaints = useCallback(async () => {
     try {
       setLoading(true)
-      if (isAdmin) {
-        const response = await apiClient.getComplaints({ page: 1, limit: 50 })
-        const result = getItemsFromResponse<Complaint>(response)
-        if (result) setComplaints(result.items)
+      if (isManager) {
+        const res = await apiClient.getComplaints({ page: 1, limit: 200, orderBy: 'createdAt', orderDirection: orderBy === 'newest' ? 'desc' : 'asc' })
+        const r = getItemsFromResponse<Complaint>(res)
+        setComplaints(r?.items ?? [])
       } else {
-        const response = await apiClient.getMyComplaints()
-        if (response.success && response.data) {
-          const items = Array.isArray(response.data)
-            ? response.data
-            : (response.data as { data?: Complaint[] })?.data ?? []
-          setComplaints(items)
-        }
+        const res = await apiClient.getMyComplaints()
+        const data = (res as any)?.data
+        const items = Array.isArray(data) ? data : (data?.data ?? [])
+        setComplaints(items)
       }
-    } catch (error) {
-      console.error('Failed to fetch complaints:', error)
+    } catch {
+      toast({ title: 'Failed to load complaints', variant: 'destructive' })
     } finally {
       setLoading(false)
     }
-  }, [isAdmin])
+  }, [isManager, orderBy, toast])
 
   useEffect(() => {
-    const fetchDepartments = async () => {
-      try {
-        const response = await apiClient.getDepartments({ limit: 100 })
-        const result = getItemsFromResponse<Department>(response)
-        if (result) setDepartments(result.items)
-      } catch (error) {
-        console.error('Failed to fetch departments:', error)
-      }
-    }
+    if (user) setFormData((p) => ({ ...p, name: user.name ?? p.name, email: user.email ?? p.email }))
+  }, [user?.name, user?.email])
 
-    if (isAuthenticated) {
-      fetchComplaints()
-    }
-    fetchDepartments()
-  }, [isAuthenticated, fetchComplaints])
+  useEffect(() => {
+    fetchComplaints()
+  }, [fetchComplaints])
+
+  const pendingCount = activeTab === 'all' ? complaints.filter((c) => c.status === ComplaintStatus.PENDING).length : (activeTab === ComplaintStatus.PENDING ? complaints.length : 0)
+
+  const filteredComplaints = complaints.filter((c) => {
+    if (isManager && activeTab !== 'all' && c.status !== activeTab) return false
+    if (!searchTerm.trim()) return true
+    const term = searchTerm.toLowerCase()
+    const subj = (c.subject ?? '').toLowerCase()
+    const name = (c.name ?? '').toLowerCase()
+    return subj.includes(term) || name.includes(term)
+  })
+
+  const sortedComplaints = [...filteredComplaints].sort((a, b) => {
+    const ta = new Date(a.createdAt).getTime()
+    const tb = new Date(b.createdAt).getTime()
+    return orderBy === 'newest' ? tb - ta : ta - tb
+  })
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setSubmitting(true)
+    if (!formData.name?.trim() || !formData.email?.trim() || !formData.department?.trim() || !formData.subject?.trim() || !formData.message?.trim()) {
+      toast({ title: 'All fields are required', variant: 'destructive' })
+      return
+    }
+    if (formData.subject.length < 5 || formData.subject.length > 200) {
+      toast({ title: 'Subject must be 5–200 characters', variant: 'destructive' })
+      return
+    }
+    if (formData.message.length < 10 || formData.message.length > 1000) {
+      toast({ title: 'Message must be 10–1000 characters', variant: 'destructive' })
+      return
+    }
 
     try {
-      const response = await apiClient.createComplaint(formData)
-
-      if (response.success) {
-        toast({
-          title: "Complaint Submitted",
-          description: "Your complaint has been submitted successfully.",
-        })
-
-        // Reset form
-        setFormData({
-          name: user?.name || '',
-          email: user?.email || '',
-          department: '',
-          subject: '',
-          message: ''
-        })
-
-        // Refresh complaints list
+      setSubmitting(true)
+      const res = await apiClient.createComplaint(formData)
+      if (res.success) {
+        toast({ title: 'Your complaint has been submitted.' })
+        setIsSubmitOpen(false)
+        setFormData({ name: user?.name ?? '', email: user?.email ?? '', department: '', subject: '', message: '' })
         fetchComplaints()
       } else {
-        toast({
-          title: "Submission Failed",
-          description: response.error || "Failed to submit complaint",
-          variant: "destructive",
-        })
+        toast({ title: (res as any).error || 'Submission failed', variant: 'destructive' })
       }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred",
-        variant: "destructive",
-      })
+    } catch {
+      toast({ title: 'Submission failed', variant: 'destructive' })
     } finally {
       setSubmitting(false)
     }
   }
 
-  const updateComplaintStatus = async (complaintId: string, status: ComplaintStatus) => {
+  const handleStatusChange = async (id: string, status: ComplaintStatus) => {
     try {
-      const response = await apiClient.updateComplaintStatus(complaintId, status)
-
-      if (response.success) {
-        toast({
-          title: "Status Updated",
-          description: `Complaint status updated to ${status.toLowerCase().replace('_', ' ')}`,
-        })
+      setStatusLoading(id)
+      const res = await apiClient.updateComplaintStatus(id, status)
+      if (res.success) {
+        toast({ title: 'Status updated.' })
+        setDetailComplaint((c) => (c?.id === id ? { ...c, status } : c))
         fetchComplaints()
       } else {
-        toast({
-          title: "Update Failed",
-          description: response.error || "Failed to update status",
-          variant: "destructive",
-        })
+        toast({ title: (res as any).error, variant: 'destructive' })
       }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred",
-        variant: "destructive",
-      })
+    } catch {
+      toast({ title: 'Update failed', variant: 'destructive' })
+    } finally {
+      setStatusLoading(null)
     }
   }
 
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
-  }
-
-  return (
-    <div>
-      <div className="space-y-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2 flex items-center gap-2">
-            <MessageCircle className="h-8 w-8" />
-            Complaints
-          </h1>
-          <p className="text-muted-foreground">
-            Submit and track your complaints with a transparent status system
-          </p>
+  // ─── Student View (11.5, 11.6) ───────────────────────────────────────────
+  if (!isManager) {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-2xl font-semibold">My Complaints</h1>
+          <Button size="sm" onClick={() => setIsSubmitOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Submit Complaint
+          </Button>
         </div>
 
-        <Tabs defaultValue="submit" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="submit" className="flex items-center gap-2">
-              <Plus className="h-4 w-4" />
+        {loading ? (
+          <div className="rounded-xl border bg-white p-4 space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-24 bg-gray-100 animate-pulse rounded" />
+            ))}
+          </div>
+        ) : complaints.length === 0 ? (
+          <div className="rounded-xl border border-gray-200 p-12 text-center">
+            <MessageCircle className="h-16 w-16 mx-auto text-gray-300 mb-4" />
+            <h3 className="text-base font-semibold text-gray-700">You haven&apos;t submitted any complaints.</h3>
+            <Button className="mt-4" onClick={() => setIsSubmitOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
               Submit Complaint
-            </TabsTrigger>
-            <TabsTrigger value="view" className="flex items-center gap-2">
-              <MessageCircle className="h-4 w-4" />
-              {isAdmin ? 'All Complaints' : 'My Complaints'}
-            </TabsTrigger>
-          </TabsList>
-
-          {/* Submit Complaint Tab */}
-          <TabsContent value="submit">
-            <Card>
-              <CardHeader>
-                <CardTitle>Submit a Complaint</CardTitle>
-                <CardDescription>
-                  Fill out the form below to submit your complaint. We&apos;ll review it and get back to you.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="name">Full Name</Label>
-                      <Input
-                        id="name"
-                        value={formData.name}
-                        onChange={(e) => handleInputChange('name', e.target.value)}
-                        required
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="email">Email</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        value={formData.email}
-                        onChange={(e) => handleInputChange('email', e.target.value)}
-                        required
-                      />
-                    </div>
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {complaints.map((c) => (
+              <div
+                key={c.id}
+                className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm cursor-pointer hover:bg-gray-50"
+                onClick={() => setDetailComplaint(c)}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="font-semibold">{c.subject}</p>
+                    <p className="text-sm text-gray-500">{c.department} · {formatRelative(c.createdAt)}</p>
+                    <p className="text-sm text-gray-600 mt-1 line-clamp-2">{c.message}</p>
                   </div>
+                  <Badge className={STATUS_BADGES[c.status]}>{c.status.replace('_', ' ')}</Badge>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
-                  <div className="space-y-2">
-                    <Label htmlFor="department">Department</Label>
-                    <Select value={formData.department} onValueChange={(value) => handleInputChange('department', value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select department" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {departments.map((dept) => (
-                          <SelectItem key={dept.code} value={dept.name}>
-                            {dept.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+        {/* 11.6 Submit Complaint Modal */}
+        <Dialog open={isSubmitOpen} onOpenChange={setIsSubmitOpen}>
+          <DialogContent className="sm:max-w-[520px]">
+            <DialogHeader>
+              <DialogTitle>Submit Complaint</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <Label>Full name *</Label>
+                <Input value={formData.name} onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))} required />
+              </div>
+              <div>
+                <Label>Email *</Label>
+                <Input type="email" value={formData.email} readOnly className="bg-gray-50" />
+              </div>
+              <div>
+                <Label>Department *</Label>
+                <Input value={formData.department} onChange={(e) => setFormData((p) => ({ ...p, department: e.target.value }))} placeholder="e.g. Computer Science" required />
+              </div>
+              <div>
+                <Label>Subject * (5–200 chars)</Label>
+                <Input value={formData.subject} onChange={(e) => setFormData((p) => ({ ...p, subject: e.target.value }))} placeholder="Brief description" required maxLength={200} />
+              </div>
+              <div>
+                <Label>Message * (10–1000 chars)</Label>
+                <Textarea value={formData.message} onChange={(e) => setFormData((p) => ({ ...p, message: e.target.value }))} rows={5} required minLength={10} maxLength={1000} />
+                <p className="text-xs text-gray-500 mt-1">{formData.message.length}/1000</p>
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setIsSubmitOpen(false)} disabled={submitting}>Cancel</Button>
+                <Button type="submit" disabled={submitting}>Submit</Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="subject">Subject</Label>
-                    <Input
-                      id="subject"
-                      value={formData.subject}
-                      onChange={(e) => handleInputChange('subject', e.target.value)}
-                      placeholder="Brief description of your complaint"
-                      required
-                    />
+        {/* Student detail (read-only) */}
+        <Dialog open={!!detailComplaint} onOpenChange={(o) => !o && setDetailComplaint(null)}>
+          <DialogContent className="sm:max-w-[560px]">
+            {detailComplaint && (
+              <>
+                <DialogHeader>
+                  <DialogTitle>{detailComplaint.subject}</DialogTitle>
+                  <Badge className={STATUS_BADGES[detailComplaint.status]}>{detailComplaint.status.replace('_', ' ')}</Badge>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <span className="text-gray-500">Name</span><span>{detailComplaint.name}</span>
+                    <span className="text-gray-500">Email</span><span>{detailComplaint.email}</span>
+                    <span className="text-gray-500">Department</span><span>{detailComplaint.department}</span>
+                    <span className="text-gray-500">Submitted</span><span>{new Date(detailComplaint.createdAt).toLocaleString()}</span>
                   </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="message">Message</Label>
-                    <Textarea
-                      id="message"
-                      value={formData.message}
-                      onChange={(e) => handleInputChange('message', e.target.value)}
-                      placeholder="Describe your complaint in detail..."
-                      className="min-h-[120px]"
-                      required
-                    />
+                  <div>
+                    <Label>Message</Label>
+                    <pre className="mt-1.5 max-h-[200px] overflow-y-auto rounded-lg border p-3 text-sm whitespace-pre-wrap">{detailComplaint.message}</pre>
                   </div>
-
-                  <Button type="submit" disabled={submitting} className="w-full">
-                    {submitting ? (
-                      <>
-                        <Clock className="mr-2 h-4 w-4 animate-spin" />
-                        Submitting...
-                      </>
-                    ) : (
-                      <>
-                        <Send className="mr-2 h-4 w-4" />
-                        Submit Complaint
-                      </>
-                    )}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* View Complaints Tab */}
-          <TabsContent value="view">
-            <Card>
-              <CardHeader>
-                <CardTitle>{isAdmin ? 'All Complaints' : 'My Complaints'}</CardTitle>
-                <CardDescription>
-                  {isAdmin
-                    ? 'View and manage all submitted complaints'
-                    : 'Track the status of your submitted complaints'
-                  }
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {loading ? (
-                  <div className="space-y-4">
-                    {[...Array(3)].map((_, index) => (
-                      <div key={index} className="animate-pulse">
-                        <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                        <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
-                        <div className="h-16 bg-gray-200 rounded"></div>
-                      </div>
-                    ))}
-                  </div>
-                ) : complaints.length === 0 ? (
-                  <div className="text-center py-8">
-                    <MessageCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-muted-foreground">No complaints found</p>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      {isAdmin ? 'No complaints have been submitted yet' : 'You haven&apos;t submitted any complaints yet'}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {complaints.map((complaint) => {
-                      const StatusIcon = statusIcons[complaint.status]
-                      return (
-                        <Card key={complaint.id} className="border-l-4 border-l-primary">
-                          <CardHeader>
-                            <div className="flex items-start justify-between">
-                              <div>
-                                <CardTitle className="text-lg">{complaint.subject}</CardTitle>
-                                <CardDescription>
-                                  {complaint.name} • {complaint.email} • {complaint.department}
-                                </CardDescription>
-                              </div>
-                              <div className="flex flex-col items-end gap-2">
-                                <Badge className={statusColors[complaint.status]}>
-                                  <StatusIcon className="h-3 w-3 mr-1" />
-                                  {complaint.status.replace('_', ' ')}
-                                </Badge>
-                                {complaint.createdAt && (
-                                  <span className="text-xs text-muted-foreground">
-                                    {new Date(complaint.createdAt).toLocaleDateString()}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </CardHeader>
-                          <CardContent>
-                            <p className="text-sm text-muted-foreground mb-4">
-                              {complaint.message}
-                            </p>
-
-                            {isAdmin && (
-                              <div className="flex gap-2 flex-wrap">
-                                {Object.values(ComplaintStatus).map((status) => (
-                                  <Button
-                                    key={status}
-                                    variant={complaint.status === status ? "default" : "outline"}
-                                    size="sm"
-                                    onClick={() => updateComplaintStatus(complaint.id, status)}
-                                    disabled={complaint.status === status}
-                                  >
-                                    {status.replace('_', ' ')}
-                                  </Button>
-                                ))}
-                              </div>
-                            )}
-                          </CardContent>
-                        </Card>
-                      )
-                    })}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+                  {detailComplaint.resolvedAt && (
+                    <p className="text-sm text-gray-500">Resolved by {detailComplaint.resolvedBy ?? 'admin'} on {new Date(detailComplaint.resolvedAt).toLocaleString()}</p>
+                  )}
+                </div>
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
+    )
+  }
+
+  // ─── ADMIN/HOD View (11.2, 11.3, 11.4) ───────────────────────────────────
+  const tabs: { value: 'all' | ComplaintStatus; label: string }[] = [
+    { value: 'all', label: 'All' },
+    { value: ComplaintStatus.PENDING, label: 'Pending' },
+    { value: ComplaintStatus.IN_PROGRESS, label: 'In Progress' },
+    { value: ComplaintStatus.RESOLVED, label: 'Resolved' },
+    { value: ComplaintStatus.CLOSED, label: 'Closed' },
+  ]
+
+  return (
+    <div className="space-y-6">
+      <h1 className="text-2xl font-semibold">Complaints</h1>
+
+      {/* 11.2 Status tab bar */}
+      <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
+        <div className="flex gap-1 border-b border-gray-200 min-w-max pb-px">
+          {tabs.map((t) => (
+            <button
+              key={t.value}
+              onClick={() => setActiveTab(t.value)}
+              className={`px-4 py-2 text-sm font-medium whitespace-nowrap border-b-2 -mb-px transition-colors ${
+                activeTab === t.value
+                  ? 'border-indigo-600 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {t.label}
+              {t.value === ComplaintStatus.PENDING && (
+                <span className="ml-2 inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                  {activeTab === 'all' ? complaints.filter((c) => c.status === ComplaintStatus.PENDING).length : (activeTab === ComplaintStatus.PENDING ? complaints.length : 0)}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Filter bar */}
+      <div className="rounded-xl border border-gray-200 bg-white p-3 md:p-5">
+        <div className="flex flex-col md:flex-row md:items-center gap-3">
+          <div className="relative flex-1 min-w-0">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input placeholder="Search by subject or name..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
+          </div>
+          <Select value={orderBy} onValueChange={(v) => setOrderBy(v as 'newest' | 'oldest')}>
+            <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="newest">Newest</SelectItem>
+              <SelectItem value="oldest">Oldest</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* 11.3 Complaints table */}
+      {loading ? (
+        <div className="rounded-xl border bg-white p-4 space-y-3">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="h-14 bg-gray-100 animate-pulse rounded" />
+          ))}
+        </div>
+      ) : sortedComplaints.length === 0 ? (
+        <div className="rounded-xl border border-gray-200 p-12 text-center">
+          <MessageCircle className="h-16 w-16 mx-auto text-gray-300 mb-4" />
+          <h3 className="text-base font-semibold text-gray-700">No complaints</h3>
+        </div>
+      ) : (
+        <>
+          <div className="hidden md:block rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-white border-b">
+                  <tr className="text-left text-sm text-gray-500">
+                    <th className="p-3">#</th>
+                    <th className="p-3">Name</th>
+                    <th className="p-3">Email</th>
+                    <th className="p-3">Department</th>
+                    <th className="p-3">Subject</th>
+                    <th className="p-3">Status</th>
+                    <th className="p-3">Submitted</th>
+                    <th className="p-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedComplaints.map((c, idx) => (
+                    <tr key={c.id} className="border-t hover:bg-gray-50">
+                      <td className="p-3 text-sm text-gray-500">{idx + 1}</td>
+                      <td className="p-3 text-sm">{c.name}</td>
+                      <td className="p-3 text-sm">{c.email}</td>
+                      <td className="p-3 text-sm">{c.department}</td>
+                      <td className="p-3 text-sm max-w-[200px]" title={c.subject}>
+                        {(c.subject ?? '').length > 40 ? `${c.subject!.slice(0, 40)}...` : c.subject}
+                      </td>
+                      <td className="p-3">
+                        <Badge className={STATUS_BADGES[c.status]}>{c.status.replace('_', ' ')}</Badge>
+                      </td>
+                      <td className="p-3 text-sm text-gray-500">{formatRelative(c.createdAt)}</td>
+                      <td className="p-3 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button size="icon" variant="ghost" className="h-11 w-11" onClick={() => setDetailComplaint(c)}><Eye className="h-5 w-5" /><span className="sr-only">View</span></Button>
+                          <Select value={c.status} onValueChange={(v) => handleStatusChange(c.id, v as ComplaintStatus)} disabled={statusLoading === c.id}>
+                            <SelectTrigger className="w-[120px] h-11"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {Object.values(ComplaintStatus).map((s) => (
+                                <SelectItem key={s} value={s}>{s.replace('_', ' ')}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Mobile cards */}
+          <div className="md:hidden space-y-3">
+            {sortedComplaints.map((c) => (
+              <div key={c.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="font-semibold">{c.subject}</p>
+                    <p className="text-sm text-gray-500">{c.name} · {c.department}</p>
+                    <p className="text-xs text-gray-500">{formatRelative(c.createdAt)}</p>
+                    <p className="text-sm text-gray-600 mt-1 line-clamp-2">{c.message}</p>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="icon" variant="ghost" className="h-11 w-11 shrink-0"><MoreVertical className="h-5 w-5" /><span className="sr-only">Menu</span></Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => setDetailComplaint(c)}>View detail</DropdownMenuItem>
+                      {Object.values(ComplaintStatus).map((s) => (
+                        <DropdownMenuItem key={s} onClick={() => handleStatusChange(c.id, s)}>{s.replace('_', ' ')}</DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+                <Badge className={`mt-2 ${STATUS_BADGES[c.status]}`}>{c.status.replace('_', ' ')}</Badge>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* 11.4 Complaint Detail Modal */}
+      <Dialog open={!!detailComplaint} onOpenChange={(o) => !o && setDetailComplaint(null)}>
+        <DialogContent className="sm:max-w-[560px]">
+          {detailComplaint && (
+            <>
+              <DialogHeader>
+                <div className="flex items-start justify-between gap-2">
+                  <DialogTitle className="text-lg">{detailComplaint.subject}</DialogTitle>
+                  <Badge className={STATUS_BADGES[detailComplaint.status]}>{detailComplaint.status.replace('_', ' ')}</Badge>
+                </div>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <span className="text-gray-500">Name</span><span>{detailComplaint.name}</span>
+                  <span className="text-gray-500">Email</span><span>{detailComplaint.email}</span>
+                  <span className="text-gray-500">Department</span><span>{detailComplaint.department}</span>
+                  <span className="text-gray-500">Submitted</span><span>{new Date(detailComplaint.createdAt).toLocaleString()}</span>
+                </div>
+                <div>
+                  <Label>Message</Label>
+                  <pre className="mt-1.5 max-h-[200px] overflow-y-auto rounded-lg border p-3 text-sm whitespace-pre-wrap">{detailComplaint.message}</pre>
+                </div>
+                {detailComplaint.resolvedAt && (
+                  <p className="text-sm text-gray-500">Resolved by {detailComplaint.resolvedBy ?? 'admin'} on {new Date(detailComplaint.resolvedAt).toLocaleString()}</p>
+                )}
+              </div>
+              {isAdmin && (
+                <DialogFooter>
+                  <Select
+                    value={detailComplaint.status}
+                    onValueChange={(v) => handleStatusChange(detailComplaint.id, v as ComplaintStatus)}
+                    disabled={statusLoading === detailComplaint.id}
+                  >
+                    <SelectTrigger className="h-11 w-full"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {Object.values(ComplaintStatus).map((s) => (
+                        <SelectItem key={s} value={s}>{s.replace('_', ' ')}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </DialogFooter>
+              )}
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

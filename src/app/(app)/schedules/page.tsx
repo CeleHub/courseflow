@@ -27,7 +27,8 @@ import {
 } from 'lucide-react'
 import { apiClient } from '@/lib/api'
 import { getItemsFromResponse } from '@/lib/utils'
-import { Schedule, Department, Level, DayOfWeek, Semester, Course } from '@/types'
+import { Schedule, Department, Level, DayOfWeek, Semester, Course, AcademicSession } from '@/types'
+import { GenerateScheduleModal } from '@/components/dashboard/generate-schedule-modal'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,18 +42,23 @@ import html2canvas from 'html2canvas'
 
 export default function SchedulePage() {
   const router = useRouter()
-  const { isAuthenticated, isAdmin, isLecturer, isHod } = useAuth()
+  const { isAuthenticated, isAdmin, isLecturer, isHod, user } = useAuth()
   const { toast } = useToast()
 
   const isStaff = isAdmin || isLecturer || isHod
   const [schedules, setSchedules] = useState<Schedule[]>([])
   const [departments, setDepartments] = useState<Department[]>([])
+  const [sessions, setSessions] = useState<AcademicSession[]>([])
+  const [activeSession, setActiveSession] = useState<AcademicSession | null>(null)
+  const [viewMode, setViewMode] = useState<'timetable' | 'list'>('timetable')
+  const [generateModalOpen, setGenerateModalOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all')
   const [selectedLevel, setSelectedLevel] = useState<string>('all')
   const [selectedDay, setSelectedDay] = useState<string>('all')
   const [selectedSemester, setSelectedSemester] = useState<string>('all')
+  const [selectedSessionId, setSelectedSessionId] = useState<string>('')
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
@@ -83,17 +89,30 @@ export default function SchedulePage() {
   ]
 
   useEffect(() => {
-    const fetchDepartments = async () => {
+    const fetchData = async () => {
       try {
-        const response = await apiClient.getDepartments({ limit: 100 })
-        const result = getItemsFromResponse<Department>(response)
-        if (result) setDepartments(result.items)
-      } catch (error) {
-        console.error('Failed to fetch departments:', error)
+        const [deptRes, sessRes, activeRes] = await Promise.all([
+          apiClient.getDepartments({ limit: 100 }),
+          apiClient.getAcademicSessions({ limit: 50 }),
+          apiClient.getActiveAcademicSession(),
+        ])
+        const d = getItemsFromResponse<Department>(deptRes)
+        const s = getItemsFromResponse<AcademicSession>(sessRes)
+        if (d) setDepartments(d.items)
+        if (s) setSessions(s.items)
+        if (s) setSessions(s.items)
+        if (activeRes.success && activeRes.data) {
+          const act = activeRes.data as AcademicSession
+          setActiveSession(act)
+          setSelectedSessionId(act.id)
+        } else if (s?.items?.length) {
+          setSelectedSessionId(s.items[0]!.id)
+        }
+      } catch (e) {
+        console.error('Failed to fetch:', e)
       }
     }
-
-    fetchDepartments()
+    fetchData()
   }, [])
 
   const fetchSchedules = useCallback(async () => {
@@ -108,6 +127,7 @@ export default function SchedulePage() {
       if (selectedLevel && selectedLevel !== 'all') params.level = selectedLevel
       if (selectedDay && selectedDay !== 'all') params.dayOfWeek = selectedDay
       if (selectedSemester && selectedSemester !== 'all') params.semester = selectedSemester
+      if (selectedSessionId && selectedSessionId !== 'all') params.sessionId = selectedSessionId
 
       const response = await apiClient.getSchedules(params)
       const result = getItemsFromResponse<Schedule>(response)
@@ -120,7 +140,7 @@ export default function SchedulePage() {
     } finally {
       setLoading(false)
     }
-  }, [currentPage, selectedDepartment, selectedLevel, selectedDay, selectedSemester])
+  }, [currentPage, selectedDepartment, selectedLevel, selectedDay, selectedSemester, selectedSessionId])
 
   useEffect(() => {
     fetchSchedules()
@@ -904,26 +924,55 @@ export default function SchedulePage() {
   return (
     <div>
       <div className="space-y-8">
-        {/* Header */}
-        <div className="mb-10">
-          <div className="flex items-center justify-between flex-wrap gap-4 mb-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary/10 rounded-xl flex-shrink-0">
-                <Calendar className="h-8 w-8 md:h-10 md:w-10 text-primary" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h1 className="text-4xl md:text-5xl font-bold mb-2">
-                  <span className="bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-                    Academic Timetable
-                  </span>
-                </h1>
-                <p className="text-lg text-muted-foreground">
-                  View your class schedules organized by day with detailed time information
-                </p>
-              </div>
+        {/* 8.1 Page header */}
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="text-2xl font-semibold">Schedules</h1>
+            {(activeSession || selectedSessionId) && (
+              <Badge variant="secondary" className="text-xs bg-indigo-100 text-indigo-700">
+                {(sessions.find((x) => x.id === selectedSessionId) ?? activeSession)?.name ?? 'Session'} · {selectedSemester === Semester.FIRST ? 'First' : selectedSemester === Semester.SECOND ? 'Second' : 'All'} Semester
+              </Badge>
+            )}
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex rounded-lg border p-0.5">
+              <button
+                type="button"
+                onClick={() => setViewMode('timetable')}
+                className={`px-3 py-1.5 text-sm rounded-md ${viewMode === 'timetable' ? 'bg-indigo-600 text-white' : 'text-gray-600'}`}
+              >
+                Timetable
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('list')}
+                className={`px-3 py-1.5 text-sm rounded-md ${viewMode === 'list' ? 'bg-indigo-600 text-white' : 'text-gray-600'}`}
+              >
+                List
+              </button>
             </div>
+            {isStaff && (
+              <>
+                <Button variant="outline" size="sm" onClick={() => router.push('/schedules/create')}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Manual Schedule
+                </Button>
+                <Button size="sm" onClick={() => setGenerateModalOpen(true)}>
+                  Generate
+                </Button>
+              </>
+            )}
           </div>
         </div>
+        {isStaff && (
+          <div className="md:hidden flex gap-2 mb-4">
+            <Button variant="outline" size="sm" className="flex-1" onClick={() => router.push('/schedules/create')}>
+              <Plus className="h-4 w-4 mr-2" />
+              Manual
+            </Button>
+          </div>
+        )}
+        <GenerateScheduleModal open={generateModalOpen} onOpenChange={setGenerateModalOpen} onSuccess={fetchSchedules} isHod={!!isHod} departmentCode={isHod && user?.departmentCode ? user.departmentCode : undefined} departmentName={undefined} />
 
         {/* Filters */}
         <Card className="mb-8 border-2 shadow-sm">
@@ -940,6 +989,29 @@ export default function SchedulePage() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+              <Select value={selectedSessionId || 'all'} onValueChange={(v) => setSelectedSessionId(v === 'all' ? '' : v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Session" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Sessions</SelectItem>
+                  {sessions.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={selectedSemester} onValueChange={setSelectedSemester}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Semester" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Semesters</SelectItem>
+                  <SelectItem value={Semester.FIRST}>First Semester</SelectItem>
+                  <SelectItem value={Semester.SECOND}>Second Semester</SelectItem>
+                </SelectContent>
+              </Select>
+
               <div className="relative">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -978,33 +1050,21 @@ export default function SchedulePage() {
                 </SelectContent>
               </Select>
 
-              <Select value={selectedDay} onValueChange={setSelectedDay}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Days" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Days</SelectItem>
-                  {dayOptions.map((day) => (
-                    <SelectItem key={day.value} value={day.value}>
-                      {day.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={selectedSemester} onValueChange={setSelectedSemester}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Semesters" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Semesters</SelectItem>
-                  {semesterOptions.map((semester) => (
-                    <SelectItem key={semester.value} value={semester.value}>
-                      {semester.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {viewMode === 'timetable' && (
+                <Select value={selectedDay} onValueChange={setSelectedDay}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All Days" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Days</SelectItem>
+                    {dayOptions.filter((d) => [DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY].includes(d.value)).map((day) => (
+                      <SelectItem key={day.value} value={day.value}>
+                        {day.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
 
               {isAuthenticated && isStaff && (
                 <>
@@ -1142,7 +1202,47 @@ export default function SchedulePage() {
               )}
             </div>
 
-            {Object.keys(schedulesByDay).length === 0 ? (
+            {viewMode === 'list' ? (
+              <Card className="rounded-xl border shadow-sm overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-white border-b sticky top-0 z-10">
+                      <tr className="text-left text-sm text-gray-500">
+                        <th className="p-3">Day</th>
+                        <th className="p-3">Time</th>
+                        <th className="p-3">Course Code</th>
+                        <th className="p-3 hidden md:table-cell">Course Name</th>
+                        <th className="p-3 hidden lg:table-cell">Department</th>
+                        <th className="p-3 hidden lg:table-cell">Level</th>
+                        <th className="p-3 hidden lg:table-cell">Semester</th>
+                        <th className="p-3">Type</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredSchedules
+                        .sort((a, b) => `${a.dayOfWeek}${a.startTime}`.localeCompare(`${b.dayOfWeek}${b.startTime}`))
+                        .map((s) => (
+                          <tr key={s.id} className="border-t hover:bg-gray-50">
+                            <td className="p-3 text-sm">{s.dayOfWeek.replace('DAY', '')}</td>
+                            <td className="p-3 text-sm">{s.startTime} – {s.endTime}</td>
+                            <td className="p-3"><span className="text-xs font-mono text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">{s.course?.code ?? s.courseCode}</span></td>
+                            <td className="p-3 text-sm hidden md:table-cell">{s.course?.name}</td>
+                            <td className="p-3 text-sm hidden lg:table-cell">{s.course?.departmentCode}</td>
+                            <td className="p-3 hidden lg:table-cell"><Badge variant="secondary" className="text-xs">{s.course?.level?.replace('LEVEL_', '')}</Badge></td>
+                            <td className="p-3 text-sm hidden lg:table-cell">{s.semester === Semester.FIRST ? 'First' : 'Second'}</td>
+                            <td className="p-3">
+                              {s.isFixed ? <Badge className="bg-indigo-100 text-indigo-700 text-xs">Fixed</Badge> : s.isManualOverride ? <Badge className="bg-amber-100 text-amber-700 text-xs">Manual</Badge> : <Badge variant="secondary" className="text-xs">Auto</Badge>}
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+                {filteredSchedules.length === 0 && (
+                  <div className="p-12 text-center text-gray-500">No schedules this semester</div>
+                )}
+              </Card>
+            ) : Object.keys(schedulesByDay).length === 0 ? (
               <Card className="border-2 border-dashed">
                 <CardContent className="py-16 text-center">
                   <div className="p-4 bg-muted/50 rounded-full w-20 h-20 mx-auto mb-6 flex items-center justify-center">

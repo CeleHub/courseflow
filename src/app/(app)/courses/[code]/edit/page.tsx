@@ -1,0 +1,289 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useRouter, useParams } from "next/navigation";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import { BookOpen, ArrowLeft, Loader2 } from "lucide-react";
+import { apiClient } from "@/lib/api";
+import { getItemsFromResponse } from "@/lib/utils";
+import { Course, Department, Level, Role, Semester, User } from "@/types";
+
+export default function EditCoursePage() {
+  const router = useRouter();
+  const params = useParams();
+  const code = params.code as string;
+  const { isAdmin, isHod, user } = useAuth();
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [course, setCourse] = useState<Course | null>(null);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [lecturers, setLecturers] = useState<User[]>([]);
+  const [formData, setFormData] = useState({
+    name: "",
+    level: "",
+    credits: "",
+    semester: "FIRST",
+    departmentCode: "",
+    lecturerId: "",
+    overview: "",
+    isGeneral: false,
+    isLocked: false,
+  });
+
+  const isStaff = isAdmin || isHod;
+
+  useEffect(() => {
+    if (!code || !isStaff) return;
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [courseRes, deptRes, lectRes] = await Promise.all([
+          apiClient.getCourseByCode(code),
+          apiClient.getDepartments({ limit: 100 }),
+          apiClient.getUsers({ role: Role.LECTURER, limit: 200 }),
+        ]);
+        if (courseRes.success && courseRes.data) {
+          const c = courseRes.data as Course;
+          setCourse(c);
+          setFormData({
+            name: c.name,
+            level: c.level,
+            credits: String(c.credits),
+            semester: c.semester,
+            departmentCode: c.departmentCode,
+            lecturerId: c.lecturerId ?? "",
+            overview: c.overview ?? "",
+            isGeneral: c.isGeneral,
+            isLocked: c.isLocked,
+          });
+        } else {
+          toast({ title: "Course not found", variant: "destructive" });
+          router.push("/courses");
+        }
+        const d = getItemsFromResponse<Department>(deptRes);
+        const l = getItemsFromResponse<User>(lectRes);
+        if (d) setDepartments(d.items);
+        if (l) setLecturers(l.items);
+      } catch {
+        toast({ title: "Failed to load course", variant: "destructive" });
+        router.push("/courses");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [code, isStaff, router, toast]);
+
+  if (!isStaff) {
+    router.push("/courses");
+    return null;
+  }
+
+  if (loading || !course) {
+    return (
+      <div className="flex items-center justify-center min-h-[200px]">
+        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+      </div>
+    );
+  }
+
+  if (isHod && user?.departmentCode !== course.departmentCode) {
+    toast({ title: "You can only edit courses in your department", variant: "destructive" });
+    router.push("/courses");
+    return null;
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const credits = parseInt(formData.credits);
+    if (isNaN(credits) || credits < 1 || credits > 6) {
+      toast({ title: "Credits must be 1–6", variant: "destructive" });
+      return;
+    }
+    try {
+      setSaving(true);
+      const res = await apiClient.updateCourse(code, {
+        name: formData.name.trim(),
+        level: formData.level as Level,
+        credits,
+        semester: formData.semester as Semester,
+        departmentCode: formData.departmentCode,
+        lecturerId: formData.lecturerId || undefined,
+        overview: formData.overview.trim() || undefined,
+        isGeneral: formData.isGeneral,
+        isLocked: formData.isLocked,
+      });
+      if (res.success) {
+        toast({ title: `Course ${code} updated.` });
+        router.push("/courses");
+      } else {
+        toast({ title: (res as any).error, variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Update failed", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const levelOptions = [
+    { value: Level.LEVEL_100, label: "100 Level" },
+    { value: Level.LEVEL_200, label: "200 Level" },
+    { value: Level.LEVEL_300, label: "300 Level" },
+    { value: Level.LEVEL_400, label: "400 Level" },
+    { value: Level.LEVEL_500, label: "500 Level" },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <Button variant="ghost" onClick={() => router.back()} className="mb-4">
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back
+        </Button>
+        <h1 className="text-2xl font-semibold flex items-center gap-2">
+          <BookOpen className="h-6 w-6" />
+          Edit Course — {code}
+        </h1>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Course Information</CardTitle>
+          <CardDescription>Update course details.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label>Course Code</Label>
+                <Input value={code} disabled className="font-mono bg-gray-50" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="name">Course Name *</Label>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
+                  required
+                  maxLength={200}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label>Level *</Label>
+                <Select value={formData.level} onValueChange={(v) => setFormData((p) => ({ ...p, level: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {levelOptions.map((l) => (
+                      <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Credits *</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={6}
+                  value={formData.credits}
+                  onChange={(e) => setFormData((p) => ({ ...p, credits: e.target.value }))}
+                  required
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label>Semester *</Label>
+                <Select value={formData.semester} onValueChange={(v) => setFormData((p) => ({ ...p, semester: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={Semester.FIRST}>First Semester</SelectItem>
+                    <SelectItem value={Semester.SECOND}>Second Semester</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Department *</Label>
+                <Select value={formData.departmentCode} onValueChange={(v) => setFormData((p) => ({ ...p, departmentCode: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {departments.map((d) => (
+                      <SelectItem key={d.code} value={d.code}>{d.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Lecturer</Label>
+              <Select value={formData.lecturerId} onValueChange={(v) => setFormData((p) => ({ ...p, lecturerId: v }))}>
+                <SelectTrigger><SelectValue placeholder="Select lecturer" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Unassigned</SelectItem>
+                  {lecturers
+                    .filter((u) => !formData.departmentCode || u.departmentCode === formData.departmentCode)
+                    .map((u) => (
+                      <SelectItem key={u.id} value={u.id}>{u.name ?? u.email}</SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Overview</Label>
+              <Textarea
+                value={formData.overview}
+                onChange={(e) => setFormData((p) => ({ ...p, overview: e.target.value }))}
+                rows={4}
+                maxLength={2000}
+              />
+            </div>
+            {isAdmin && (
+              <div className="flex gap-6">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.isGeneral}
+                    onChange={(e) => setFormData((p) => ({ ...p, isGeneral: e.target.checked }))}
+                  />
+                  <span>General Course</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.isLocked}
+                    onChange={(e) => setFormData((p) => ({ ...p, isLocked: e.target.checked }))}
+                  />
+                  <span>Locked</span>
+                </label>
+              </div>
+            )}
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>
+              <Button type="submit" disabled={saving}>
+                {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Save Changes
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

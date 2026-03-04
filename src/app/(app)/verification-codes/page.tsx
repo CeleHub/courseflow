@@ -1,503 +1,412 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
+import { apiClient } from '@/lib/api'
+import { getItemsFromResponse } from '@/lib/utils'
+import { VerificationCode, Role, CreateVerificationCodeData } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import {
-  Shield,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
+  Clipboard,
+  Loader2,
+  MoreVertical,
+  Pencil,
   Plus,
+  Power,
+  Shield,
   Trash2,
-  RefreshCw,
-  Eye,
-  EyeOff,
-  Calendar,
-  Users,
-  CheckCircle,
-  XCircle
 } from 'lucide-react'
-import { apiClient } from '@/lib/api'
-import { VerificationCode, Role } from '@/types'
 import { useToast } from '@/hooks/use-toast'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
-export default function AdminVerificationCodesPage() {
-  const { isAuthenticated, isAdmin } = useAuth()
+function formatExpiry(iso: string | null | undefined): string {
+  if (!iso) return 'Never'
+  return new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+export default function VerificationCodesPage() {
+  const { isAdmin } = useAuth()
   const { toast } = useToast()
+
   const [codes, setCodes] = useState<VerificationCode[]>([])
   const [loading, setLoading] = useState(true)
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
-  const [isCreating, setIsCreating] = useState(false)
-  const [newCode, setNewCode] = useState({
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [editingCode, setEditingCode] = useState<VerificationCode | null>(null)
+  const [deleteCode, setDeleteCode] = useState<VerificationCode | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [actionLoading, setActionLoading] = useState(false)
+  const [copiedId, setCopiedId] = useState<string | null>(null)
+
+  const [formData, setFormData] = useState<CreateVerificationCodeData & { maxUsage?: number }>({
     code: '',
-    role: Role.STUDENT,
-    expiresAt: '',
-    maxUsage: 1
+    role: Role.LECTURER,
+    description: '',
+    maxUsage: undefined,
+    expiresAt: undefined,
   })
 
-  const fetchVerificationCodes = useCallback(async () => {
+  const fetchCodes = useCallback(async () => {
     try {
       setLoading(true)
-      const response = await apiClient.getVerificationCodes()
-
-      if (response.success && response.data) {
-        const items = Array.isArray(response.data)
-          ? response.data
-          : (response.data as { data?: VerificationCode[] })?.data ?? []
-        setCodes(items)
-      }
-    } catch (error) {
-      console.error('Failed to fetch verification codes:', error)
-      toast({
-        title: "Error",
-        description: "Failed to fetch verification codes",
-        variant: "destructive",
-      })
+      const res = await apiClient.getVerificationCodes()
+      const parsed = getItemsFromResponse<VerificationCode>(res)
+      const items = parsed?.items ?? (Array.isArray((res as any)?.data) ? (res as any).data : [])
+      setCodes(items)
+    } catch {
+      toast({ title: 'Failed to load verification codes', variant: 'destructive' })
     } finally {
       setLoading(false)
     }
   }, [toast])
 
   useEffect(() => {
-    if (isAuthenticated && isAdmin) {
-      fetchVerificationCodes()
-    }
-  }, [isAuthenticated, isAdmin, fetchVerificationCodes])
+    if (isAdmin) fetchCodes()
+  }, [isAdmin, fetchCodes])
 
-  const handleCreateCode = async () => {
-    if (!newCode.code.trim()) {
-      toast({
-        title: "Error",
-        description: "Please enter a verification code",
-        variant: "destructive",
-      })
-      return
-    }
-
+  const copyToClipboard = async (code: VerificationCode) => {
     try {
-      setIsCreating(true)
-      const codeData = {
-        ...newCode,
-        expiresAt: newCode.expiresAt || undefined,
-        maxUsage: newCode.maxUsage || undefined
-      }
-
-      const response = await apiClient.createVerificationCode(codeData)
-
-      if (response.success) {
-        toast({
-          title: "Success",
-          description: "Verification code created successfully",
-        })
-        setIsCreateDialogOpen(false)
-        setNewCode({
-          code: '',
-          role: Role.STUDENT,
-          expiresAt: '',
-          maxUsage: 1
-        })
-        fetchVerificationCodes()
-      } else {
-        toast({
-          title: "Error",
-          description: response.error || "Failed to create verification code",
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
-      console.error('Failed to create verification code:', error)
-      toast({
-        title: "Error",
-        description: "Failed to create verification code",
-        variant: "destructive",
-      })
-    } finally {
-      setIsCreating(false)
+      await navigator.clipboard.writeText(code.code)
+      setCopiedId(code.id)
+      toast({ title: 'Copied!' })
+      setTimeout(() => setCopiedId(null), 2000)
+    } catch {
+      toast({ title: 'Copy failed', variant: 'destructive' })
     }
   }
 
-  const handleDeleteCode = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this verification code?')) {
-      return
-    }
-
-    try {
-      const response = await apiClient.deleteVerificationCode(id)
-
-      if (response.success) {
-        toast({
-          title: "Success",
-          description: "Verification code deleted successfully",
-        })
-        fetchVerificationCodes()
-      } else {
-        toast({
-          title: "Error",
-          description: response.error || "Failed to delete verification code",
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
-      console.error('Failed to delete verification code:', error)
-      toast({
-        title: "Error",
-        description: "Failed to delete verification code",
-        variant: "destructive",
-      })
-    }
-  }
-
-  const handleToggleStatus = async (id: string, currentStatus: boolean) => {
-    try {
-      const response = await apiClient.updateVerificationCode(id, {
-        isActive: !currentStatus
-      })
-
-      if (response.success) {
-        toast({
-          title: "Success",
-          description: `Verification code ${!currentStatus ? 'activated' : 'deactivated'} successfully`,
-        })
-        fetchVerificationCodes()
-      } else {
-        toast({
-          title: "Error",
-          description: response.error || "Failed to update verification code",
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
-      console.error('Failed to update verification code:', error)
-      toast({
-        title: "Error",
-        description: "Failed to update verification code",
-        variant: "destructive",
-      })
-    }
-  }
-
-  const generateRandomCode = () => {
-    const rolePrefix = newCode.role.toUpperCase()
+  const generateCode = () => {
+    const rolePrefix = formData.role.toUpperCase()
     const year = new Date().getFullYear()
-    const randomString = Math.random().toString(36).substring(2, 8).toUpperCase()
-    return `${rolePrefix}-${year}-${randomString}`
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+    let suffix = ''
+    for (let i = 0; i < 6; i++) suffix += chars[Math.floor(Math.random() * chars.length)]
+    setFormData((p) => ({ ...p, code: `${rolePrefix}-${year}-${suffix}` }))
   }
 
-  const getRoleBadgeColor = (role: Role) => {
-    switch (role) {
-      case Role.ADMIN:
-        return 'destructive'
-      case Role.LECTURER:
-        return 'default'
-      case Role.STUDENT:
-        return 'secondary'
-      default:
-        return 'secondary'
+  const openCreate = () => {
+    setEditingCode(null)
+    setFormData({
+      code: '',
+      role: Role.LECTURER,
+      description: '',
+      maxUsage: undefined,
+      expiresAt: undefined,
+    })
+    setIsModalOpen(true)
+  }
+
+  const openEdit = (c: VerificationCode) => {
+    setEditingCode(c)
+    setFormData({
+      code: c.code,
+      role: c.role,
+      description: c.description ?? '',
+      maxUsage: c.maxUsage ?? undefined,
+      expiresAt: c.expiresAt ? new Date(c.expiresAt).toISOString().slice(0, 16) : undefined,
+    })
+    setIsModalOpen(true)
+  }
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!formData.code.trim()) {
+      toast({ title: 'Code is required', variant: 'destructive' })
+      return
+    }
+    if (formData.code.length > 50) {
+      toast({ title: 'Code max 50 chars', variant: 'destructive' })
+      return
+    }
+
+    try {
+      setSaving(true)
+      const payload: CreateVerificationCodeData = {
+        code: formData.code.trim(),
+        role: formData.role,
+        description: formData.description?.trim(),
+        maxUsage: formData.maxUsage && formData.maxUsage >= 1 ? formData.maxUsage : undefined,
+        expiresAt: formData.expiresAt ? new Date(formData.expiresAt).toISOString() : undefined,
+      }
+      if (editingCode) {
+        const res = await apiClient.updateVerificationCode(editingCode.id, payload)
+        if (res.success) {
+          toast({ title: 'Code updated.' })
+          setIsModalOpen(false)
+          fetchCodes()
+        } else {
+          toast({ title: (res as any).error, variant: 'destructive' })
+        }
+      } else {
+        const res = await apiClient.createVerificationCode(payload)
+        if (res.success) {
+          toast({ title: 'Code created.' })
+          setIsModalOpen(false)
+          fetchCodes()
+        } else {
+          toast({ title: (res as any).error, variant: 'destructive' })
+        }
+      }
+    } catch {
+      toast({ title: 'Save failed', variant: 'destructive' })
+    } finally {
+      setSaving(false)
     }
   }
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
+  const handleToggleActive = async (c: VerificationCode) => {
+    try {
+      setActionLoading(true)
+      const res = await apiClient.updateVerificationCode(c.id, { isActive: !c.isActive })
+      if (res.success) {
+        toast({ title: c.isActive ? 'Code deactivated.' : 'Code activated.' })
+        fetchCodes()
+      } else {
+        toast({ title: (res as any).error, variant: 'destructive' })
+      }
+    } catch {
+      toast({ title: 'Update failed', variant: 'destructive' })
+    } finally {
+      setActionLoading(false)
+    }
   }
 
-  const isExpired = (expiresAt: string | null) => {
-    if (!expiresAt) return false
-    return new Date(expiresAt) < new Date()
+  const handleDelete = async (): Promise<boolean> => {
+    if (!deleteCode) return false
+    try {
+      setActionLoading(true)
+      const res = await apiClient.deleteVerificationCode(deleteCode.id)
+      if (res.success) {
+        toast({ title: 'Code deleted.' })
+        setDeleteCode(null)
+        fetchCodes()
+        return true
+      }
+      toast({ title: (res as any).error, variant: 'destructive' })
+      return false
+    } catch {
+      toast({ title: 'Delete failed', variant: 'destructive' })
+      return false
+    } finally {
+      setActionLoading(false)
+    }
   }
 
   if (!isAdmin) {
     return (
       <div className="text-center py-16">
-        <Card>
-          <CardContent className="text-center py-12">
-            <Shield className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-            <h2 className="text-2xl font-bold mb-2">Access Denied</h2>
-            <p className="text-muted-foreground">You need admin privileges to access this page.</p>
-          </CardContent>
-        </Card>
+        <Shield className="h-16 w-16 mx-auto text-gray-300 mb-4" />
+        <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
+        <p className="text-gray-500">Admin privileges required.</p>
       </div>
     )
   }
 
+  const staffRoles = [Role.ADMIN, Role.HOD, Role.LECTURER]
+
   return (
-    <div>
-      <div className="space-y-8">
-        <div className="space-y-6">
-          {/* Header */}
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">Verification Codes</h1>
-              <p className="text-muted-foreground">
-                Manage verification codes for lecturer and admin registration
-              </p>
-            </div>
-            
-            <div className="flex gap-2">
-              <Button onClick={fetchVerificationCodes} variant="outline" size="sm">
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh
-              </Button>
-              
-              <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create Code
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-md">
-                  <DialogHeader>
-                    <DialogTitle>Create Verification Code</DialogTitle>
-                    <DialogDescription>
-                      Generate a new verification code for user registration
-                    </DialogDescription>
-                  </DialogHeader>
-                  
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="code">Verification Code</Label>
-                      <div className="flex gap-2">
-                        <Input
-                          id="code"
-                          value={newCode.code}
-                          onChange={(e) => setNewCode(prev => ({ ...prev, code: e.target.value }))}
-                          placeholder="Enter verification code"
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => setNewCode(prev => ({ ...prev, code: generateRandomCode() }))}
-                        >
-                          Generate
-                        </Button>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="role">Role</Label>
-                      <Select 
-                        value={newCode.role} 
-                        onValueChange={(value: Role) => setNewCode(prev => ({ ...prev, role: value }))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select role" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value={Role.LECTURER}>Lecturer</SelectItem>
-                          <SelectItem value={Role.ADMIN}>Admin</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="maxUsage">Max Usage (optional)</Label>
-                      <Input
-                        id="maxUsage"
-                        type="number"
-                        min="1"
-                        value={newCode.maxUsage}
-                        onChange={(e) => setNewCode(prev => ({ ...prev, maxUsage: parseInt(e.target.value) || 1 }))}
-                        placeholder="Maximum number of uses"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="expiresAt">Expires At (optional)</Label>
-                      <Input
-                        id="expiresAt"
-                        type="datetime-local"
-                        value={newCode.expiresAt}
-                        onChange={(e) => setNewCode(prev => ({ ...prev, expiresAt: e.target.value }))}
-                      />
-                    </div>
-                  </div>
-
-                  <DialogFooter>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setIsCreateDialogOpen(false)}
-                    >
-                      Cancel
-                    </Button>
-                    <Button onClick={handleCreateCode} disabled={isCreating}>
-                      {isCreating ? 'Creating...' : 'Create Code'}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </div>
-          </div>
-
-          {/* Statistics Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Codes</CardTitle>
-                <Shield className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{codes.length}</div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Active Codes</CardTitle>
-                <CheckCircle className="h-4 w-4 text-green-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {codes.filter(code => code.isActive && !isExpired(code.expiresAt || '')).length}
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Expired Codes</CardTitle>
-                <XCircle className="h-4 w-4 text-red-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {codes.filter(code => isExpired(code.expiresAt || '')).length}
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Uses</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {codes.reduce((total, code) => total + code.usageCount, 0)}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Verification Codes Table */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Verification Codes</CardTitle>
-              <CardDescription>
-                Manage verification codes for secure user registration
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <div className="flex items-center justify-center py-8">
-                  <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
-                </div>
-              ) : codes.length === 0 ? (
-                <div className="text-center py-8">
-                  <Shield className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground">No verification codes found</p>
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Code</TableHead>
-                      <TableHead>Role</TableHead>
-                      <TableHead>Uses</TableHead>
-                      <TableHead>Expires</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Created</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {codes.map((code) => (
-                      <TableRow key={code.id}>
-                        <TableCell className="font-medium">
-                          <code className="text-sm bg-muted px-2 py-1 rounded">
-                            {code.code}
-                          </code>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={getRoleBadgeColor(code.role)}>
-                            {code.role}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <span className="text-sm">
-                            {code.usageCount}
-                            {code.maxUsage && ` / ${code.maxUsage}`}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          {code.expiresAt ? (
-                            <span className={`text-sm ${isExpired(code.expiresAt) ? 'text-red-600' : ''}`}>
-                              {formatDate(code.expiresAt)}
-                            </span>
-                          ) : (
-                            <span className="text-sm text-muted-foreground">Never</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={
-                            !code.isActive ? 'destructive' :
-                            isExpired(code.expiresAt || '') ? 'secondary' :
-                            'default'
-                          }>
-                            {!code.isActive ? 'Inactive' :
-                             isExpired(code.expiresAt || '') ? 'Expired' :
-                             'Active'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {code.createdAt && (
-                            <span className="text-sm text-muted-foreground">
-                              {formatDate(code.createdAt)}
-                            </span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center gap-2 justify-end">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleToggleStatus(code.id, code.isActive)}
-                            >
-                              {code.isActive ? (
-                                <EyeOff className="h-4 w-4" />
-                              ) : (
-                                <Eye className="h-4 w-4" />
-                              )}
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleDeleteCode(code.id)}
-                              className="text-red-600 hover:text-red-700"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+    <div className="space-y-6">
+      {/* 12.1 Page Layout */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold">Verification Codes</h1>
+        <Button size="sm" onClick={openCreate}>
+          <Plus className="h-4 w-4 mr-2" />
+          New Code
+        </Button>
       </div>
+
+      {/* 12.2 Table */}
+      {loading ? (
+        <div className="rounded-xl border bg-white p-4 space-y-3">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="h-14 bg-gray-100 animate-pulse rounded" />
+          ))}
+        </div>
+      ) : codes.length === 0 ? (
+        <div className="rounded-xl border border-gray-200 p-12 text-center">
+          <Shield className="h-16 w-16 mx-auto text-gray-300 mb-4" />
+          <h3 className="text-base font-semibold text-gray-700">No verification codes</h3>
+          <Button className="mt-4" onClick={openCreate}>
+            <Plus className="h-4 w-4 mr-2" />
+            New Code
+          </Button>
+        </div>
+      ) : (
+        <>
+          <div className="hidden md:block rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-white border-b">
+                  <tr className="text-left text-sm text-gray-500">
+                    <th className="p-3">Code</th>
+                    <th className="p-3">Role</th>
+                    <th className="p-3">Description</th>
+                    <th className="p-3">Usage</th>
+                    <th className="p-3">Expires</th>
+                    <th className="p-3">Status</th>
+                    <th className="p-3">Created By</th>
+                    <th className="p-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {codes.map((c) => (
+                    <tr key={c.id} className="border-t hover:bg-gray-50">
+                      <td className="p-3">
+                        <div className="flex items-center gap-1">
+                          <code className="font-mono text-sm">{c.code}</code>
+                          <Button size="icon" variant="ghost" className="h-11 w-11 shrink-0" onClick={() => copyToClipboard(c)} title={copiedId === c.id ? 'Copied!' : 'Copy'}>
+                            <Clipboard className="h-4 w-4" /><span className="sr-only">Copy</span>
+                          </Button>
+                        </div>
+                      </td>
+                      <td className="p-3"><Badge variant="secondary">{c.role}</Badge></td>
+                      <td className="p-3 text-sm text-gray-600 max-w-[180px] truncate" title={c.description ?? ''}>{c.description ?? '—'}</td>
+                      <td className="p-3">
+                        {c.maxUsage != null ? (
+                          <div className="flex items-center gap-2">
+                            <div className="w-20 h-2 bg-gray-200 rounded-full overflow-hidden">
+                              <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${Math.min(100, (c.usageCount / c.maxUsage) * 100)}%` }} />
+                            </div>
+                            <span className="text-sm">{c.usageCount}/{c.maxUsage}</span>
+                          </div>
+                        ) : (
+                          <span className="text-sm text-gray-500">Unlimited</span>
+                        )}
+                      </td>
+                      <td className="p-3 text-sm">{formatExpiry(c.expiresAt)}</td>
+                      <td className="p-3">
+                        <Badge className={c.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}>{c.isActive ? 'Active' : 'Inactive'}</Badge>
+                      </td>
+                      <td className="p-3 text-sm text-gray-600">{c.creator?.name ?? c.createdBy ?? '—'}</td>
+                      <td className="p-3 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button size="icon" variant="ghost" className="h-11 w-11" onClick={() => openEdit(c)}><Pencil className="h-5 w-5" /><span className="sr-only">Edit</span></Button>
+                          <Button size="icon" variant="ghost" className={`h-11 w-11 ${c.isActive ? 'text-green-600' : 'text-gray-500'}`} onClick={() => handleToggleActive(c)} disabled={actionLoading}><Power className="h-5 w-5" /><span className="sr-only">Toggle</span></Button>
+                          <Button size="icon" variant="ghost" className="h-11 w-11 text-red-600" onClick={() => setDeleteCode(c)}><Trash2 className="h-5 w-5" /><span className="sr-only">Delete</span></Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Mobile cards */}
+          <div className="md:hidden space-y-3">
+            {codes.map((c) => (
+              <div key={c.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <code className="font-mono text-sm">{c.code}</code>
+                    <Button size="icon" variant="ghost" className="h-11 w-11 shrink-0" onClick={() => copyToClipboard(c)}><Clipboard className="h-4 w-4" /><span className="sr-only">Copy</span></Button>
+                  </div>
+                  <Badge variant="secondary">{c.role}</Badge>
+                </div>
+                <p className="text-sm text-gray-600 mt-1">{c.description ?? '—'}</p>
+                <div className="flex items-center gap-2 mt-2 text-sm text-gray-500">
+                  {c.maxUsage != null ? (
+                    <>
+                      <div className="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden flex-1 max-w-[80px]">
+                        <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${Math.min(100, (c.usageCount / c.maxUsage) * 100)}%` }} />
+                      </div>
+                      <span>{c.usageCount}/{c.maxUsage}</span>
+                    </>
+                  ) : (
+                    <span>Unlimited</span>
+                  )}
+                  <span>·</span>
+                  <span>Expires: {formatExpiry(c.expiresAt)}</span>
+                </div>
+                <div className="flex items-center justify-between mt-3">
+                  <Badge className={c.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}>{c.isActive ? 'Active' : 'Inactive'}</Badge>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="icon" variant="ghost" className="h-11 w-11 shrink-0"><MoreVertical className="h-5 w-5" /><span className="sr-only">Menu</span></Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => openEdit(c)}>Edit</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleToggleActive(c)}>{c.isActive ? 'Deactivate' : 'Activate'}</DropdownMenuItem>
+                      <DropdownMenuItem className="text-red-600" onClick={() => setDeleteCode(c)}>Delete</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* 12.3 Create/Edit Modal */}
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>{editingCode ? 'Edit Verification Code' : 'New Verification Code'}</DialogTitle>
+            <DialogDescription>{editingCode ? 'Update code details.' : 'Create a verification code for registration.'}</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSave} className="space-y-4">
+            <div>
+              <Label>Code * (max 50 chars)</Label>
+              <div className="relative mt-1.5">
+                <Input value={formData.code} onChange={(e) => setFormData((p) => ({ ...p, code: e.target.value }))} placeholder="ROLE-YEAR-XXXXXX" className="pr-24 font-mono" required maxLength={50} />
+                <Button type="button" variant="outline" size="sm" className="absolute right-2 top-1/2 -translate-y-1/2" onClick={generateCode}>Generate</Button>
+              </div>
+            </div>
+            <div>
+              <Label>Role *</Label>
+              <Select value={formData.role} onValueChange={(v) => setFormData((p) => ({ ...p, role: v as Role }))}>
+                <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {staffRoles.map((r) => (
+                    <SelectItem key={r} value={r}>{r}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Description (max 200 chars)</Label>
+              <Input value={formData.description ?? ''} onChange={(e) => setFormData((p) => ({ ...p, description: e.target.value }))} maxLength={200} />
+            </div>
+            <div>
+              <Label>Max usage (empty = unlimited)</Label>
+              <Input type="number" min={1} value={formData.maxUsage ?? ''} onChange={(e) => setFormData((p) => ({ ...p, maxUsage: e.target.value ? Number(e.target.value) : undefined }))} placeholder="Unlimited" />
+            </div>
+            <div>
+              <Label>Expiry date/time</Label>
+              <Input type="datetime-local" value={formData.expiresAt ?? ''} onChange={(e) => setFormData((p) => ({ ...p, expiresAt: e.target.value || undefined }))} />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)} disabled={saving}>Cancel</Button>
+              <Button type="submit" disabled={saving}>{saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Save</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmDialog open={!!deleteCode} onOpenChange={(o) => !o && setDeleteCode(null)} title="Delete verification code?" description="This cannot be undone." icon={Trash2} iconClassName="bg-red-500 text-white" confirmLabel="Delete" confirmVariant="destructive" onConfirm={handleDelete} loading={actionLoading} />
     </div>
   )
 }

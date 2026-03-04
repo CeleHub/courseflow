@@ -2,13 +2,6 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,635 +15,609 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import {
   BookOpen,
   Search,
   Filter,
-  Clock,
-  Building2,
-  GraduationCap,
-  RefreshCw,
   Upload,
   Download,
-  FileText,
   Plus,
-  User as UserIcon,
+  MoreVertical,
+  Eye,
+  Pencil,
+  Trash2,
+  Lock,
+  ArrowLeft,
 } from "lucide-react";
 import { apiClient } from "@/lib/api";
 import { getItemsFromResponse } from "@/lib/utils";
 import { Course, Department, Level, Semester } from "@/types";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+
+const LEVEL_PILL: Record<Level, string> = {
+  [Level.LEVEL_100]: "bg-slate-100 text-slate-700",
+  [Level.LEVEL_200]: "bg-blue-100 text-blue-700",
+  [Level.LEVEL_300]: "bg-violet-100 text-violet-700",
+  [Level.LEVEL_400]: "bg-orange-100 text-orange-700",
+  [Level.LEVEL_500]: "bg-red-100 text-red-700",
+};
+
+function getInitials(name: string | null | undefined): string {
+  if (!name?.trim()) return "?";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0]! + parts[parts.length - 1]![0]!).toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+}
 
 export default function CoursesPage() {
   const router = useRouter();
-  const { isAuthenticated, isAdmin, isLecturer, isHod } = useAuth();
+  const { isAdmin, isHod, user } = useAuth();
   const { toast } = useToast();
 
-  const isStaff = isAdmin || isLecturer || isHod;
+  const isStaff = isAdmin || isHod;
   const [courses, setCourses] = useState<Course[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
-  const [selectedLevel, setSelectedLevel] = useState<string>("all");
-  const [selectedSemester, setSelectedSemester] = useState<string>("all");
-  const [currentPage, setCurrentPage] = useState(1);
+  const [searchInput, setSearchInput] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [departmentCode, setDepartmentCode] = useState<string>("all");
+  const [level, setLevel] = useState<string>("all");
+  const [semester, setSemester] = useState<string>("all");
+  const [isGeneral, setIsGeneral] = useState(false);
+  const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
+  const [total, setTotal] = useState(0);
+  const [limit, setLimit] = useState(25);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [searchInput, setSearchInput] = useState("");
-
-  const levelOptions = [
-    { value: Level.LEVEL_100, label: "100 Level" },
-    { value: Level.LEVEL_200, label: "200 Level" },
-    { value: Level.LEVEL_300, label: "300 Level" },
-    { value: Level.LEVEL_400, label: "400 Level" },
-    { value: Level.LEVEL_500, label: "500 Level" },
-  ];
-
-  const semesterOptions = [
-    { value: Semester.FIRST, label: "First Semester" },
-    { value: Semester.SECOND, label: "Second Semester" },
-  ];
+  const [detailCourse, setDetailCourse] = useState<Course | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [deleteCourse, setDeleteCourse] = useState<Course | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   useEffect(() => {
-    const fetchDepartments = async () => {
-      try {
-        const response = await apiClient.getDepartments({ limit: 100 });
-        const result = getItemsFromResponse<Department>(response);
-        if (result) setDepartments(result.items);
-      } catch (error) {
-        console.error("Failed to fetch departments:", error);
-      }
-    };
-
-    fetchDepartments();
-  }, []);
-
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setSearchTerm(searchInput);
-      setCurrentPage(1); // Reset to page 1 when searching
-    }, 500);
-
-    return () => clearTimeout(handler);
+    const t = setTimeout(() => setDebouncedSearch(searchInput), 300);
+    return () => clearTimeout(t);
   }, [searchInput]);
+
+  useEffect(() => {
+    const fetchDepts = async () => {
+      const res = await apiClient.getDepartments({ limit: 100 });
+      const r = getItemsFromResponse<Department>(res);
+      if (r) setDepartments(r.items);
+    };
+    fetchDepts();
+  }, []);
 
   const fetchCourses = useCallback(async () => {
     try {
       setLoading(true);
-      const params: any = {
-        page: currentPage,
-        limit: 12,
+      const params: Record<string, string | number | boolean> = {
+        page,
+        limit,
+        ...(debouncedSearch && { searchTerm: debouncedSearch }),
+        ...(departmentCode && departmentCode !== "all" && { departmentCode }),
+        ...(level && level !== "all" && { level: level as Level }),
+        ...(semester && semester !== "all" && { semester: semester as Semester }),
+        ...(isGeneral && { isGeneral: true }),
       };
-
-      if (searchTerm) params.searchTerm = searchTerm;
-
-      if (selectedDepartment && selectedDepartment !== "all")
-        params.departmentCode = selectedDepartment;
-      if (selectedLevel && selectedLevel !== "all")
-        params.level = selectedLevel;
-      if (selectedSemester && selectedSemester !== "all")
-        params.semester = selectedSemester;
-
-      const response = await apiClient.getCourses(params);
-      const result = getItemsFromResponse<Course>(response);
-      if (result) {
-        setCourses(result.items);
-        setTotalPages(result.totalPages);
+      const res = await apiClient.getCourses(params);
+      const r = getItemsFromResponse<Course>(res);
+      if (r) {
+        setCourses(r.items);
+        setTotalPages(r.totalPages);
+        setTotal(r.total);
       }
-    } catch (error) {
-      console.error("Failed to fetch courses:", error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch courses",
-        variant: "destructive",
-      });
+    } catch {
+      toast({ title: "Failed to load courses", variant: "destructive" });
     } finally {
       setLoading(false);
     }
-  }, [
-    currentPage,
-    searchTerm,
-    selectedDepartment,
-    selectedLevel,
-    selectedSemester,
-    toast,
-  ]);
+  }, [page, limit, debouncedSearch, departmentCode, level, semester, isGeneral, toast]);
 
   useEffect(() => {
     fetchCourses();
   }, [fetchCourses]);
 
-  const handleReset = () => {
-    setSearchTerm("");
-    setSelectedDepartment("all");
-    setSelectedLevel("all");
-    setSelectedSemester("all");
-    setCurrentPage(1);
+  const filterCount = [departmentCode !== "all", level !== "all", semester !== "all", isGeneral].filter(Boolean).length;
+  const hasFilters = filterCount > 0;
+
+  const clearFilters = () => {
+    setDepartmentCode("all");
+    setLevel("all");
+    setSemester("all");
+    setIsGeneral(false);
+    setPage(1);
   };
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file && file.type === "text/csv") {
-      setSelectedFile(file);
-    } else {
-      toast({
-        title: "Invalid File",
-        description: "Please select a CSV file",
-        variant: "destructive",
-      });
+  const handleDownloadTemplate = async () => {
+    try {
+      const res = await apiClient.getCoursesBulkTemplate();
+      if (res.success && res.data) {
+        const raw = res.data as unknown;
+        const blob = raw instanceof Blob ? raw : new Blob([String(raw)], { type: "text/csv" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "courses-template.csv";
+        a.click();
+        URL.revokeObjectURL(url);
+        toast({ title: "Template downloaded" });
+      }
+    } catch {
+      toast({ title: "Failed to download template", variant: "destructive" });
     }
   };
 
   const handleBulkUpload = async () => {
-    if (!selectedFile) {
-      toast({
-        title: "No File Selected",
-        description: "Please select a CSV file to upload",
-        variant: "destructive",
-      });
-      return;
-    }
-
+    if (!selectedFile) return;
     try {
       setIsUploading(true);
-      const response = await apiClient.uploadCoursesBulk(selectedFile);
-
-      if (response.success) {
-        toast({
-          title: "Upload Successful",
-          description: "Courses have been uploaded successfully",
-        });
-        setIsUploadDialogOpen(false);
+      const res = await apiClient.uploadCoursesBulk(selectedFile);
+      if (res.success) {
+        toast({ title: "Courses uploaded successfully." });
+        setIsUploadOpen(false);
         setSelectedFile(null);
         fetchCourses();
       } else {
-        toast({
-          title: "Upload Failed",
-          description: response.error || "Failed to upload courses",
-          variant: "destructive",
-        });
+        toast({ title: (res as any).error || "Upload failed", variant: "destructive" });
       }
-    } catch (error) {
-      console.error("Bulk upload failed:", error);
-      toast({
-        title: "Upload Error",
-        description: "An error occurred during upload",
-        variant: "destructive",
-      });
+    } catch {
+      toast({ title: "Upload failed", variant: "destructive" });
     } finally {
       setIsUploading(false);
     }
   };
 
-  const handleDownloadTemplate = async () => {
+  const openDetail = async (course: Course) => {
+    setDetailCourse(course);
+    setDetailLoading(true);
     try {
-      const response = await apiClient.getCoursesBulkTemplate();
-      if (response.success && typeof response.data === "string") {
-        const blob = new Blob([response.data], { type: "text/csv" });
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = "courses_template.csv";
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        window.URL.revokeObjectURL(url);
-      } else {
-        toast({
-          title: "Download Failed",
-          description: "Failed to download template",
-          variant: "destructive",
-        });
+      const res = await apiClient.getCourseByCode(course.code);
+      if (res.success && res.data) setDetailCourse(res.data as Course);
+    } catch {
+      toast({ title: "Failed to load course", variant: "destructive" });
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const handleDelete = async (): Promise<boolean> => {
+    if (!deleteCourse) return false;
+    try {
+      setDeleteLoading(true);
+      const res = await apiClient.deleteCourse(deleteCourse.code);
+      if (res.success) {
+        toast({ title: `Course ${deleteCourse.code} deleted.` });
+        setDeleteCourse(null);
+        fetchCourses();
+        return true;
       }
-    } catch (error) {
-      console.error("Template download failed:", error);
-      toast({
-        title: "Download Error",
-        description: "An error occurred while downloading template",
-        variant: "destructive",
-      });
+      toast({ title: (res as any).error, variant: "destructive" });
+      return false;
+    } catch {
+      toast({ title: "Delete failed", variant: "destructive" });
+      return false;
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
-  const getLevelBadgeColor = (level: Level) => {
-    switch (level) {
-      case Level.LEVEL_100:
-        return "bg-green-100 text-green-800";
-      case Level.LEVEL_200:
-        return "bg-blue-100 text-blue-800";
-      case Level.LEVEL_300:
-        return "bg-yellow-100 text-yellow-800";
-      case Level.LEVEL_400:
-        return "bg-orange-100 text-orange-800";
-      case Level.LEVEL_500:
-        return "bg-red-100 text-red-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
-
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  };
+  const canEditCourse = (c: Course) => isAdmin || (isHod && user?.departmentCode === c.departmentCode);
 
   return (
-    <div>
-      <div className="space-y-8">
-        {/* Header */}
-        <div className="mb-10">
-          <div className="flex items-center justify-between flex-wrap gap-4 mb-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary/10 rounded-xl flex-shrink-0">
-                <BookOpen className="h-8 w-8 md:h-10 md:w-10 text-primary" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h1 className="text-4xl md:text-5xl font-bold mb-2">
-                  <span className="bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-                    Course Catalog
-                  </span>
-                </h1>
-                <p className="text-lg text-muted-foreground">
-                  Explore comprehensive course listings with detailed
-                  information
-                </p>
-              </div>
-            </div>
-          </div>
+    <div className="space-y-6">
+      {/* 7.1 Page header */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold">Courses</h1>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={handleDownloadTemplate}>
+            <Download className="h-4 w-4 mr-2" />
+            Download Template
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setIsUploadOpen(true)}>
+            <Upload className="h-4 w-4 mr-2" />
+            Upload CSV
+          </Button>
+          {isStaff && (
+            <Button size="sm" onClick={() => router.push("/courses/create")}>
+              <Plus className="h-4 w-4 mr-2" />
+              New Course
+            </Button>
+          )}
         </div>
+      </div>
 
-        {/* Filters */}
-        <Card className="mb-8 border-2 shadow-sm">
-          <CardHeader className="pb-4">
-            <CardTitle className="text-xl font-semibold flex items-center gap-2">
-              <div className="p-1.5 bg-primary/10 rounded-lg">
-                <Filter className="h-5 w-5 text-primary" />
-              </div>
-              Search & Filter Courses
-            </CardTitle>
-            <CardDescription>
-              Find courses by name, code, department, or level
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
-              <div className="relative lg:col-span-2">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search by name or code..."
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-
-              <Select
-                value={selectedDepartment}
-                onValueChange={setSelectedDepartment}
+      {/* 7.2 Filter bar */}
+      <div className="rounded-xl border border-gray-200 bg-white p-3 md:p-5">
+        <div className="flex flex-col md:flex-row md:items-center md:flex-wrap gap-3">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Search by code, name or lecturer..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <div className="hidden md:flex items-center gap-2 flex-wrap">
+            <Select value={departmentCode} onValueChange={setDepartmentCode}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="All Departments" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Departments</SelectItem>
+                {departments.map((d) => (
+                  <SelectItem key={d.code} value={d.code}>{d.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={level} onValueChange={setLevel}>
+              <SelectTrigger className="w-[130px]">
+                <SelectValue placeholder="All Levels" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Levels</SelectItem>
+                {[Level.LEVEL_100, Level.LEVEL_200, Level.LEVEL_300, Level.LEVEL_400, Level.LEVEL_500].map((l) => (
+                  <SelectItem key={l} value={l}>{l.replace("LEVEL_", "")} Level</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={semester} onValueChange={setSemester}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="All Semesters" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Semesters</SelectItem>
+                <SelectItem value={Semester.FIRST}>First Semester</SelectItem>
+                <SelectItem value={Semester.SECOND}>Second Semester</SelectItem>
+              </SelectContent>
+            </Select>
+            {departmentCode === "all" && (
+              <Button
+                variant={isGeneral ? "default" : "outline"}
+                size="sm"
+                onClick={() => setIsGeneral(!isGeneral)}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="All Departments" />
-                </SelectTrigger>
+                General Only
+              </Button>
+            )}
+            {hasFilters && (
+              <button
+                type="button"
+                className="text-sm text-gray-500 hover:text-gray-700"
+                onClick={clearFilters}
+              >
+                Clear Filters
+              </button>
+            )}
+          </div>
+          <Button variant="outline" className="md:hidden w-full" onClick={() => setFiltersOpen(true)}>
+            <Filter className="h-4 w-4 mr-2" />
+            Filters {filterCount > 0 ? `(${filterCount})` : ""}
+          </Button>
+        </div>
+      </div>
+
+      {/* Mobile filters */}
+      <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader><DialogTitle>Filters</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Department</label>
+              <Select value={departmentCode} onValueChange={setDepartmentCode}>
+                <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Departments</SelectItem>
-                  {departments.map((dept) => (
-                    <SelectItem key={dept.code} value={dept.code}>
-                      {dept.name}
-                    </SelectItem>
+                  {departments.map((d) => (
+                    <SelectItem key={d.code} value={d.code}>{d.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-
-              <Select value={selectedLevel} onValueChange={setSelectedLevel}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Levels" />
-                </SelectTrigger>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Level</label>
+              <Select value={level} onValueChange={setLevel}>
+                <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Levels</SelectItem>
-                  {levelOptions.map((level) => (
-                    <SelectItem key={level.value} value={level.value}>
-                      {level.label}
-                    </SelectItem>
+                  {[Level.LEVEL_100, Level.LEVEL_200, Level.LEVEL_300, Level.LEVEL_400, Level.LEVEL_500].map((l) => (
+                    <SelectItem key={l} value={l}>{l.replace("LEVEL_", "")} Level</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-
-              <Select
-                value={selectedSemester}
-                onValueChange={setSelectedSemester}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="All Semesters" />
-                </SelectTrigger>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Semester</label>
+              <Select value={semester} onValueChange={setSemester}>
+                <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Semesters</SelectItem>
-                  {semesterOptions.map((semester) => (
-                    <SelectItem key={semester.value} value={semester.value}>
-                      {semester.label}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value={Semester.FIRST}>First Semester</SelectItem>
+                  <SelectItem value={Semester.SECOND}>Second Semester</SelectItem>
                 </SelectContent>
               </Select>
-
-              <div className="flex gap-2 lg:col-span-1">
-                <Button
-                  variant="outline"
-                  onClick={handleReset}
-                  className="flex-1"
-                >
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Reset
-                </Button>
-              </div>
-
-              {isAuthenticated && isStaff && (
-                <>
-                  <Button
-                    variant="outline"
-                    onClick={handleDownloadTemplate}
-                    className="lg:col-span-1"
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Template
-                  </Button>
-
-                  <Dialog
-                    open={isUploadDialogOpen}
-                    onOpenChange={setIsUploadDialogOpen}
-                  >
-                    <DialogTrigger asChild>
-                      <Button variant="outline" className="lg:col-span-2">
-                        <Upload className="h-4 w-4 mr-2" />
-                        Bulk Upload
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-md">
-                      <DialogHeader>
-                        <DialogTitle>Bulk Upload Courses</DialogTitle>
-                        <DialogDescription>
-                          Upload a CSV file to create multiple courses at once
-                        </DialogDescription>
-                      </DialogHeader>
-
-                      <div className="space-y-4">
-                        <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center">
-                          <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                          <div className="space-y-2">
-                            <p className="text-sm text-muted-foreground">
-                              {selectedFile
-                                ? selectedFile.name
-                                : "Select a CSV file"}
-                            </p>
-                            <Input
-                              type="file"
-                              accept=".csv"
-                              onChange={handleFileSelect}
-                              className="cursor-pointer"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="text-xs text-muted-foreground space-y-1">
-                          <p>
-                            • CSV file should contain: code, name, level,
-                            credits, departmentCode, lecturerEmail
-                          </p>
-                          <p>• Download the template for the correct format</p>
-                          <p>• Maximum file size: 5MB</p>
-                        </div>
-                      </div>
-
-                      <DialogFooter>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => setIsUploadDialogOpen(false)}
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          onClick={handleBulkUpload}
-                          disabled={!selectedFile || isUploading}
-                        >
-                          {isUploading ? "Uploading..." : "Upload"}
-                        </Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-
-                  <Button
-                    variant="default"
-                    onClick={() => router.push("/courses/create")}
-                    className="lg:col-span-2"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Course
-                  </Button>
-                </>
-              )}
             </div>
-          </CardContent>
-        </Card>
+            {departmentCode === "all" && (
+              <div>
+                <label className="text-sm font-medium">General Only</label>
+                <Button variant={isGeneral ? "default" : "outline"} className="w-full mt-1.5" onClick={() => setIsGeneral(!isGeneral)}>{isGeneral ? "On" : "Off"}</Button>
+              </div>
+            )}
+            <Button className="w-full" onClick={() => setFiltersOpen(false)}>Apply</Button>
+            <button type="button" className="text-sm text-gray-500 underline" onClick={() => { clearFilters(); setFiltersOpen(false); }}>Clear All</button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
-        {/* Courses Grid */}
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[...Array(6)].map((_, index) => (
-              <Card key={index} className="animate-pulse">
-                <CardHeader>
-                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                  <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="h-3 bg-gray-200 rounded"></div>
-                    <div className="h-3 bg-gray-200 rounded w-5/6"></div>
-                  </div>
-                </CardContent>
-              </Card>
+      {/* 7.3 Courses table / card list */}
+      {loading ? (
+        <div className="rounded-xl border bg-white overflow-hidden">
+          <div className="p-4 space-y-3">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="h-12 bg-gray-100 animate-pulse rounded" />
             ))}
           </div>
-        ) : (
-          <>
-            <div className="mb-6 flex items-center justify-between">
-              <p className="text-base font-medium text-muted-foreground">
-                Showing{" "}
-                <span className="text-foreground font-semibold">
-                  {courses.length}
-                </span>{" "}
-                courses
-              </p>
+        </div>
+      ) : courses.length === 0 ? (
+        <div className="rounded-xl border border-gray-200 p-12 text-center">
+          <BookOpen className="h-16 w-16 mx-auto text-gray-300 mb-4" />
+          <h3 className="text-base font-semibold text-gray-700">No courses found</h3>
+          <p className="text-sm text-gray-400 mt-2">Try adjusting your filters or add a new course.</p>
+          {isStaff && (
+            <Button className="mt-4" onClick={() => router.push("/courses/create")}>
+              <Plus className="h-4 w-4 mr-2" />
+              New Course
+            </Button>
+          )}
+        </div>
+      ) : (
+        <>
+          {/* Desktop table */}
+          <div className="hidden md:block rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-white border-b sticky top-0 z-10">
+                  <tr className="text-left text-sm text-gray-500">
+                    <th className="p-3 w-[100px]">Code</th>
+                    <th className="p-3">Name</th>
+                    <th className="p-3 w-[100px]">Level</th>
+                    <th className="p-3 w-[80px] hidden lg:table-cell">Semester</th>
+                    <th className="p-3 w-[70px] hidden lg:table-cell text-center">Credits</th>
+                    <th className="p-3 w-[90px]">Department</th>
+                    <th className="p-3 w-[160px]">Lecturer</th>
+                    <th className="p-3 w-[80px] hidden lg:table-cell">Status</th>
+                    <th className="p-3 w-[120px] text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {courses.map((c) => (
+                    <tr key={c.id} className="border-t hover:bg-gray-50">
+                      <td className="p-3">
+                        <span className="text-xs font-mono text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">{c.code}</span>
+                      </td>
+                      <td className="p-3 text-sm">{c.name}</td>
+                      <td className="p-3">
+                        <Badge variant="secondary" className={LEVEL_PILL[c.level] ?? ""}>{c.level.replace("LEVEL_", "")}</Badge>
+                      </td>
+                      <td className="p-3 text-sm hidden lg:table-cell">{c.semester === Semester.FIRST ? "First" : "Second"}</td>
+                      <td className="p-3 text-center text-sm hidden lg:table-cell">{c.credits}</td>
+                      <td className="p-3">
+                        <span className="text-xs font-mono bg-gray-100 px-2 py-0.5 rounded">{c.departmentCode}</span>
+                      </td>
+                      <td className="p-3 text-sm">
+                        {c.lecturer ? c.lecturer.name ?? c.lecturer.email : <span className="italic text-gray-400">Unassigned</span>}
+                      </td>
+                      <td className="p-3 hidden lg:table-cell">
+                        {c.isLocked ? (
+                          <Badge variant="secondary" className="bg-amber-100 text-amber-700"><Lock className="h-3 w-3 mr-1 inline" />Locked</Badge>
+                        ) : c.isActive ? (
+                          <Badge variant="secondary" className="bg-green-100 text-green-700">Active</Badge>
+                        ) : (
+                          <Badge variant="secondary" className="bg-gray-100 text-gray-600">Inactive</Badge>
+                        )}
+                      </td>
+                      <td className="p-3 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button size="icon" variant="ghost" className="h-11 w-11 touch-manipulation" onClick={() => openDetail(c)}><Eye className="h-5 w-5" /><span className="sr-only">View</span></Button>
+                          {canEditCourse(c) && (
+                            <Button size="icon" variant="ghost" className="h-11 w-11 touch-manipulation" onClick={() => router.push(`/courses/${c.code}/edit`)}><Pencil className="h-5 w-5" /><span className="sr-only">Edit</span></Button>
+                          )}
+                          {isAdmin && (
+                            <Button size="icon" variant="ghost" className="h-11 w-11 text-red-600 touch-manipulation" onClick={() => setDeleteCourse(c)}><Trash2 className="h-5 w-5" /><span className="sr-only">Delete</span></Button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
+          </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {courses.map((course) => (
-                <Card
-                  key={course.id}
-                  className="transition-all hover:shadow-xl hover:scale-[1.02] border-2 hover:border-primary/20 group"
-                >
-                  <CardHeader className="pb-4">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2 flex-wrap">
-                          <Badge className={getLevelBadgeColor(course.level)}>
-                            {course.level.replace("LEVEL_", "")}
-                          </Badge>
-                          <Badge
-                            variant="outline"
-                            className="font-mono text-xs"
-                          >
-                            {course.code}
-                          </Badge>
-                        </div>
-                        <CardTitle className="text-lg font-semibold leading-tight line-clamp-2">
-                          {course.name}
-                        </CardTitle>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3 pt-3 border-t">
-                      <div className="flex items-center gap-2 text-sm">
-                        <div className="p-1.5 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
-                          <Building2 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                        </div>
-                        <span className="text-muted-foreground truncate">
-                          {course.department?.name || course.departmentCode}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-2 text-sm">
-                        <div className="p-1.5 bg-green-50 dark:bg-green-950/30 rounded-lg">
-                          <GraduationCap className="h-4 w-4 text-green-600 dark:text-green-400" />
-                        </div>
-                        <span className="text-muted-foreground">
-                          <span className="font-semibold text-foreground">
-                            {course.credits}
-                          </span>{" "}
-                          Credit{course.credits !== 1 ? "s" : ""}
-                        </span>
-                      </div>
-
-                      {course.lecturer ? (
-                        <div className="flex items-center gap-2 text-sm">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium text-foreground truncate">
-                              {course.lecturer.name ?? course.lecturer.email}
-                            </p>
-                            {course.lecturer.email && (
-                              <p className="text-xs text-muted-foreground truncate">
-                                {course.lecturer.email}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2 text-sm">
-                          <div className="p-1.5 bg-gray-50 dark:bg-gray-950/30 rounded-lg">
-                            <UserIcon className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-                          </div>
-                          <span className="text-muted-foreground text-xs">
-                            No lecturer assigned
-                          </span>
-                        </div>
-                      )}
-
-                      {course.schedules && course.schedules.length > 0 && (
-                        <div className="flex items-center gap-2 text-sm">
-                          <div className="p-1.5 bg-purple-50 dark:bg-purple-950/30 rounded-lg">
-                            <Clock className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                          </div>
-                          <span className="text-muted-foreground">
-                            <span className="font-semibold text-foreground">
-                              {course.schedules.length}
-                            </span>{" "}
-                            Schedule{course.schedules.length !== 1 ? "s" : ""}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-
-            {courses.length === 0 && (
-              <Card className="border-2 border-dashed">
-                <CardContent className="py-16 text-center">
-                  <div className="p-4 bg-muted/50 rounded-full w-20 h-20 mx-auto mb-6 flex items-center justify-center">
-                    <BookOpen className="h-10 w-10 text-muted-foreground" />
+          {/* Mobile cards */}
+          <div className="md:hidden space-y-3">
+            {courses.map((c) => (
+              <div
+                key={c.id}
+                className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+                onClick={() => openDetail(c)}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-mono text-sm font-semibold">{c.code}</p>
+                    <p className="text-sm text-gray-600 truncate">{c.name}</p>
                   </div>
-                  <h3 className="text-xl font-semibold mb-2">
-                    No courses found
-                  </h3>
-                  <p className="text-muted-foreground mb-4">
-                    We couldn&apos;t find any courses matching your search
-                    criteria
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Try adjusting your search terms or filters
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="flex justify-center gap-2 mt-8">
-                <Button
-                  variant="outline"
-                  onClick={() =>
-                    setCurrentPage((prev) => Math.max(1, prev - 1))
-                  }
-                  disabled={currentPage === 1}
-                >
-                  Previous
-                </Button>
-
-                <div className="flex items-center gap-2">
-                  {[...Array(Math.min(5, totalPages))].map((_, index) => {
-                    const page = index + 1;
-                    return (
-                      <Button
-                        key={page}
-                        variant={currentPage === page ? "default" : "outline"}
-                        onClick={() => setCurrentPage(page)}
-                        className="w-10"
-                      >
-                        {page}
+                  <Badge variant="secondary" className={LEVEL_PILL[c.level] ?? ""}>{c.level.replace("LEVEL_", "")}</Badge>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                      <Button size="icon" variant="ghost" className="h-11 w-11 shrink-0 touch-manipulation">
+                        <MoreVertical className="h-5 w-5" />
+                        <span className="sr-only">Menu</span>
                       </Button>
-                    );
-                  })}
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => openDetail(c)}>View Details</DropdownMenuItem>
+                      {canEditCourse(c) && <DropdownMenuItem onClick={() => router.push(`/courses/${c.code}/edit`)}>Edit Course</DropdownMenuItem>}
+                      {isAdmin && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem className="text-red-600" onClick={() => setDeleteCourse(c)}>Delete Course</DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
-
-                <Button
-                  variant="outline"
-                  onClick={() =>
-                    setCurrentPage((prev) => Math.min(totalPages, prev + 1))
-                  }
-                  disabled={currentPage === totalPages}
-                >
-                  Next
-                </Button>
+                <p className="text-xs text-gray-500 mt-1">{c.lecturer?.name ?? "Unassigned"} · {c.department?.name ?? c.departmentCode}</p>
+                <p className="text-xs text-gray-500">{c.semester === Semester.FIRST ? "First" : "Second"} Semester · {c.credits} Credits</p>
+                <div className="mt-3 pt-3 border-t flex justify-between items-center">
+                  {c.isLocked ? (
+                    <Badge variant="secondary" className="bg-amber-100 text-amber-700"><Lock className="h-3 w-3 mr-1" />Locked</Badge>
+                  ) : c.isActive ? (
+                    <Badge variant="secondary" className="bg-green-100 text-green-700">Active</Badge>
+                  ) : (
+                    <Badge variant="secondary" className="bg-gray-100 text-gray-600">Inactive</Badge>
+                  )}
+                </div>
               </div>
-            )}
-          </>
-        )}
-      </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t">
+          <p className="text-sm text-gray-500">Showing {(page - 1) * limit + 1}–{Math.min(page * limit, total)} of {total} results</p>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>Previous</Button>
+            <span className="text-sm text-gray-500">Page {page} of {totalPages}</span>
+            <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>Next</Button>
+          </div>
+        </div>
+      )}
+
+      {/* 7.4 Course Detail Sheet */}
+      <Sheet open={!!detailCourse} onOpenChange={(o) => !o && setDetailCourse(null)}>
+        <SheetContent side="right" className="w-full sm:max-w-[480px] overflow-y-auto">
+          <SheetHeader className="sr-only md:not-sr-only">
+            <Button variant="ghost" size="icon" className="md:hidden absolute left-4 top-4" onClick={() => setDetailCourse(null)}>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          </SheetHeader>
+          {detailLoading ? (
+            <div className="space-y-4 animate-pulse">
+              <div className="h-8 bg-gray-200 rounded w-1/2" />
+              <div className="h-4 bg-gray-200 rounded w-full" />
+              <div className="h-20 bg-gray-200 rounded" />
+            </div>
+          ) : detailCourse ? (
+            <div className="pt-12 md:pt-0 space-y-6">
+              <div>
+                <span className="text-xs font-mono text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">{detailCourse.code}</span>
+                <h2 className="text-xl font-semibold mt-2">{detailCourse.name}</h2>
+              </div>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <p><span className="text-gray-500">Level</span><br />{detailCourse.level.replace("LEVEL_", "")}</p>
+                <p><span className="text-gray-500">Semester</span><br />{detailCourse.semester === Semester.FIRST ? "First" : "Second"}</p>
+                <p><span className="text-gray-500">Credits</span><br />{detailCourse.credits}</p>
+                <p><span className="text-gray-500">Department</span><br />{detailCourse.department?.name ?? detailCourse.departmentCode}</p>
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                {detailCourse.isActive ? <Badge className="bg-green-100 text-green-700">Active</Badge> : <Badge variant="secondary">Inactive</Badge>}
+                {detailCourse.isGeneral ? <Badge variant="secondary">General</Badge> : <Badge variant="secondary">Specific</Badge>}
+                {detailCourse.isLocked ? <Badge className="bg-amber-100 text-amber-700"><Lock className="h-3 w-3 mr-1" />Locked</Badge> : <Badge variant="outline">Unlocked</Badge>}
+              </div>
+              <div>
+                <h3 className="font-medium mb-2">Overview</h3>
+                <p className="text-sm text-gray-600">{detailCourse.overview || <span className="italic text-gray-400">No overview provided.</span>}</p>
+              </div>
+              <div className="rounded-lg border p-4">
+                <h3 className="font-medium mb-2">Lecturer</h3>
+                {detailCourse.lecturer ? (
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-sm font-medium text-indigo-700">
+                      {getInitials(detailCourse.lecturer.name)}
+                    </div>
+                    <div>
+                      <p className="font-medium">{detailCourse.lecturer.name ?? detailCourse.lecturer.email}</p>
+                      <p className="text-sm text-gray-500">{detailCourse.lecturer.email}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-400 italic">No lecturer assigned</p>
+                )}
+              </div>
+              <div className="rounded-lg border p-4">
+                <h3 className="font-medium mb-2">Schedule</h3>
+                {detailCourse.schedules && detailCourse.schedules.length > 0 ? (
+                  <p className="text-sm">{detailCourse.schedules[0]?.dayOfWeek}, {detailCourse.schedules[0]?.startTime} – {detailCourse.schedules[0]?.endTime}</p>
+                ) : (
+                  <p className="text-sm text-gray-400 italic">Not yet scheduled</p>
+                )}
+              </div>
+              {isStaff && canEditCourse(detailCourse) && (
+                <Button variant="outline" className="w-full" onClick={() => { setDetailCourse(null); router.push(`/courses/${detailCourse.code}/edit`); }}>
+                  Edit Course
+                </Button>
+              )}
+            </div>
+          ) : null}
+        </SheetContent>
+      </Sheet>
+
+      {/* Upload modal */}
+      <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Upload Courses CSV</DialogTitle>
+          </DialogHeader>
+          <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center" onClick={() => document.getElementById("course-csv")?.click()}>
+            <input id="course-csv" type="file" accept=".csv" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) setSelectedFile(f); }} />
+            {selectedFile ? <p className="text-sm font-medium">{selectedFile.name}</p> : <p className="text-sm text-gray-500">Drop CSV or click to browse</p>}
+          </div>
+          <p className="text-xs text-gray-500"><button type="button" className="underline" onClick={handleDownloadTemplate}>Download template</button></p>
+          <div className="flex gap-2 justify-end">
+            <Button variant="outline" onClick={() => setIsUploadOpen(false)}>Cancel</Button>
+            <Button onClick={handleBulkUpload} disabled={!selectedFile || isUploading}>{isUploading ? "Uploading…" : "Upload"}</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete confirmation */}
+      <ConfirmDialog
+        open={!!deleteCourse}
+        onOpenChange={(o) => !o && setDeleteCourse(null)}
+        title="Delete course?"
+        description={`This will permanently delete ${deleteCourse?.code}. This action cannot be undone.`}
+        icon={Trash2}
+        iconClassName="bg-red-500 text-white"
+        confirmLabel="Delete"
+        confirmVariant="destructive"
+        onConfirm={handleDelete}
+        loading={deleteLoading}
+      />
     </div>
   );
 }
