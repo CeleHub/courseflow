@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -179,7 +179,7 @@ export default function DashboardPage() {
   // Modals
   const [generateModalOpen, setGenerateModalOpen] = useState(false);
 
-  const fetchAdminData = async () => {
+  const fetchAdminData = useCallback(async () => {
     const [deptRes, courseRes, schedRes, sessionRes, pendingRes] = await Promise.all([
       apiClient.getDepartmentStatistics(),
       apiClient.getCourseStatistics(),
@@ -193,9 +193,9 @@ export default function DashboardPage() {
     if (sessionRes.success && sessionRes.data) setActiveSession(sessionRes.data as AcademicSession);
     if (pendingRes.success && Array.isArray(pendingRes.data)) setPendingCount((pendingRes.data as unknown[]).length);
     else if (pendingRes.success && (pendingRes.data as any)?.data?.length) setPendingCount((pendingRes.data as any).data.length);
-  };
+  }, []);
 
-  const fetchHodData = async () => {
+  const fetchHodData = useCallback(async () => {
     if (!user?.departmentCode) return;
     const [dashRes, deptRes, schedRes] = await Promise.all([
       apiClient.getLecturerDashboard(),
@@ -206,9 +206,9 @@ export default function DashboardPage() {
     if (deptRes.success && deptRes.data) setDepartment(deptRes.data as Department);
     const sched = getItemsFromResponse<Schedule>(schedRes);
     setLecturerSchedules(sched?.items ?? []);
-  };
+  }, [user?.departmentCode]);
 
-  const fetchStudentData = async () => {
+  const fetchStudentData = useCallback(async () => {
     const [schedRes, examRes] = await Promise.all([
       apiClient.getSchedules(),
       apiClient.getExams(),
@@ -217,7 +217,7 @@ export default function DashboardPage() {
     const exam = getItemsFromResponse<Exam>(examRes);
     setSchedules(sched?.items ?? []);
     setExams(exam?.items ?? []);
-  };
+  }, []);
 
   useEffect(() => {
     const run = async () => {
@@ -234,7 +234,7 @@ export default function DashboardPage() {
       }
     };
     run();
-  }, [isAdmin, isHod, isLecturer, isStudent, user?.departmentCode, retryTrigger]);
+  }, [isAdmin, isHod, isLecturer, isStudent, retryTrigger, fetchAdminData, fetchHodData, fetchStudentData]);
 
   const handleToggleLock = async (): Promise<boolean> => {
     if (!department || !user?.departmentCode) return false;

@@ -100,7 +100,7 @@ export default function ComplaintsPage() {
 
   useEffect(() => {
     if (user) setFormData((p) => ({ ...p, name: user.name ?? p.name, email: user.email ?? p.email }))
-  }, [user?.name, user?.email])
+  }, [user])
 
   useEffect(() => {
     fetchComplaints()

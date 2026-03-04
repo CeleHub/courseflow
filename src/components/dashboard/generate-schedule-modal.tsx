@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -62,30 +62,34 @@ export function GenerateScheduleModal({
     failedCourses?: string[];
   } | null>(null);
 
-  useEffect(() => {
+  const fetchData = useCallback(async () => {
     if (!open) return;
-    const fetchData = async () => {
-      setLoadingData(true);
-      try {
-        const [sessRes, deptRes, activeRes] = await Promise.all([
-          apiClient.getAcademicSessions({ limit: 50 }),
-          isHod ? Promise.resolve({ success: true, data: [] }) : apiClient.getDepartments({ limit: 200 }),
-          apiClient.getActiveAcademicSession(),
-        ]);
-        const sess = getItemsFromResponse<AcademicSession>(sessRes);
-        const dept = isHod ? [] : (getItemsFromResponse<Department>(deptRes)?.items ?? []);
-        setSessions(sess?.items ?? []);
-        setDepartments(dept);
-        const active = activeRes.success && activeRes.data ? (activeRes.data as AcademicSession) : null;
-        const defaultId = active?.id ?? sess?.items?.[0]?.id ?? "";
-        setActiveSessionId(defaultId);
-        if (isHod && hodDeptCode) setDepartmentCode(hodDeptCode);
-      } finally {
-        setLoadingData(false);
-      }
-    };
-    fetchData();
+    setFetchError(null);
+    setLoadingData(true);
+    try {
+      const [sessRes, deptRes, activeRes] = await Promise.all([
+        apiClient.getAcademicSessions({ limit: 50 }),
+        isHod ? Promise.resolve({ success: true, data: [] }) : apiClient.getDepartments({ limit: 200 }),
+        apiClient.getActiveAcademicSession(),
+      ]);
+      const sess = getItemsFromResponse<AcademicSession>(sessRes);
+      const dept = isHod ? [] : (getItemsFromResponse<Department>(deptRes)?.items ?? []);
+      setSessions(sess?.items ?? []);
+      setDepartments(dept);
+      const active = activeRes.success && activeRes.data ? (activeRes.data as AcademicSession) : null;
+      const defaultId = active?.id ?? sess?.items?.[0]?.id ?? "";
+      setActiveSessionId(defaultId);
+      if (isHod && hodDeptCode) setDepartmentCode(hodDeptCode);
+    } catch {
+      setFetchError("Failed to load sessions and departments");
+    } finally {
+      setLoadingData(false);
+    }
   }, [open, isHod, hodDeptCode]);
+
+  useEffect(() => {
+    if (open) fetchData();
+  }, [open, fetchData]);
 
   const handleSubmit = async () => {
     setLoading(true);

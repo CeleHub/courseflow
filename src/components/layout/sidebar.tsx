@@ -148,7 +148,7 @@ export function Sidebar({
                     : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                 )}
               >
-                <item.icon className={cn("h-5 w-5 flex-shrink-0", isActive && "text-indigo-600")} strokeWidth={isActive ? 2.5 : 2} />
+                <item.icon className={cn("h-5 w-5 flex-shrink-0", isActive && "text-indigo-600")} />
                 <span className={cn(!isMobile && "hidden lg:inline")}>{item.label}</span>
               </Link>
             );

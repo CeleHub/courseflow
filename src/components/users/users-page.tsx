@@ -207,6 +207,7 @@ export function UsersPage({ role }: UsersPageProps) {
       role: u.role,
       departmentCode: u.departmentCode ?? '',
       phone: u.phone ?? '',
+      password: '',
     })
     setIsModalOpen(true)
   }
