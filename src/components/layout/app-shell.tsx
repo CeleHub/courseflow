@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Topbar } from "./topbar";
 import { Sidebar } from "./sidebar";
-import { cn } from "@/lib/utils";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -17,15 +16,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         isMobile={true}
       />
       <Sidebar isOpen={false} isMobile={false} />
-      <main
-        className={cn(
-          "pt-14 min-h-screen",
-          "md:pl-12 lg:pl-60",
-          "px-4 md:px-5 lg:px-8 py-6 lg:py-6"
-        )}
-      >
-        <div className="max-w-[1600px] mx-auto">{children}</div>
-      </main>
+      {/* Spacer for topbar (56px) + flex row for sidebar + content */}
+      <div className="flex pt-14 min-h-screen">
+        {/* Spacer: sidebar width on md/lg so main content starts to the right */}
+        <div className="hidden md:block w-12 lg:w-60 shrink-0" />
+        <main className="flex-1 min-w-0 px-4 md:px-5 lg:px-8 py-6">
+          <div className="max-w-[1600px] mx-auto">{children}</div>
+        </main>
+      </div>
     </div>
   );
 }
