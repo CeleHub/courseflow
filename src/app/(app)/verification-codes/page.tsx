@@ -42,6 +42,7 @@ import {
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { ErrorState } from '@/components/state/error-state'
 
 function formatExpiry(iso: string | null | undefined): string {
   if (!iso) return 'Never'
@@ -60,6 +61,7 @@ export default function VerificationCodesPage() {
   const [saving, setSaving] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [fetchError, setFetchError] = useState<string | null>(null)
 
   const [formData, setFormData] = useState<CreateVerificationCodeData & { maxUsage?: number }>({
     code: '',
@@ -72,11 +74,13 @@ export default function VerificationCodesPage() {
   const fetchCodes = useCallback(async () => {
     try {
       setLoading(true)
+      setFetchError(null)
       const res = await apiClient.getVerificationCodes()
       const parsed = getItemsFromResponse<VerificationCode>(res)
       const items = parsed?.items ?? (Array.isArray((res as any)?.data) ? (res as any).data : [])
       setCodes(items)
     } catch {
+      setFetchError('Failed to load verification codes')
       toast({ title: 'Failed to load verification codes', variant: 'destructive' })
     } finally {
       setLoading(false)
@@ -239,7 +243,11 @@ export default function VerificationCodesPage() {
       </div>
 
       {/* 12.2 Table */}
-      {loading ? (
+      {fetchError ? (
+        <div className="rounded-xl border border-gray-200 bg-white p-6">
+          <ErrorState title={fetchError} onRetry={() => { setFetchError(null); fetchCodes(); }} />
+        </div>
+      ) : loading ? (
         <div className="rounded-xl border bg-white p-4 space-y-3">
           {[1, 2, 3, 4, 5].map((i) => (
             <div key={i} className="h-14 bg-gray-100 animate-pulse rounded" />

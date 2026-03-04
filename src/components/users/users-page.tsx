@@ -49,6 +49,7 @@ import {
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { ErrorState } from '@/components/state/error-state'
 
 function getInitials(name: string | null | undefined, email: string): string {
   if (name && name.trim()) {
@@ -111,6 +112,7 @@ export function UsersPage({ role }: UsersPageProps) {
   const [deleteUser, setDeleteUser] = useState<UserType | null>(null)
   const [saving, setSaving] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
+  const [fetchError, setFetchError] = useState<string | null>(null)
 
   const [formData, setFormData] = useState<CreateUserData & { password?: string }>({
     matricNO: '',
@@ -126,6 +128,7 @@ export function UsersPage({ role }: UsersPageProps) {
     if (!isAdmin && !isHod) return
     try {
       setLoading(true)
+      setFetchError(null)
       const baseParams: Record<string, unknown> = {
         page: 1,
         limit: 200,
@@ -160,6 +163,7 @@ export function UsersPage({ role }: UsersPageProps) {
       }
       setUsers(result)
     } catch {
+      setFetchError('Failed to load users')
       toast({ title: 'Failed to load users', variant: 'destructive' })
     } finally {
       setLoading(false)
@@ -364,7 +368,11 @@ export function UsersPage({ role }: UsersPageProps) {
       </div>
 
       {/* 10.2 Users Table */}
-      {loading ? (
+      {fetchError ? (
+        <div className="rounded-xl border border-gray-200 bg-white p-6">
+          <ErrorState title={fetchError} onRetry={() => { setFetchError(null); fetchData(); }} />
+        </div>
+      ) : loading ? (
         <div className="rounded-xl border bg-white p-4 space-y-3">
           {[1, 2, 3, 4, 5].map((i) => (
             <div key={i} className="h-14 bg-gray-100 animate-pulse rounded" />

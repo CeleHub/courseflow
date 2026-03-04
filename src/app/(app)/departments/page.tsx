@@ -45,6 +45,7 @@ import { getItemsFromResponse } from '@/lib/utils'
 import { Department, College } from '@/types'
 import { Textarea } from '@/components/ui/textarea'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { ErrorState } from '@/components/state/error-state'
 
 function getInitials(name: string | null | undefined): string {
   if (!name?.trim()) return '?'
@@ -77,6 +78,7 @@ export default function DepartmentsPage() {
   const [editDept, setEditDept] = useState<Department | null>(null)
   const [editForm, setEditForm] = useState({ name: '', code: '', description: '', college: College.CBAS })
   const [editSaving, setEditSaving] = useState(false)
+  const [fetchError, setFetchError] = useState<string | null>(null)
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(searchTerm), 300)
@@ -86,6 +88,7 @@ export default function DepartmentsPage() {
   const fetchDepartments = useCallback(async () => {
     try {
       setLoading(true)
+      setFetchError(null)
       const params: Record<string, string | number | boolean> = {
         page,
         limit,
@@ -101,6 +104,7 @@ export default function DepartmentsPage() {
         setTotal(result.total)
       }
     } catch {
+      setFetchError('Failed to load departments')
       toast({ title: 'Failed to load departments', variant: 'destructive' })
     } finally {
       setLoading(false)
@@ -299,7 +303,11 @@ export default function DepartmentsPage() {
       </Dialog>
 
       {/* 6.3 Departments grid */}
-      {loading ? (
+      {fetchError ? (
+        <div className="rounded-xl border border-gray-200 bg-white p-6">
+          <ErrorState title={fetchError} onRetry={() => { setFetchError(null); fetchDepartments(); }} />
+        </div>
+      ) : loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {[1, 2, 3, 4, 5, 6].map((i) => (
             <div key={i} className="h-40 rounded-xl border bg-white animate-pulse" />

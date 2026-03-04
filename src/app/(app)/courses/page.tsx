@@ -51,6 +51,7 @@ import { apiClient } from "@/lib/api";
 import { getItemsFromResponse } from "@/lib/utils";
 import { Course, Department, Level, Semester } from "@/types";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { ErrorState } from "@/components/state/error-state";
 
 const LEVEL_PILL: Record<Level, string> = {
   [Level.LEVEL_100]: "bg-slate-100 text-slate-700",
@@ -94,6 +95,7 @@ export default function CoursesPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [deleteCourse, setDeleteCourse] = useState<Course | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(searchInput), 300);
@@ -112,6 +114,7 @@ export default function CoursesPage() {
   const fetchCourses = useCallback(async () => {
     try {
       setLoading(true);
+      setFetchError(null);
       const params: Record<string, string | number | boolean> = {
         page,
         limit,
@@ -129,6 +132,7 @@ export default function CoursesPage() {
         setTotal(r.total);
       }
     } catch {
+      setFetchError("Failed to load courses");
       toast({ title: "Failed to load courses", variant: "destructive" });
     } finally {
       setLoading(false);
@@ -372,7 +376,11 @@ export default function CoursesPage() {
       </Dialog>
 
       {/* 7.3 Courses table / card list */}
-      {loading ? (
+      {fetchError ? (
+        <div className="rounded-xl border border-gray-200 bg-white p-6">
+          <ErrorState title={fetchError} onRetry={() => { setFetchError(null); fetchCourses(); }} />
+        </div>
+      ) : loading ? (
         <div className="rounded-xl border bg-white overflow-hidden">
           <div className="p-4 space-y-3">
             {[1, 2, 3, 4, 5, 6].map((i) => (

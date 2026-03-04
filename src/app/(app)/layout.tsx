@@ -1,13 +1,30 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { AppShell } from "@/components/layout/app-shell";
+import { Role } from "@/types";
+
+const ROUTE_ROLES: Record<string, Role[]> = {
+  "/sessions": [Role.ADMIN],
+  "/lecturers": [Role.ADMIN, Role.HOD],
+  "/students": [Role.ADMIN, Role.HOD],
+  "/verification-codes": [Role.ADMIN],
+  "/health": [Role.ADMIN],
+};
+
+function getBasePath(pathname: string): string | null {
+  for (const route of Object.keys(ROUTE_ROLES)) {
+    if (pathname === route || pathname.startsWith(route + "/")) return route;
+  }
+  return null;
+}
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, loading } = useAuth();
+  const { user, isAuthenticated, loading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (loading) return;
@@ -15,7 +32,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       router.replace("/login");
       return;
     }
-  }, [isAuthenticated, loading, router]);
+    const basePath = getBasePath(pathname);
+    if (basePath && user) {
+      const allowed = ROUTE_ROLES[basePath];
+      if (allowed && !allowed.includes(user.role)) {
+        router.replace("/dashboard");
+      }
+    }
+  }, [isAuthenticated, loading, pathname, user, router]);
 
   if (loading) {
     return (

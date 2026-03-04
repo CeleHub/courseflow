@@ -41,6 +41,7 @@ import {
 import { getItemsFromResponse } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { ErrorState } from '@/components/state/error-state'
 
 export default function AcademicSessionsPage() {
   const { isAuthenticated, isAdmin } = useAuth()
@@ -62,6 +63,7 @@ export default function AcademicSessionsPage() {
     session: AcademicSession | null
   }>({ open: false, action: 'activate', session: null })
   const [actionLoading, setActionLoading] = useState(false)
+  const [fetchError, setFetchError] = useState<string | null>(null)
 
   const [formData, setFormData] = useState<CreateAcademicSessionData>({
     name: '',
@@ -72,6 +74,7 @@ export default function AcademicSessionsPage() {
   const fetchSessions = useCallback(async () => {
     try {
       setLoading(true)
+      setFetchError(null)
       const [listRes, activeRes] = await Promise.all([
         apiClient.getAcademicSessions({ page: 1, limit: 50 }),
         apiClient.getActiveAcademicSession(),
@@ -102,6 +105,7 @@ export default function AcademicSessionsPage() {
       setSessionStats(stats)
     } catch (error) {
       console.error('Failed to fetch academic sessions:', error)
+      setFetchError('Failed to load academic sessions')
       toast({ title: 'Failed to load academic sessions', variant: 'destructive' })
     } finally {
       setLoading(false)
@@ -238,7 +242,11 @@ export default function AcademicSessionsPage() {
       </div>
 
       {/* Sessions list - 5.2 */}
-      {loading ? (
+      {fetchError ? (
+        <div className="rounded-xl border border-gray-200 bg-white p-6">
+          <ErrorState title={fetchError} onRetry={() => { setFetchError(null); fetchSessions(); }} />
+        </div>
+      ) : loading ? (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
             <div key={i} className="h-24 rounded-xl border bg-white animate-pulse" />

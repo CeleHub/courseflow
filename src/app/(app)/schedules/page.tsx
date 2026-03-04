@@ -29,6 +29,7 @@ import { apiClient } from '@/lib/api'
 import { getItemsFromResponse } from '@/lib/utils'
 import { Schedule, Department, Level, DayOfWeek, Semester, Course, AcademicSession } from '@/types'
 import { GenerateScheduleModal } from '@/components/dashboard/generate-schedule-modal'
+import { ErrorState } from '@/components/state/error-state'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -53,6 +54,7 @@ export default function SchedulePage() {
   const [viewMode, setViewMode] = useState<'timetable' | 'list'>('timetable')
   const [generateModalOpen, setGenerateModalOpen] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all')
   const [selectedLevel, setSelectedLevel] = useState<string>('all')
@@ -118,6 +120,7 @@ export default function SchedulePage() {
   const fetchSchedules = useCallback(async () => {
     try {
       setLoading(true)
+      setFetchError(null)
       const params: any = {
         page: currentPage,
         limit: 20,
@@ -137,6 +140,7 @@ export default function SchedulePage() {
       }
     } catch (error) {
       console.error('Failed to fetch schedules:', error)
+      setFetchError('Failed to load schedules')
     } finally {
       setLoading(false)
     }
@@ -1145,7 +1149,11 @@ export default function SchedulePage() {
         </Card>
 
         {/* Schedule Content */}
-        {loading ? (
+        {fetchError ? (
+          <div className="rounded-xl border border-gray-200 bg-white p-6">
+            <ErrorState title={fetchError} onRetry={() => { setFetchError(null); fetchSchedules(); }} />
+          </div>
+        ) : loading ? (
           <div className="space-y-6">
             {[...Array(3)].map((_, index) => (
               <Card key={index} className="animate-pulse">

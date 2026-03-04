@@ -36,6 +36,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GenerateScheduleModal } from "@/components/dashboard/generate-schedule-modal";
+import { ErrorState } from "@/components/state/error-state";
 
 const VENUE_LABELS: Record<string, string> = {
   [VenueType.UNIVERSITY_ICT_CENTER]: "University ICT Centre",
@@ -155,6 +156,7 @@ export default function DashboardPage() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [retryTrigger, setRetryTrigger] = useState(0);
 
   // ADMIN
   const [deptStats, setDeptStats] = useState<DepartmentStatistics | null>(null);
@@ -232,7 +234,7 @@ export default function DashboardPage() {
       }
     };
     run();
-  }, [isAdmin, isHod, isLecturer, isStudent, user?.departmentCode]);
+  }, [isAdmin, isHod, isLecturer, isStudent, user?.departmentCode, retryTrigger]);
 
   const handleToggleLock = async (): Promise<boolean> => {
     if (!department || !user?.departmentCode) return false;
@@ -277,9 +279,8 @@ export default function DashboardPage() {
     return (
       <div>
         <h1 className="text-2xl font-semibold">Dashboard</h1>
-        <div className="mt-6 p-6 border border-red-200 rounded-xl bg-red-50 text-center">
-          <p className="text-red-700">{error}</p>
-          <Button variant="outline" className="mt-4" onClick={() => window.location.reload()}>Retry</Button>
+        <div className="mt-6 rounded-xl border border-gray-200 bg-white p-6">
+          <ErrorState title={error} onRetry={() => { setError(null); setRetryTrigger(t => t + 1); }} />
         </div>
       </div>
     );

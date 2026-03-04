@@ -32,6 +32,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { MessageCircle, MoreVertical, Eye, Plus, Search } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { ErrorState } from '@/components/state/error-state'
 
 const STATUS_BADGES: Record<ComplaintStatus, string> = {
   [ComplaintStatus.PENDING]: 'bg-amber-100 text-amber-800',
@@ -65,6 +66,7 @@ export default function ComplaintsPage() {
   const [isSubmitOpen, setIsSubmitOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [statusLoading, setStatusLoading] = useState<string | null>(null)
+  const [fetchError, setFetchError] = useState<string | null>(null)
 
   const [formData, setFormData] = useState({
     name: user?.name ?? '',
@@ -77,6 +79,7 @@ export default function ComplaintsPage() {
   const fetchComplaints = useCallback(async () => {
     try {
       setLoading(true)
+      setFetchError(null)
       if (isManager) {
         const res = await apiClient.getComplaints({ page: 1, limit: 200, orderBy: 'createdAt', orderDirection: orderBy === 'newest' ? 'desc' : 'asc' })
         const r = getItemsFromResponse<Complaint>(res)
@@ -88,6 +91,7 @@ export default function ComplaintsPage() {
         setComplaints(items)
       }
     } catch {
+      setFetchError('Failed to load complaints')
       toast({ title: 'Failed to load complaints', variant: 'destructive' })
     } finally {
       setLoading(false)
@@ -182,7 +186,11 @@ export default function ComplaintsPage() {
           </Button>
         </div>
 
-        {loading ? (
+        {fetchError ? (
+          <div className="rounded-xl border border-gray-200 bg-white p-6">
+            <ErrorState title={fetchError} onRetry={() => { setFetchError(null); fetchComplaints(); }} />
+          </div>
+        ) : loading ? (
           <div className="rounded-xl border bg-white p-4 space-y-3">
             {[1, 2, 3].map((i) => (
               <div key={i} className="h-24 bg-gray-100 animate-pulse rounded" />
@@ -341,7 +349,11 @@ export default function ComplaintsPage() {
       </div>
 
       {/* 11.3 Complaints table */}
-      {loading ? (
+      {fetchError ? (
+        <div className="rounded-xl border border-gray-200 bg-white p-6">
+          <ErrorState title={fetchError} onRetry={() => { setFetchError(null); fetchComplaints(); }} />
+        </div>
+      ) : loading ? (
         <div className="rounded-xl border bg-white p-4 space-y-3">
           {[1, 2, 3, 4, 5].map((i) => (
             <div key={i} className="h-14 bg-gray-100 animate-pulse rounded" />

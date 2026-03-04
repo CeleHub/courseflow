@@ -55,6 +55,7 @@ import {
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { ErrorState } from '@/components/state/error-state'
 
 const VENUE_LABELS: Record<VenueType, string> = {
   [VenueType.UNIVERSITY_ICT_CENTER]: 'University ICT Centre',
@@ -123,6 +124,7 @@ export default function ExamsPage() {
   const [editExam, setEditExam] = useState<Exam | null>(null)
   const [deleteExam, setDeleteExam] = useState<Exam | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
+  const [fetchError, setFetchError] = useState<string | null>(null)
 
   const [formData, setFormData] = useState<CreateExamData>({
     courseCode: '',
@@ -152,6 +154,7 @@ export default function ExamsPage() {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true)
+      setFetchError(null)
       const params: Record<string, unknown> = { page: 1, limit: 100 }
       if (sessionId) params.sessionId = sessionId
       if (semester && semester !== 'all') params.semester = semester
@@ -172,6 +175,7 @@ export default function ExamsPage() {
       if (sessR) setSessions(sessR.items)
       if (sessR?.items?.length && !sessionId) setSessionId(sessR.items[0]!.id)
     } catch {
+      setFetchError('Failed to load exams')
       toast({ title: 'Failed to load exams', variant: 'destructive' })
     } finally {
       setLoading(false)
@@ -357,7 +361,11 @@ export default function ExamsPage() {
       </Dialog>
 
       {/* 9.2 Exam Table */}
-      {loading ? (
+      {fetchError ? (
+        <div className="rounded-xl border border-gray-200 bg-white p-6">
+          <ErrorState title={fetchError} onRetry={() => { setFetchError(null); fetchData(); }} />
+        </div>
+      ) : loading ? (
         <div className="rounded-xl border bg-white p-4 space-y-3">
           {[1, 2, 3, 4, 5].map((i) => (
             <div key={i} className="h-16 bg-gray-100 animate-pulse rounded" />
