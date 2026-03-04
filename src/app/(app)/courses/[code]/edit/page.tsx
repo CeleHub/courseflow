@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { BookOpen, ArrowLeft, Loader2 } from "lucide-react";
+import { ErrorState } from "@/components/state/error-state";
 import { apiClient } from "@/lib/api";
 import { getItemsFromResponse } from "@/lib/utils";
 import { Course, Department, Level, Role, Semester, User } from "@/types";
@@ -28,6 +29,7 @@ export default function EditCoursePage() {
   const { isAdmin, isHod, user } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [course, setCourse] = useState<Course | null>(null);
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -46,57 +48,73 @@ export default function EditCoursePage() {
 
   const isStaff = isAdmin || isHod;
 
-  useEffect(() => {
+  const fetchData = useCallback(async () => {
     if (!code || !isStaff) return;
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const [courseRes, deptRes, lectRes] = await Promise.all([
-          apiClient.getCourseByCode(code),
-          apiClient.getDepartments({ limit: 100 }),
-          apiClient.getUsers({ role: Role.LECTURER, limit: 200 }),
-        ]);
-        if (courseRes.success && courseRes.data) {
-          const c = courseRes.data as Course;
-          setCourse(c);
-          setFormData({
-            name: c.name,
-            level: c.level,
-            credits: String(c.credits),
-            semester: c.semester,
-            departmentCode: c.departmentCode,
-            lecturerId: c.lecturerId ?? "",
-            overview: c.overview ?? "",
-            isGeneral: c.isGeneral,
-            isLocked: c.isLocked,
-          });
-        } else {
-          toast({ title: "Course not found", variant: "destructive" });
-          router.push("/courses");
-        }
+    setFetchError(null);
+    setLoading(true);
+    try {
+      const [courseRes, deptRes, lectRes] = await Promise.all([
+        apiClient.getCourseByCode(code),
+        apiClient.getDepartments({ limit: 100 }),
+        apiClient.getUsers({ role: Role.LECTURER, limit: 200 }),
+      ]);
+      if (courseRes.success && courseRes.data) {
+        const c = courseRes.data as Course;
+        setCourse(c);
+        setFormData({
+          name: c.name,
+          level: c.level,
+          credits: String(c.credits),
+          semester: c.semester,
+          departmentCode: c.departmentCode,
+          lecturerId: c.lecturerId ?? "",
+          overview: c.overview ?? "",
+          isGeneral: c.isGeneral,
+          isLocked: c.isLocked,
+        });
         const d = getItemsFromResponse<Department>(deptRes);
         const l = getItemsFromResponse<User>(lectRes);
         if (d) setDepartments(d.items);
         if (l) setLecturers(l.items);
-      } catch {
-        toast({ title: "Failed to load course", variant: "destructive" });
-        router.push("/courses");
-      } finally {
-        setLoading(false);
+      } else {
+        setFetchError("Course not found");
       }
-    };
-    fetchData();
-  }, [code, isStaff, router, toast]);
+    } catch {
+      setFetchError("Failed to load course");
+    } finally {
+      setLoading(false);
+    }
+  }, [code, isStaff]);
+
+  useEffect(() => {
+    if (code && isStaff) fetchData();
+  }, [code, isStaff, fetchData]);
 
   if (!isStaff) {
     router.push("/courses");
     return null;
   }
 
+  if (fetchError) {
+    return (
+      <div className="space-y-4">
+        <Button variant="ghost" onClick={() => router.back()} className="mb-4">
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back
+        </Button>
+        <ErrorState title={fetchError} onRetry={fetchData} />
+      </div>
+    );
+  }
+
   if (loading || !course) {
     return (
-      <div className="flex items-center justify-center min-h-[200px]">
-        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+      <div className="space-y-6">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-gray-200 rounded w-1/3" />
+          <div className="h-4 bg-gray-200 rounded w-2/3" />
+          <div className="h-64 bg-gray-200 rounded" />
+        </div>
       </div>
     );
   }

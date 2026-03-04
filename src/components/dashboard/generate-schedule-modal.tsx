@@ -50,6 +50,7 @@ export function GenerateScheduleModal({
   const [departmentCode, setDepartmentCode] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [result, setResult] = useState<{
     success: boolean;
     session?: string;
@@ -189,6 +190,16 @@ export function GenerateScheduleModal({
                 </DialogFooter>
               </>
             )}
+          </div>
+        ) : fetchError ? (
+          <div className="space-y-4 py-4">
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
+              <h3 className="text-lg font-semibold text-gray-700 mb-2">{fetchError}</h3>
+              <Button variant="outline" onClick={fetchData} className="mt-4">
+                Retry
+              </Button>
+            </div>
           </div>
         ) : (
           <>

@@ -31,6 +31,7 @@ export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [deptLoading, setDeptLoading] = useState(true);
+  const [deptError, setDeptError] = useState<string | null>(null);
 
   const { register } = useAuth();
   const { toast } = useToast();
@@ -39,19 +40,21 @@ export default function RegisterPage() {
   const needsDepartment = formData.role !== Role.ADMIN;
   const needsVerificationCode = [Role.LECTURER, Role.HOD, Role.ADMIN].includes(formData.role);
 
+  const fetchDepartments = async () => {
+    setDeptError(null);
+    setDeptLoading(true);
+    try {
+      const response = await apiClient.getDepartments({ limit: 100 });
+      const result = getItemsFromResponse<Department>(response);
+      if (result) setDepartments(result.items);
+    } catch {
+      setDeptError("Failed to load departments. Retry.");
+    } finally {
+      setDeptLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchDepartments = async () => {
-      try {
-        setDeptLoading(true);
-        const response = await apiClient.getDepartments({ limit: 100 });
-        const result = getItemsFromResponse<Department>(response);
-        if (result) setDepartments(result.items);
-      } catch (error) {
-        console.error("Failed to fetch departments:", error);
-      } finally {
-        setDeptLoading(false);
-      }
-    };
     fetchDepartments();
   }, []);
 
@@ -195,13 +198,26 @@ export default function RegisterPage() {
         {needsDepartment && (
           <div className="space-y-2">
             <Label htmlFor="department">Department {needsVerificationCode && "*"}</Label>
-            <Select value={formData.departmentCode} onValueChange={(v) => handleChange("departmentCode", v)}>
+            <Select
+              value={formData.departmentCode}
+              onValueChange={(v) => {
+                if (v === "__retry__") {
+                  fetchDepartments();
+                  return;
+                }
+                handleChange("departmentCode", v);
+              }}
+            >
               <SelectTrigger className="text-base min-h-[44px]">
-                <SelectValue placeholder="Select department..." />
+                <SelectValue placeholder={deptError ? "Failed to load departments. Retry." : "Select department..."} />
               </SelectTrigger>
               <SelectContent>
                 {deptLoading ? (
                   <SelectItem value="" disabled>Loading departments…</SelectItem>
+                ) : deptError ? (
+                  <SelectItem value="__retry__" className="text-indigo-600 font-medium cursor-pointer">
+                    Failed to load departments. Retry.
+                  </SelectItem>
                 ) : (
                   departments.map((d) => (
                     <SelectItem key={d.code} value={d.code}>

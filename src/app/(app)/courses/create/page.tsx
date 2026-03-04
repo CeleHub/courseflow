@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   Card,
@@ -23,6 +23,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { BookOpen, ArrowLeft, User as UserIcon } from "lucide-react";
+import { ErrorState } from "@/components/state/error-state";
 import { apiClient } from "@/lib/api";
 import { getItemsFromResponse } from "@/lib/utils";
 import { Department, Level, Role, Semester, User } from "@/types";
@@ -32,6 +33,8 @@ export default function CreateCoursePage() {
   const { isAuthenticated, isAdmin, isLecturer, isHod } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [loadingData, setLoadingData] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [lecturers, setLecturers] = useState<User[]>([]);
   const [formData, setFormData] = useState({
@@ -57,37 +60,64 @@ export default function CreateCoursePage() {
     { value: Level.LEVEL_500, label: "500 Level" },
   ];
 
+  const fetchData = useCallback(async () => {
+    setFetchError(null);
+    setLoadingData(true);
+    try {
+      const [deptResponse, lecturerResponse, hodResponse] = await Promise.all([
+        apiClient.getDepartments({ limit: 100 }),
+        apiClient.getUsers({ role: Role.LECTURER, limit: 100 }),
+        apiClient.getUsers({ role: Role.HOD, limit: 100 }),
+      ]);
+      const deptResult = getItemsFromResponse<Department>(deptResponse);
+      const lecturerResult = getItemsFromResponse<User>(lecturerResponse);
+      const hodResult = getItemsFromResponse<User>(hodResponse);
+      if (deptResult) setDepartments(deptResult.items);
+      if (lecturerResult || hodResult) {
+        const lecturersList = [...(lecturerResult?.items ?? []), ...(hodResult?.items ?? [])];
+        setLecturers(lecturersList);
+      }
+    } catch {
+      setFetchError("Failed to load departments and lecturers");
+    } finally {
+      setLoadingData(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (!isAuthenticated || !canCreate) {
       router.replace(!isAuthenticated ? "/login" : "/dashboard");
       return;
     }
-
-    const fetchData = async () => {
-      try {
-        const [deptResponse, lecturerResponse, hodResponse] = await Promise.all([
-          apiClient.getDepartments({ limit: 100 }),
-          apiClient.getUsers({ role: Role.LECTURER, limit: 100 }),
-          apiClient.getUsers({ role: Role.HOD, limit: 100 }),
-        ]);
-        const deptResult = getItemsFromResponse<Department>(deptResponse);
-        const lecturerResult = getItemsFromResponse<User>(lecturerResponse);
-        const hodResult = getItemsFromResponse<User>(hodResponse);
-        if (deptResult) setDepartments(deptResult.items);
-        if (lecturerResult || hodResult) {
-          const lecturersList = [...(lecturerResult?.items ?? []), ...(hodResult?.items ?? [])];
-          setLecturers(lecturersList);
-        }
-      } catch (error) {
-        console.error("Failed to fetch data:", error);
-      }
-    };
-
     fetchData();
-  }, [isAuthenticated, canCreate, router]);
+  }, [isAuthenticated, canCreate, router, fetchData]);
 
   if (!isAuthenticated || !canCreate) {
     return null;
+  }
+
+  if (fetchError && !loadingData) {
+    return (
+      <div className="space-y-6">
+        <Button variant="ghost" onClick={() => router.back()} className="mb-4">
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back
+        </Button>
+        <ErrorState title={fetchError} onRetry={fetchData} />
+      </div>
+    );
+  }
+
+  if (loadingData) {
+    return (
+      <div className="space-y-6">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-gray-200 rounded w-1/3" />
+          <div className="h-4 bg-gray-200 rounded w-2/3" />
+          <div className="h-64 bg-gray-200 rounded" />
+        </div>
+      </div>
+    );
   }
 
   const handleInputChange = (

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -8,57 +8,46 @@ import { Badge } from '@/components/ui/badge'
 import { ArrowLeft, Building2, User, BookOpen, GraduationCap, Mail, Users } from 'lucide-react'
 import { apiClient } from '@/lib/api'
 import { Course, Department, Level } from '@/types'
-import { useToast } from '@/hooks/use-toast'
+import { ErrorState } from '@/components/state/error-state'
 
 export default function DepartmentDetailsPage() {
   const params = useParams()
   const router = useRouter()
-  const { toast } = useToast()
   const code = params.code as string
   const [department, setDepartment] = useState<Department | null>(null)
   const [courses, setCourses] = useState<Course[]>([])
   const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState<string | null>(null)
 
-  useEffect(() => {
-    const fetchDetails = async () => {
-      try {
-        setLoading(true)
-        const response = await apiClient.getDepartmentFullDetails(code)
-
+  const fetchDetails = useCallback(() => {
+    if (!code) return
+    setFetchError(null)
+    setLoading(true)
+    apiClient.getDepartmentFullDetails(code)
+      .then((response) => {
         if (response.success && response.data) {
           const raw = response.data as { data?: Department } | Department
           const dept = (raw as { data?: Department }).data ?? (raw as Department)
           if (!dept?.name) {
-            throw new Error('Invalid department data')
+            setFetchError('Invalid department data')
+            return
           }
           setDepartment(dept)
           const deptWithCourses = dept as Department & { courses?: Course[] }
           setCourses(Array.isArray(deptWithCourses.courses) ? deptWithCourses.courses : [])
         } else {
-          toast({
-            title: "Error",
-            description: response.error || "Failed to fetch department details",
-            variant: "destructive",
-          })
-          router.push('/departments')
+          setFetchError(response.error || 'Failed to fetch department details')
         }
-      } catch (error) {
-        console.error('Failed to fetch department details:', error)
-        toast({
-          title: "Error",
-          description: error instanceof Error ? error.message : "Failed to fetch department details",
-          variant: "destructive",
-        })
-        router.push('/departments')
-      } finally {
-        setLoading(false)
-      }
-    }
+      })
+      .catch((error) => {
+        setFetchError(error instanceof Error ? error.message : 'Failed to fetch department details')
+      })
+      .finally(() => setLoading(false))
+  }, [code])
 
-    if (code) {
-      fetchDetails()
-    }
-  }, [code, router, toast])
+  useEffect(() => {
+    if (code) fetchDetails()
+  }, [code, fetchDetails])
 
   const getLevelBadgeColor = (level: Level) => {
     switch (level) {
@@ -88,21 +77,31 @@ export default function DepartmentDetailsPage() {
     )
   }
 
+  if (fetchError) {
+    return (
+      <div>
+        <Button variant="ghost" onClick={() => router.push('/departments')} className="mb-4">
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Departments
+        </Button>
+        <ErrorState title={fetchError} onRetry={fetchDetails} />
+      </div>
+    )
+  }
+
   if (!department) {
     return (
       <div>
         <div className="text-center py-12">
-          <div className="text-center py-12">
-            <p className="text-muted-foreground">Department not found</p>
-            <Button
-              variant="outline"
-              onClick={() => router.push('/departments')}
-              className="mt-4"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Departments
-            </Button>
-          </div>
+          <p className="text-muted-foreground">Department not found</p>
+          <Button
+            variant="outline"
+            onClick={() => router.push('/departments')}
+            className="mt-4"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Departments
+          </Button>
         </div>
       </div>
     )

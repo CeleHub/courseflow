@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -17,6 +17,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/hooks/use-toast'
 import { Building2, ArrowLeft } from 'lucide-react'
+import { ErrorState } from '@/components/state/error-state'
 import { apiClient } from '@/lib/api'
 import { getItemsFromResponse } from '@/lib/utils'
 import { Role, User } from '@/types'
@@ -26,6 +27,8 @@ export default function CreateDepartmentPage() {
   const { isAuthenticated, isAdmin, isLecturer, isHod } = useAuth()
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
+  const [loadingData, setLoadingData] = useState(true)
+  const [fetchError, setFetchError] = useState<string | null>(null)
   const [hodCandidates, setHodCandidates] = useState<User[]>([])
   const [formData, setFormData] = useState({
     name: '',
@@ -36,32 +39,59 @@ export default function CreateDepartmentPage() {
 
   const canCreate = isAdmin /* Only ADMIN can create departments per 0.1; HOD mutates own dept's courses/schedules only */
 
+  const fetchHodCandidates = useCallback(async () => {
+    setFetchError(null)
+    setLoadingData(true)
+    try {
+      const [hodRes, lecturerRes] = await Promise.all([
+        apiClient.getUsers({ role: Role.HOD, limit: 100 }),
+        apiClient.getUsers({ role: Role.LECTURER, limit: 100 }),
+      ])
+      const hodResult = getItemsFromResponse<User>(hodRes)
+      const lecturerResult = getItemsFromResponse<User>(lecturerRes)
+      const combined = [...(hodResult?.items ?? []), ...(lecturerResult?.items ?? [])]
+      setHodCandidates(combined)
+    } catch {
+      setFetchError('Failed to load HOD candidates')
+    } finally {
+      setLoadingData(false)
+    }
+  }, [])
+
   useEffect(() => {
     if (!isAuthenticated || !canCreate) {
       router.replace(!isAuthenticated ? '/login' : '/dashboard')
       return
     }
-
-    const fetchHodCandidates = async () => {
-      try {
-        const [hodRes, lecturerRes] = await Promise.all([
-          apiClient.getUsers({ role: Role.HOD, limit: 100 }),
-          apiClient.getUsers({ role: Role.LECTURER, limit: 100 }),
-        ])
-        const hodResult = getItemsFromResponse<User>(hodRes)
-        const lecturerResult = getItemsFromResponse<User>(lecturerRes)
-        const combined = [...(hodResult?.items ?? []), ...(lecturerResult?.items ?? [])]
-        setHodCandidates(combined)
-      } catch (error) {
-        console.error('Failed to fetch HOD candidates:', error)
-      }
-    }
-
     fetchHodCandidates()
-  }, [isAuthenticated, canCreate, router])
+  }, [isAuthenticated, canCreate, router, fetchHodCandidates])
 
   if (!isAuthenticated || !canCreate) {
     return null
+  }
+
+  if (fetchError && !loadingData) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <Button variant="ghost" onClick={() => router.back()} className="mb-4">
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back
+        </Button>
+        <ErrorState title={fetchError} onRetry={fetchHodCandidates} />
+      </div>
+    )
+  }
+
+  if (loadingData) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-gray-200 rounded w-1/3" />
+          <div className="h-4 bg-gray-200 rounded w-2/3" />
+          <div className="h-64 bg-gray-200 rounded" />
+        </div>
+      </div>
+    )
   }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {

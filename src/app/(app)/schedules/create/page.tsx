@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/hooks/use-toast'
 import { Calendar, ArrowLeft } from 'lucide-react'
+import { ErrorState } from '@/components/state/error-state'
 import { apiClient } from '@/lib/api'
 import { getItemsFromResponse } from '@/lib/utils'
 import { Course, DayOfWeek } from '@/types'
@@ -19,6 +20,8 @@ export default function CreateSchedulePage() {
   const { isAuthenticated, isAdmin, isLecturer, isHod } = useAuth()
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
+  const [loadingData, setLoadingData] = useState(true)
+  const [fetchError, setFetchError] = useState<string | null>(null)
   const [courses, setCourses] = useState<Course[]>([])
   const [formData, setFormData] = useState({
     courseCode: '',
@@ -40,27 +43,54 @@ export default function CreateSchedulePage() {
     { value: DayOfWeek.SUNDAY, label: 'Sunday' },
   ]
 
+  const fetchCourses = useCallback(async () => {
+    setFetchError(null)
+    setLoadingData(true)
+    try {
+      const response = await apiClient.getCourses({ limit: 100 })
+      const result = getItemsFromResponse<Course>(response)
+      if (result) setCourses(result.items)
+    } catch {
+      setFetchError('Failed to load courses')
+    } finally {
+      setLoadingData(false)
+    }
+  }, [])
+
   useEffect(() => {
     if (!isAuthenticated || !canCreate) {
       router.replace(!isAuthenticated ? '/login' : '/dashboard')
       return
     }
-
-    const fetchCourses = async () => {
-      try {
-        const response = await apiClient.getCourses({ limit: 100 })
-        const result = getItemsFromResponse<Course>(response)
-        if (result) setCourses(result.items)
-      } catch (error) {
-        console.error('Failed to fetch courses:', error)
-      }
-    }
-
     fetchCourses()
-  }, [isAuthenticated, canCreate, router])
+  }, [isAuthenticated, canCreate, router, fetchCourses])
 
   if (!isAuthenticated || !canCreate) {
     return null
+  }
+
+  if (fetchError && !loadingData) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <Button variant="ghost" onClick={() => router.back()} className="mb-4">
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back
+        </Button>
+        <ErrorState title={fetchError} onRetry={fetchCourses} />
+      </div>
+    )
+  }
+
+  if (loadingData) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-gray-200 rounded w-1/3" />
+          <div className="h-4 bg-gray-200 rounded w-2/3" />
+          <div className="h-64 bg-gray-200 rounded" />
+        </div>
+      </div>
+    )
   }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
