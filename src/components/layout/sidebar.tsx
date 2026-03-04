@@ -142,13 +142,13 @@ export function Sidebar({
                 title={!isMobile ? item.label : undefined}
                 className={cn(
                   "flex items-center gap-3 rounded-md text-sm font-medium transition-colors touch-manipulation",
-                  isMobile ? "px-3 py-2.5 min-h-[44px]" : "px-3 py-2 md:justify-center md:px-0 md:py-3.5 lg:justify-start lg:px-3 lg:py-2",
+                  isMobile ? "px-5 py-3.5 min-h-[44px]" : "px-3 py-2 md:justify-center md:px-0 md:py-3.5 lg:justify-start lg:py-3 lg:px-4",
                   isActive
                     ? "bg-indigo-50 text-indigo-600"
                     : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                 )}
               >
-                <item.icon className={cn("h-5 w-5 flex-shrink-0", isActive && "text-indigo-600")} />
+                <item.icon className={cn("h-5 w-5 flex-shrink-0", isActive && "text-indigo-600")} strokeWidth={isActive ? 2.5 : 2} />
                 <span className={cn(!isMobile && "hidden lg:inline")}>{item.label}</span>
               </Link>
             );
@@ -156,13 +156,13 @@ export function Sidebar({
         </div>
       </nav>
 
-      {/* Bottom: Settings + Sign out (desktop/tablet persistent only) */}
-      <div className={cn("border-t p-4", isMobile ? "block" : "hidden md:block")}>
+      {/* Bottom: Settings + Sign out (desktop only, pinned) */}
+      <div className={cn("border-t p-4", isMobile ? "hidden" : "hidden lg:block")}>
         <Link
           href="/settings"
           title="Settings"
           className={cn(
-            "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 md:justify-center md:px-0 lg:justify-start lg:px-3",
+            "flex items-center gap-3 rounded-md px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 lg:justify-start",
             pathname === "/settings" && "bg-indigo-50 text-indigo-600"
           )}
         >
