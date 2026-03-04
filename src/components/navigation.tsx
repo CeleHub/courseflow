@@ -76,7 +76,7 @@ export function Navigation() {
 
   const handleLogout = () => {
     logout()
-    router.push('/auth/login')
+    router.push('/login')
   }
 
   const navItems = [
@@ -94,7 +94,7 @@ export function Navigation() {
     },
     {
       title: 'Schedule',
-      href: '/schedule',
+      href: '/schedules',
       icon: Calendar,
       show: true,
     },
@@ -115,25 +115,25 @@ export function Navigation() {
   const adminItems = [
     {
       title: 'Users',
-      href: '/admin/users',
+      href: '/lecturers',
       icon: Users,
       show: isAdmin,
     },
     {
       title: 'Academic Sessions',
-      href: '/admin/academic-sessions',
+      href: '/sessions',
       icon: Calendar,
       show: isAdmin,
     },
     {
       title: 'Exams',
-      href: '/admin/exams',
+      href: '/exams',
       icon: ClipboardList,
       show: isAdmin,
     },
     {
       title: 'Verification Codes',
-      href: '/admin/verification-codes',
+      href: '/verification-codes',
       icon: ClipboardList,
       show: isAdmin,
     },
@@ -316,10 +316,10 @@ export function Navigation() {
             ) : (
               <div className="space-x-2 hidden md:flex">
                 <Button variant="ghost" asChild>
-                  <Link href="/auth/login">Login</Link>
+                  <Link href="/login">Login</Link>
                 </Button>
                 <Button asChild>
-                  <Link href="/auth/register">Register</Link>
+                  <Link href="/register">Register</Link>
                 </Button>
               </div>
             )}

@@ -11,20 +11,33 @@ import {
   UpdateCourseData,
   CreateScheduleData,
   UpdateScheduleData,
+  GenerateScheduleData,
   CreateComplaintData,
   CreateVerificationCodeData,
+  UpdateVerificationCodeData,
+  CreateUserData,
+  UpdateUserData,
   RegisterData,
   UserFilterParams,
   CourseFilterParams,
   ScheduleFilterParams,
   DepartmentFilterParams,
+  ExamFilterParams,
+  ComplaintStatus,
 } from "@/types";
 
 const API_BASE_URL = "https://courseflow-backend-s16i.onrender.com/api/v1";
 
+type On401Callback = () => void;
+
 class ApiClient {
   private baseURL: string;
   private token: string | null = null;
+  private on401: On401Callback | null = null;
+
+  setOn401(callback: On401Callback | null) {
+    this.on401 = callback;
+  }
 
   constructor(baseURL: string) {
     this.baseURL = baseURL;
@@ -33,7 +46,7 @@ class ApiClient {
     }
   }
 
-  setToken(token: string | null) {
+  setToken(token: string | null): void {
     this.token = token;
     if (typeof window !== "undefined") {
       if (token) {
@@ -49,12 +62,10 @@ class ApiClient {
   }
 
   private normalizeResponse(data: any, endpoint: string): ApiResponse<any> {
-    // Auth responses (login / register)
     if (data.user && data.access_token) {
       return { success: true, data, timestamp: new Date().toISOString() };
     }
 
-    // Paginated responses { data: [...], total, page, limit, totalPages }
     if (data.data && Array.isArray(data.data) && data.total !== undefined) {
       return {
         success: true,
@@ -76,15 +87,12 @@ class ApiClient {
       };
     }
 
-    // Plain array responses
     if (Array.isArray(data)) {
       return { success: true, data, timestamp: new Date().toISOString() };
     }
 
-    // Already a normalized { success, data, ... } envelope
     if (data.success !== undefined) return data;
 
-    // Fallback
     return { success: true, data, timestamp: new Date().toISOString() };
   }
 
@@ -99,17 +107,21 @@ class ApiClient {
       ...(options.headers as Record<string, string>),
     };
 
-    if (this.token) headers.Authorization = `Bearer ${this.token}`;
+    if (this.token) {
+      headers.Authorization = `Bearer ${this.token}`;
+    }
 
     try {
       const response = await fetch(url, { ...options, headers });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        // Backend sends { message: string | string[] } on errors
         const message = Array.isArray(errorData.message)
           ? errorData.message.join(", ")
           : errorData.message || errorData.error || `HTTP ${response.status}`;
+        if (response.status === 401 && this.on401) {
+          this.on401();
+        }
         return {
           success: false,
           error: message,
@@ -138,7 +150,9 @@ class ApiClient {
     formData.append("file", file);
 
     const headers: Record<string, string> = {};
-    if (this.token) headers.Authorization = `Bearer ${this.token}`;
+    if (this.token) {
+      headers.Authorization = `Bearer ${this.token}`;
+    }
 
     try {
       const response = await fetch(`${this.baseURL}${endpoint}`, {
@@ -174,7 +188,9 @@ class ApiClient {
 
   async downloadFile(endpoint: string): Promise<ApiResponse<string>> {
     const headers: Record<string, string> = {};
-    if (this.token) headers.Authorization = `Bearer ${this.token}`;
+    if (this.token) {
+      headers.Authorization = `Bearer ${this.token}`;
+    }
 
     try {
       const response = await fetch(`${this.baseURL}${endpoint}`, {
@@ -209,7 +225,6 @@ class ApiClient {
 
   private buildQuery(params?: Record<string, any>): string {
     if (!params) return "";
-    // Drop undefined / null values so they don't appear as "key=undefined"
     const clean = Object.fromEntries(
       Object.entries(params).filter(([, v]) => v !== undefined && v !== null)
     );
@@ -254,7 +269,11 @@ class ApiClient {
   // ─── Verification Codes ────────────────────────────────────────────────────
 
   getVerificationCodes() {
-    return this.request<any[]>("/auth/verification-codes");
+    return this.request("/auth/verification-codes");
+  }
+
+  getVerificationCodeById(id: string) {
+    return this.request(`/auth/verification-codes/${id}`);
   }
 
   createVerificationCode(data: CreateVerificationCodeData) {
@@ -264,10 +283,7 @@ class ApiClient {
     });
   }
 
-  updateVerificationCode(
-    id: string,
-    data: Partial<CreateVerificationCodeData> & { isActive?: boolean }
-  ) {
+  updateVerificationCode(id: string, data: UpdateVerificationCodeData) {
     return this.request(`/auth/verification-codes/${id}`, {
       method: "PATCH",
       body: JSON.stringify(data),
@@ -281,30 +297,23 @@ class ApiClient {
   }
 
   // ─── Users ─────────────────────────────────────────────────────────────────
-  //
-  // One endpoint covers ALL roles.
-  // To get lecturers:  getUsers({ role: Role.LECTURER })
-  // To get HODs:       getUsers({ role: Role.HOD })
-  // To get students:   getUsers({ role: Role.STUDENT })
-  // No separate /lecturers route exists anymore.
 
   getUsers(params?: UserFilterParams) {
-    return this.request<PaginatedResponse<any>>(
-      `/users${this.buildQuery(params)}`
-    );
+    return this.request(`/users${this.buildQuery(params)}`);
   }
 
   getUserById(id: string) {
     return this.request(`/users/${id}`);
   }
 
-  updateUser(id: string, data: Partial<{
-    name: string;
-    phone: string;
-    departmentCode: string;
-    role: string;
-    isActive: boolean;
-  }>) {
+  createUser(data: CreateUserData) {
+    return this.request("/users", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  updateUser(id: string, data: UpdateUserData) {
     return this.request(`/users/${id}`, {
       method: "PATCH",
       body: JSON.stringify(data),
@@ -314,8 +323,6 @@ class ApiClient {
   deleteUser(id: string) {
     return this.request(`/users/${id}`, { method: "DELETE" });
   }
-
-  // ─── Lecturer self-service (must be authenticated as LECTURER / HOD) ───────
 
   getLecturerDashboard() {
     return this.request("/users/me/dashboard");
@@ -332,9 +339,7 @@ class ApiClient {
   // ─── Departments ───────────────────────────────────────────────────────────
 
   getDepartments(params?: DepartmentFilterParams) {
-    return this.request<PaginatedResponse<any>>(
-      `/departments${this.buildQuery(params)}`
-    );
+    return this.request(`/departments${this.buildQuery(params)}`);
   }
 
   getDepartmentByCode(code: string) {
@@ -350,7 +355,6 @@ class ApiClient {
   }
 
   createDepartment(data: CreateDepartmentData) {
-    // data.hodId is a User ID string — NOT an email
     return this.request("/departments", {
       method: "POST",
       body: JSON.stringify(data),
@@ -368,6 +372,18 @@ class ApiClient {
     return this.request(`/departments/${code}`, { method: "DELETE" });
   }
 
+  lockDepartmentSchedule(code: string) {
+    return this.request(`/departments/${code}/schedule/lock`, {
+      method: "PATCH",
+    });
+  }
+
+  unlockDepartmentSchedule(code: string) {
+    return this.request(`/departments/${code}/schedule/unlock`, {
+      method: "PATCH",
+    });
+  }
+
   getDepartmentsBulkTemplate() {
     return this.downloadFile("/departments/bulk/template");
   }
@@ -379,10 +395,7 @@ class ApiClient {
   // ─── Courses ───────────────────────────────────────────────────────────────
 
   getCourses(params?: CourseFilterParams) {
-    // Note: filter by lecturer uses lecturerId (User ID), not lecturerEmail
-    return this.request<PaginatedResponse<any>>(
-      `/courses${this.buildQuery(params)}`
-    );
+    return this.request(`/courses${this.buildQuery(params)}`);
   }
 
   getCourseByCode(code: string) {
@@ -398,7 +411,6 @@ class ApiClient {
   }
 
   createCourse(data: CreateCourseData) {
-    // data.lecturerId is a User ID — NOT an email
     return this.request("/courses", {
       method: "POST",
       body: JSON.stringify(data),
@@ -421,16 +433,13 @@ class ApiClient {
   }
 
   uploadCoursesBulk(file: File) {
-    // CSV column is still "lecturerEmail" — backend resolves to ID internally
     return this.uploadFile("/courses/bulk/upload", file);
   }
 
   // ─── Schedules ─────────────────────────────────────────────────────────────
 
   getSchedules(params?: ScheduleFilterParams) {
-    return this.request<PaginatedResponse<any>>(
-      `/schedules${this.buildQuery(params)}`
-    );
+    return this.request(`/schedules${this.buildQuery(params)}`);
   }
 
   getScheduleById(id: string) {
@@ -442,8 +451,6 @@ class ApiClient {
   }
 
   createSchedule(data: CreateScheduleData) {
-    // venue is a VenueType enum string — NOT a venue id
-    // there is no `type` field
     return this.request("/schedules", {
       method: "POST",
       body: JSON.stringify(data),
@@ -461,20 +468,17 @@ class ApiClient {
     return this.request(`/schedules/${id}`, { method: "DELETE" });
   }
 
-  getSchedulesBulkTemplate() {
-    return this.downloadFile("/schedules/bulk/template");
-  }
-
-  uploadSchedulesBulk(file: File) {
-    return this.uploadFile("/schedules/bulk/upload", file);
+  generateSchedules(data: GenerateScheduleData) {
+    return this.request("/schedules/generate", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
   }
 
   // ─── Academic Sessions ─────────────────────────────────────────────────────
 
   getAcademicSessions(params?: { page?: number; limit?: number }) {
-    return this.request<PaginatedResponse<any>>(
-      `/academic-sessions${this.buildQuery(params)}`
-    );
+    return this.request(`/academic-sessions${this.buildQuery(params)}`);
   }
 
   getAcademicSessionById(id: string) {
@@ -521,10 +525,8 @@ class ApiClient {
 
   // ─── Exams ─────────────────────────────────────────────────────────────────
 
-  getExams(params?: { page?: number; limit?: number }) {
-    return this.request<PaginatedResponse<any>>(
-      `/exams${this.buildQuery(params)}`
-    );
+  getExams(params?: ExamFilterParams) {
+    return this.request(`/exams${this.buildQuery(params)}`);
   }
 
   getExamById(id: string) {
@@ -532,8 +534,6 @@ class ApiClient {
   }
 
   createExam(data: CreateExamData) {
-    // venue   → VenueType enum string (e.g. "LECTURE_HALL_1"), NOT a venue id
-    // no venueId field exists
     return this.request("/exams", {
       method: "POST",
       body: JSON.stringify(data),
@@ -559,9 +559,7 @@ class ApiClient {
     orderBy?: string;
     orderDirection?: string;
   }) {
-    return this.request<PaginatedResponse<any>>(
-      `/complaints${this.buildQuery(params)}`
-    );
+    return this.request(`/complaints${this.buildQuery(params)}`);
   }
 
   getMyComplaints() {
@@ -583,10 +581,7 @@ class ApiClient {
     });
   }
 
-  /**
-   * status must be one of: "PENDING" | "IN_PROGRESS" | "RESOLVED" | "CLOSED"
-   */
-  updateComplaintStatus(id: string, status: string) {
+  updateComplaintStatus(id: string, status: ComplaintStatus) {
     return this.request(`/complaints/${id}/status?status=${status}`, {
       method: "PATCH",
     });
@@ -600,6 +595,18 @@ class ApiClient {
 
   simpleHealthCheck() {
     return this.request("/health/simple");
+  }
+
+  databaseHealthCheck() {
+    return this.request("/health/database");
+  }
+
+  readinessCheck() {
+    return this.request("/health/readiness");
+  }
+
+  livenessCheck() {
+    return this.request("/health/liveness");
   }
 }
 

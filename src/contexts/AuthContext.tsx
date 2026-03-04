@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react'
+import { useRouter } from 'next/navigation'
 import { User, AuthResponse, LoginData, RegisterData, Role } from '@/types'
 import { apiClient } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
@@ -24,16 +25,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const { toast } = useToast()
+  const router = useRouter()
 
   const logout = useCallback(() => {
     setUser(null)
     apiClient.setToken(null)
-    localStorage.removeItem('user')
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('user')
+    }
     toast({
       title: "Logged Out",
       description: "You have been successfully logged out",
     })
   }, [toast])
+
+  useEffect(() => {
+    const handle401 = () => {
+      setUser(null)
+      apiClient.setToken(null)
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('user')
+      }
+      toast({
+        title: "Session Expired",
+        description: "Your session has expired. Please sign in again.",
+        variant: "destructive",
+      })
+      router.push('/login')
+    }
+    apiClient.setOn401(handle401)
+    return () => apiClient.setOn401(null)
+  }, [toast, router])
 
   useEffect(() => {
     const validateToken = async () => {

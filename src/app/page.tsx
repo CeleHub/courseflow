@@ -99,7 +99,7 @@ export default function Home() {
               </Link>
             </Button>
             <Button variant="outline" size="lg" className="text-lg px-8 py-6 h-auto border-2" asChild>
-              <Link href="/schedule">
+              <Link href="/schedules">
                 <Calendar className="mr-2 h-5 w-5" />
                 View Schedule
               </Link>
@@ -165,7 +165,7 @@ export default function Home() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button variant="secondary" size="lg" asChild className="text-lg px-8 py-6 h-auto">
-                <Link href="/auth/register">
+                <Link href="/register">
                   <Users className="mr-2 h-5 w-5" />
                   Create Account
                 </Link>
@@ -176,7 +176,7 @@ export default function Home() {
                 asChild 
                 className="text-lg px-8 py-6 h-auto border-2 border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10 backdrop-blur-sm"
               >
-                <Link href="/auth/login">
+                <Link href="/login">
                   Sign In to Continue
                 </Link>
               </Button>
