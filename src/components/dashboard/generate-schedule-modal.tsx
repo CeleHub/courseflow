@@ -1,0 +1,267 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { apiClient } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
+import { AcademicSession, Department, Semester } from "@/types";
+import { getItemsFromResponse } from "@/lib/utils";
+import { RefreshCw, CheckCircle, AlertCircle } from "lucide-react";
+import Link from "next/link";
+
+interface GenerateScheduleModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSuccess?: () => void;
+  departmentCode?: string; // For HOD: read-only own department
+  departmentName?: string;
+  isHod?: boolean;
+}
+
+export function GenerateScheduleModal({
+  open,
+  onOpenChange,
+  onSuccess,
+  departmentCode: hodDeptCode,
+  departmentName: hodDeptName,
+  isHod = false,
+}: GenerateScheduleModalProps) {
+  const { toast } = useToast();
+  const [sessions, setSessions] = useState<AcademicSession[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState<string>("");
+  const [semester, setSemester] = useState<Semester>(Semester.FIRST);
+  const [departmentCode, setDepartmentCode] = useState<string>("");
+  const [loading, setLoading] = useState(false);
+  const [loadingData, setLoadingData] = useState(true);
+  const [result, setResult] = useState<{
+    success: boolean;
+    session?: string;
+    semester?: string;
+    totalCourses?: number;
+    scheduled?: number;
+    preserved?: number;
+    skipped?: number;
+    failedCourses?: string[];
+  } | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const fetchData = async () => {
+      setLoadingData(true);
+      try {
+        const [sessRes, deptRes, activeRes] = await Promise.all([
+          apiClient.getAcademicSessions({ limit: 50 }),
+          isHod ? Promise.resolve({ success: true, data: [] }) : apiClient.getDepartments({ limit: 200 }),
+          apiClient.getActiveAcademicSession(),
+        ]);
+        const sess = getItemsFromResponse<AcademicSession>(sessRes);
+        const dept = isHod ? [] : (getItemsFromResponse<Department>(deptRes)?.items ?? []);
+        setSessions(sess?.items ?? []);
+        setDepartments(dept);
+        const active = activeRes.success && activeRes.data ? (activeRes.data as AcademicSession) : null;
+        const defaultId = active?.id ?? sess?.items?.[0]?.id ?? "";
+        setActiveSessionId(defaultId);
+        if (isHod && hodDeptCode) setDepartmentCode(hodDeptCode);
+      } finally {
+        setLoadingData(false);
+      }
+    };
+    fetchData();
+  }, [open, isHod, hodDeptCode]);
+
+  const handleSubmit = async () => {
+    setLoading(true);
+    setResult(null);
+    try {
+      const res = await apiClient.generateSchedules({
+        semester,
+        sessionId: activeSessionId || undefined,
+        departmentCode: departmentCode || undefined,
+      });
+      if (res.success && res.data) {
+        const d = res.data as any;
+        setResult({
+          success: true,
+          session: d.session ?? activeSessionId,
+          semester: d.semester ?? semester,
+          totalCourses: d.totalCourses ?? d.total,
+          scheduled: d.scheduled,
+          preserved: d.preserved,
+          skipped: d.skipped,
+        });
+        toast({ title: `${d.scheduled ?? 0} courses scheduled for ${semester === Semester.FIRST ? "First" : "Second"} semester.` });
+        onSuccess?.();
+      } else {
+        const errData = (res as any).data;
+        const failed = errData?.failedCourses ?? errData?.courses ?? [];
+        setResult({
+          success: false,
+          failedCourses: Array.isArray(failed) ? failed : [],
+        });
+      }
+    } catch (e: any) {
+      const errData = e?.data ?? e?.response?.data;
+      const failed = errData?.failedCourses ?? errData?.courses ?? [];
+      setResult({
+        success: false,
+        failedCourses: Array.isArray(failed) ? failed : [],
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleClose = () => {
+    setResult(null);
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !loading && (result ? handleClose() : onOpenChange(o))}>
+      <DialogContent
+        className="sm:max-w-[520px] max-sm:fixed max-sm:bottom-0 max-sm:left-0 max-sm:right-0 max-sm:top-auto max-sm:max-h-[90vh] max-sm:rounded-t-2xl max-sm:rounded-b-none"
+        onPointerDownOutside={(e) => result && e.preventDefault()}
+      >
+        <div className="max-sm:mt-3 max-sm:w-10 max-sm:h-1 max-sm:mx-auto max-sm:rounded-full max-sm:bg-gray-300" />
+        <DialogHeader>
+          <DialogTitle>Generate Schedules</DialogTitle>
+          {!result && (
+            <DialogDescription>
+              This will delete all existing auto-generated schedules for the selected scope and regenerate them. Manual overrides and fixed schedules will be preserved.
+            </DialogDescription>
+          )}
+        </DialogHeader>
+
+        {result ? (
+          <div className="space-y-6 py-4">
+            {result.success ? (
+              <>
+                <div className="flex flex-col items-center text-center">
+                  <CheckCircle className="h-10 w-10 text-green-500 mb-2" />
+                  <h3 className="text-lg font-semibold">Schedule Generation Complete</h3>
+                </div>
+                <div className="rounded-lg border bg-gray-50 p-4 space-y-2 text-sm">
+                  <div className="flex justify-between"><span>Session</span><span className="font-medium">{result.session ?? "—"}</span></div>
+                  <div className="flex justify-between"><span>Semester</span><span className="font-medium">{result.semester ?? "—"}</span></div>
+                  <div className="flex justify-between"><span>Total Courses</span><span className="font-medium">{result.totalCourses ?? "—"}</span></div>
+                  <div className="flex justify-between"><span>Scheduled</span><span className="font-medium">{result.scheduled ?? "—"}</span></div>
+                  {result.preserved != null && <div className="flex justify-between"><span>Preserved</span><span className="font-medium">{result.preserved} manual overrides</span></div>}
+                  {result.skipped != null && <div className="flex justify-between"><span>Skipped</span><span className="font-medium">{result.skipped} locked departments</span></div>}
+                </div>
+                <DialogFooter className="gap-2">
+                  <Button variant="outline" onClick={handleClose}>Close</Button>
+                  <Button asChild><Link href="/schedules" onClick={handleClose}>View Schedules</Link></Button>
+                </DialogFooter>
+              </>
+            ) : (
+              <>
+                <div className="flex flex-col items-center text-center">
+                  <AlertCircle className="h-10 w-10 text-red-500 mb-2" />
+                  <h3 className="text-lg font-semibold">Scheduling Failed</h3>
+                  <p className="text-sm text-gray-500 mt-1">Could not find valid time slots for the following courses:</p>
+                </div>
+                <div className="max-h-40 overflow-y-auto rounded-lg border p-3 space-y-1">
+                  {(result.failedCourses ?? []).map((c: string, i: number) => (
+                    <div key={i} className="text-sm font-mono">{c}</div>
+                  ))}
+                </div>
+                <p className="text-sm text-gray-500">Try reducing the number of courses per department/level or contact an administrator.</p>
+                <DialogFooter className="gap-2">
+                  <Button variant="outline" onClick={handleClose}>Close</Button>
+                  <Button onClick={() => { setResult(null); }}>Try Again</Button>
+                </DialogFooter>
+              </>
+            )}
+          </div>
+        ) : (
+          <>
+            <div className="space-y-4 py-4">
+              <div className="rounded-lg border-l-4 border-amber-500 bg-amber-50 p-3 text-sm text-amber-800">
+                This will delete all existing auto-generated schedules for the selected scope and regenerate them. Manual overrides and fixed schedules will be preserved.
+              </div>
+              <div className="grid gap-4">
+                <div>
+                  <Label>Semester</Label>
+                  <Select value={semester} onValueChange={(v) => setSemester(v as Semester)}>
+                    <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={Semester.FIRST}>First Semester</SelectItem>
+                      <SelectItem value={Semester.SECOND}>Second Semester</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Session</Label>
+                  <Select value={activeSessionId} onValueChange={setActiveSessionId} disabled={loadingData}>
+                    <SelectTrigger className="mt-1.5">
+                      <SelectValue placeholder={loadingData ? "Loading…" : "Select session"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sessions.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {!isHod && (
+                  <div>
+                    <Label>Department scope</Label>
+                    <Select value={departmentCode} onValueChange={setDepartmentCode} disabled={loadingData}>
+                      <SelectTrigger className="mt-1.5">
+                        <SelectValue placeholder="All Unlocked Departments" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">All Unlocked Departments</SelectItem>
+                        {departments.map((d) => (
+                          <SelectItem key={d.code} value={d.code}>{d.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                {isHod && hodDeptCode && (
+                  <div>
+                    <Label>Department</Label>
+                    <div className="mt-1.5 rounded-md border bg-gray-50 px-3 py-2 text-sm text-gray-600">
+                      {hodDeptName ?? hodDeptCode}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>Cancel</Button>
+              <Button onClick={handleSubmit} disabled={loading || loadingData}>
+                {loading ? (
+                  <span className="flex items-center gap-2">
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    Generating…
+                  </span>
+                ) : (
+                  "Generate Schedules"
+                )}
+              </Button>
+            </DialogFooter>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}

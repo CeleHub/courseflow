@@ -89,4 +89,20 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* 0.4 Universal Interaction Standards */
+  button, a, [role="button"] {
+    touch-action: manipulation;
+  }
+  button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, [role="button"]:focus-visible {
+    outline: 2px solid #4F46E5;
+    outline-offset: 2px;
+  }
+  input, select, textarea {
+    font-size: 16px; /* Prevent iOS Safari zoom on focus */
+  }
+  @media (min-width: 768px) {
+    input, select, textarea {
+      font-size: 14px; /* Smaller on desktop is ok */
+    }
+  }
 }

@@ -1,272 +1,467 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
-import { useAuth } from '@/contexts/AuthContext'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { useEffect, useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   BookOpen,
   Calendar,
   MessageCircle,
   Building2,
-  Users,
   Clock,
-  TrendingUp,
-  Activity,
-  GraduationCap
-} from 'lucide-react'
-import Link from 'next/link'
-import { apiClient } from '@/lib/api'
-import { getItemsFromResponse } from '@/lib/utils'
-import type { Course, Department, Complaint } from '@/types'
+  GraduationCap,
+  CalendarDays,
+  RefreshCw,
+  Lock,
+  Unlock,
+} from "lucide-react";
+import Link from "next/link";
+import { apiClient } from "@/lib/api";
+import { getItemsFromResponse } from "@/lib/utils";
+import {
+  DepartmentStatistics,
+  CourseStatistics,
+  ScheduleStatistics,
+  AcademicSession,
+  LecturerDashboard,
+  Department,
+  Schedule,
+  Exam,
+  VenueType,
+  Level,
+  DayOfWeek,
+} from "@/types";
+import { useToast } from "@/hooks/use-toast";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { GenerateScheduleModal } from "@/components/dashboard/generate-schedule-modal";
 
-export default function DashboardPage() {
-  const { user, isAuthenticated, isAdmin, isLecturer, isHod } = useAuth()
-  const isStaff = isAdmin || isLecturer || isHod
-  const [stats, setStats] = useState({
-    totalCourses: 0,
-    totalDepartments: 0,
-    totalComplaints: 0,
-    myComplaints: 0,
-    recentActivity: [] as unknown[],
-  })
-  const [loading, setLoading] = useState(true)
+const VENUE_LABELS: Record<string, string> = {
+  [VenueType.UNIVERSITY_ICT_CENTER]: "University ICT Centre",
+  [VenueType.ICT_LAB_1]: "ICT Lab 1",
+  [VenueType.ICT_LAB_2]: "ICT Lab 2",
+  [VenueType.COMPUTER_LAB]: "Computer Lab",
+  [VenueType.LECTURE_HALL_1]: "Lecture Hall 1",
+  [VenueType.LECTURE_HALL_2]: "Lecture Hall 2",
+  [VenueType.LECTURE_HALL_3]: "Lecture Hall 3",
+  [VenueType.AUDITORIUM_A]: "Auditorium A",
+  [VenueType.AUDITORIUM_B]: "Auditorium B",
+  [VenueType.SEMINAR_ROOM_A]: "Seminar Room A",
+  [VenueType.SEMINAR_ROOM_B]: "Seminar Room B",
+  [VenueType.ROOM_101]: "Room 101",
+  [VenueType.ROOM_102]: "Room 102",
+  [VenueType.ROOM_201]: "Room 201",
+  [VenueType.ROOM_202]: "Room 202",
+  [VenueType.ROOM_301]: "Room 301",
+  [VenueType.ROOM_302]: "Room 302",
+  [VenueType.SCIENCE_LAB_1]: "Science Lab 1",
+  [VenueType.SCIENCE_LAB_2]: "Science Lab 2",
+};
 
-  useEffect(() => {
-    if (!isAuthenticated) return
+function getGreeting(): string {
+  const h = new Date().getHours();
+  if (h >= 5 && h < 12) return "Good morning";
+  if (h >= 12 && h < 18) return "Good afternoon";
+  return "Good evening";
+}
 
-    const fetchDashboardData = async () => {
-      try {
-        setLoading(true)
-        const [coursesRes, departmentsRes, complaintsRes, myComplaintsRes] = await Promise.all([
-          apiClient.getCourses({ limit: 1 }),
-          apiClient.getDepartments({ limit: 1 }),
-          isAuthenticated ? apiClient.getComplaints({ limit: 1 }) : Promise.resolve({ success: false, data: undefined }),
-          isAuthenticated ? apiClient.getMyComplaints() : Promise.resolve({ success: false, data: undefined }),
-        ])
+const WEEKDAYS = [DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY] as const;
+const DAY_LABELS: Record<DayOfWeek, string> = {
+  [DayOfWeek.MONDAY]: "MON",
+  [DayOfWeek.TUESDAY]: "TUE",
+  [DayOfWeek.WEDNESDAY]: "WED",
+  [DayOfWeek.THURSDAY]: "THU",
+  [DayOfWeek.FRIDAY]: "FRI",
+  [DayOfWeek.SATURDAY]: "SAT",
+  [DayOfWeek.SUNDAY]: "SUN",
+};
 
-        const coursesResult = getItemsFromResponse<Course>(coursesRes)
-        const departmentsResult = getItemsFromResponse<Department>(departmentsRes)
-        const complaintsResult = getItemsFromResponse<Complaint>(complaintsRes)
-        const myList = myComplaintsRes.success && Array.isArray(myComplaintsRes.data) ? myComplaintsRes.data : []
+const DEPT_COLOR_CLASSES = [
+  "bg-blue-100 border-l-4 border-blue-400",
+  "bg-violet-100 border-l-4 border-violet-400",
+  "bg-emerald-100 border-l-4 border-emerald-400",
+  "bg-orange-100 border-l-4 border-orange-400",
+  "bg-pink-100 border-l-4 border-pink-400",
+  "bg-sky-100 border-l-4 border-sky-400",
+  "bg-amber-100 border-l-4 border-amber-400",
+  "bg-teal-100 border-l-4 border-teal-400",
+];
 
-        setStats({
-          totalCourses: coursesResult?.total ?? 0,
-          totalDepartments: departmentsResult?.total ?? 0,
-          totalComplaints: complaintsResult?.total ?? 0,
-          myComplaints: myList.length,
-          recentActivity: [],
-        })
-      } catch (error) {
-        console.error('Failed to fetch dashboard data:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchDashboardData()
-  }, [isAuthenticated])
-
-  const quickActions = [
-    {
-      title: 'Browse Courses',
-      description: 'Explore available courses',
-      href: '/courses',
-      icon: BookOpen,
-      color: 'bg-blue-500',
-    },
-    {
-      title: 'View Schedule',
-      description: 'Check class schedules',
-      href: '/schedules',
-      icon: Calendar,
-      color: 'bg-green-500',
-    },
-    {
-      title: 'Departments',
-      description: 'Browse departments',
-      href: '/departments',
-      icon: Building2,
-      color: 'bg-purple-500',
-    },
-    {
-      title: 'Submit Complaint',
-      description: 'File a complaint',
-      href: '/complaints',
-      icon: MessageCircle,
-      color: 'bg-orange-500',
-    },
-  ]
-
-  const adminActions = [
-    {
-      title: 'Manage Users',
-      description: 'View and manage users',
-      href: '/lecturers',
-      icon: Users,
-      color: 'bg-red-500',
-    },
-    {
-      title: 'Verification Codes',
-      description: 'Manage verification codes',
-      href: '/verification-codes',
-      icon: Activity,
-      color: 'bg-indigo-500',
-    },
-  ]
+function MobileTimetable({ schedules }: { schedules: Schedule[] }) {
+  const [selectedDay, setSelectedDay] = useState<DayOfWeek>(DayOfWeek.MONDAY);
+  const daySchedules = schedules.filter((s) => s.dayOfWeek === selectedDay).sort((a, b) => (a.startTime || "").localeCompare(b.startTime || ""));
+  const getDeptColor = (code: string) => DEPT_COLOR_CLASSES[Math.abs(code.split("").reduce((a, c) => a + c.charCodeAt(0), 0)) % DEPT_COLOR_CLASSES.length];
 
   return (
     <div>
-      <div className="space-y-8">
-        {/* Welcome Section */}
-        <div className="mb-10">
-          <div className="flex items-center justify-between flex-wrap gap-4 mb-4">
-            <div>
-              <h1 className="text-4xl md:text-5xl font-bold mb-2 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-                Welcome back, {user?.name?.split(' ')[0]}!
-              </h1>
-              <p className="text-lg text-muted-foreground">
-                Here&apos;s an overview of your academic journey
-              </p>
+      <div className="flex gap-2 overflow-x-auto py-2 -mx-1">
+        {WEEKDAYS.map((d) => (
+          <button
+            key={d}
+            type="button"
+            onClick={() => setSelectedDay(d)}
+            className={`min-w-[52px] h-9 rounded-full px-3 text-sm font-medium shrink-0 touch-manipulation ${selectedDay === d ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-700"}`}
+          >
+            {DAY_LABELS[d]}
+          </button>
+        ))}
+      </div>
+      <div className="mt-4 space-y-3">
+        {daySchedules.length === 0 ? (
+          <p className="text-sm text-gray-500 py-4 text-center">No classes this day</p>
+        ) : (
+          daySchedules.map((s) => (
+            <div key={s.id} className={`rounded-lg p-3 min-h-[72px] ${getDeptColor(s.course?.departmentCode ?? "X")}`}>
+              <div className="flex justify-between items-start">
+                <span className="text-xs font-mono text-gray-600">{s.course?.departmentCode ?? "—"}</span>
+                {s.isManualOverride && <span className="text-amber-600 text-xs">●</span>}
+              </div>
+              <p className="font-mono text-sm font-semibold text-gray-900">{s.course?.code ?? s.courseCode}</p>
+              <p className="text-xs text-gray-600 truncate">{s.course?.name ?? ""}</p>
+              <p className="text-xs text-gray-500 mt-0.5">{s.startTime} – {s.endTime}</p>
             </div>
-            <div className="flex items-center gap-3">
-              <Badge variant="secondary" className="text-sm px-4 py-1.5">
-                <GraduationCap className="h-3 w-3 mr-1.5" />
-                {user?.role}
-              </Badge>
-              <Badge variant="outline" className="text-sm px-4 py-1.5 font-mono">
-                {user?.matricNO}
-              </Badge>
-            </div>
-          </div>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-          <Card className="border-2 hover:border-primary/20 transition-all hover:shadow-lg group">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-semibold text-muted-foreground">Total Courses</CardTitle>
-              <div className="p-2 bg-blue-50 dark:bg-blue-950/30 rounded-lg group-hover:scale-110 transition-transform">
-                <BookOpen className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold mb-1">{loading ? '...' : stats.totalCourses}</div>
-              <p className="text-xs text-muted-foreground">Available courses</p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-2 hover:border-primary/20 transition-all hover:shadow-lg group">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-semibold text-muted-foreground">Departments</CardTitle>
-              <div className="p-2 bg-green-50 dark:bg-green-950/30 rounded-lg group-hover:scale-110 transition-transform">
-                <Building2 className="h-5 w-5 text-green-600 dark:text-green-400" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold mb-1">{loading ? '...' : stats.totalDepartments}</div>
-              <p className="text-xs text-muted-foreground">Academic departments</p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-2 hover:border-primary/20 transition-all hover:shadow-lg group">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-semibold text-muted-foreground">My Complaints</CardTitle>
-              <div className="p-2 bg-orange-50 dark:bg-orange-950/30 rounded-lg group-hover:scale-110 transition-transform">
-                <MessageCircle className="h-5 w-5 text-orange-600 dark:text-orange-400" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold mb-1">{loading ? '...' : stats.myComplaints}</div>
-              <p className="text-xs text-muted-foreground">Submitted complaints</p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-2 hover:border-primary/20 transition-all hover:shadow-lg group">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-semibold text-muted-foreground">Quick Access</CardTitle>
-              <div className="p-2 bg-purple-50 dark:bg-purple-950/30 rounded-lg group-hover:scale-110 transition-transform">
-                <TrendingUp className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold mb-1">{quickActions.length}</div>
-              <p className="text-xs text-muted-foreground">Available actions</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="mb-10">
-          <h2 className="text-3xl font-bold mb-6 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-            Quick Actions
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {quickActions.map((action, index) => (
-              <Card 
-                key={index} 
-                className="transition-all hover:shadow-xl hover:scale-[1.02] cursor-pointer border-2 hover:border-primary/20 group"
-              >
-                <Link href={action.href}>
-                  <CardHeader className="pb-3">
-                    <div className={`w-12 h-12 ${action.color} rounded-xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform shadow-md`}>
-                      <action.icon className="h-6 w-6 text-white" />
-                    </div>
-                    <CardTitle className="text-lg font-semibold">{action.title}</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <CardDescription className="text-sm leading-relaxed">{action.description}</CardDescription>
-                  </CardContent>
-                </Link>
-              </Card>
-            ))}
-          </div>
-        </div>
-
-        {/* Admin Actions */}
-        {isStaff && (
-          <div className="mb-10">
-            <h2 className="text-3xl font-bold mb-6 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-              {isAdmin ? 'Administrative' : isHod ? 'HOD' : 'Lecturer'} Tools
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {adminActions.filter(() => isAdmin).map((action, index) => (
-                <Card 
-                  key={index} 
-                  className="transition-all hover:shadow-xl hover:scale-[1.02] cursor-pointer border-2 hover:border-primary/20 group"
-                >
-                  <Link href={action.href}>
-                    <CardHeader className="pb-3">
-                      <div className={`w-12 h-12 ${action.color} rounded-xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform shadow-md`}>
-                        <action.icon className="h-6 w-6 text-white" />
-                      </div>
-                      <CardTitle className="text-lg font-semibold">{action.title}</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <CardDescription className="text-sm leading-relaxed">{action.description}</CardDescription>
-                    </CardContent>
-                  </Link>
-                </Card>
-              ))}
-            </div>
-          </div>
+          ))
         )}
-
-        {/* Recent Activity */}
-        <div>
-          <h2 className="text-2xl font-bold mb-4">Recent Activity</h2>
-          <Card>
-            <CardContent className="py-8 text-center">
-              <Clock className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground">No recent activity to display</p>
-              <p className="text-sm text-muted-foreground mt-2">
-                Your activity will appear here as you interact with the system
-              </p>
-            </CardContent>
-          </Card>
-        </div>
       </div>
     </div>
-  )
+  );
+}
+
+function StatCard({
+  icon: Icon,
+  value,
+  label,
+  iconBg,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  value: string | number;
+  label: string;
+  iconBg: string;
+}) {
+  return (
+    <Card className="rounded-xl border border-gray-200 p-5 shadow-sm">
+      <div className={`w-10 h-10 rounded-lg ${iconBg} flex items-center justify-center mb-3`}>
+        <Icon className="h-5 w-5 text-white" />
+      </div>
+      <div className="text-2xl font-bold">{value}</div>
+      <p className="text-[13px] text-gray-500 mt-1">{label}</p>
+    </Card>
+  );
+}
+
+export default function DashboardPage() {
+  const { user, isAdmin, isLecturer, isHod, isStudent } = useAuth();
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // ADMIN
+  const [deptStats, setDeptStats] = useState<DepartmentStatistics | null>(null);
+  const [courseStats, setCourseStats] = useState<CourseStatistics | null>(null);
+  const [scheduleStats, setScheduleStats] = useState<ScheduleStatistics | null>(null);
+  const [activeSession, setActiveSession] = useState<AcademicSession | null>(null);
+  const [pendingCount, setPendingCount] = useState(0);
+
+  // HOD / LECTURER
+  const [lecturerDashboard, setLecturerDashboard] = useState<LecturerDashboard | null>(null);
+  const [department, setDepartment] = useState<Department | null>(null);
+  const [lecturerSchedules, setLecturerSchedules] = useState<Schedule[]>([]);
+  const [togglingLock, setTogglingLock] = useState(false);
+  const [lockConfirmOpen, setLockConfirmOpen] = useState(false);
+
+  // STUDENT
+  const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [exams, setExams] = useState<Exam[]>([]);
+
+  // Modals
+  const [generateModalOpen, setGenerateModalOpen] = useState(false);
+
+  const fetchAdminData = async () => {
+    const [deptRes, courseRes, schedRes, sessionRes, pendingRes] = await Promise.all([
+      apiClient.getDepartmentStatistics(),
+      apiClient.getCourseStatistics(),
+      apiClient.getScheduleStatistics(),
+      apiClient.getActiveAcademicSession(),
+      apiClient.getPendingComplaints(),
+    ]);
+    if (deptRes.success && deptRes.data) setDeptStats(deptRes.data as DepartmentStatistics);
+    if (courseRes.success && courseRes.data) setCourseStats(courseRes.data as CourseStatistics);
+    if (schedRes.success && schedRes.data) setScheduleStats(schedRes.data as ScheduleStatistics);
+    if (sessionRes.success && sessionRes.data) setActiveSession(sessionRes.data as AcademicSession);
+    if (pendingRes.success && Array.isArray(pendingRes.data)) setPendingCount((pendingRes.data as unknown[]).length);
+    else if (pendingRes.success && (pendingRes.data as any)?.data?.length) setPendingCount((pendingRes.data as any).data.length);
+  };
+
+  const fetchHodData = async () => {
+    if (!user?.departmentCode) return;
+    const [dashRes, deptRes, schedRes] = await Promise.all([
+      apiClient.getLecturerDashboard(),
+      apiClient.getDepartmentByCode(user.departmentCode),
+      apiClient.getLecturerSchedule(),
+    ]);
+    if (dashRes.success && dashRes.data) setLecturerDashboard(dashRes.data as LecturerDashboard);
+    if (deptRes.success && deptRes.data) setDepartment(deptRes.data as Department);
+    const sched = getItemsFromResponse<Schedule>(schedRes);
+    setLecturerSchedules(sched?.items ?? []);
+  };
+
+  const fetchStudentData = async () => {
+    const [schedRes, examRes] = await Promise.all([
+      apiClient.getSchedules(),
+      apiClient.getExams(),
+    ]);
+    const sched = getItemsFromResponse<Schedule>(schedRes);
+    const exam = getItemsFromResponse<Exam>(examRes);
+    setSchedules(sched?.items ?? []);
+    setExams(exam?.items ?? []);
+  };
+
+  useEffect(() => {
+    const run = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        if (isAdmin) await fetchAdminData();
+        else if (isHod || isLecturer) await fetchHodData();
+        else if (isStudent) await fetchStudentData();
+      } catch (e) {
+        setError("Failed to load dashboard");
+      } finally {
+        setLoading(false);
+      }
+    };
+    run();
+  }, [isAdmin, isHod, isLecturer, isStudent, user?.departmentCode]);
+
+  const handleToggleLock = async (): Promise<boolean> => {
+    if (!department || !user?.departmentCode) return false;
+    setTogglingLock(true);
+    try {
+      const fn = department.isScheduleLocked ? apiClient.unlockDepartmentSchedule : apiClient.lockDepartmentSchedule;
+      const res = await fn(department.code);
+      if (res.success) {
+        setDepartment((d) => (d ? { ...d, isScheduleLocked: !d.isScheduleLocked } : null));
+        toast({ title: `Schedule ${department.isScheduleLocked ? "unlocked" : "locked"} for ${department.name}.` });
+        return true;
+      }
+      toast({ title: (res as any).error, variant: "destructive" });
+      return false;
+    } finally {
+      setTogglingLock(false);
+    }
+  };
+
+  const greeting = getGreeting();
+  const firstName = user?.name?.split(" ")[0] || "there";
+
+  if (loading) {
+    return (
+      <div>
+        <h1 className="text-2xl font-semibold">Dashboard</h1>
+        <p className="text-sm text-gray-500 mt-1">{greeting}, {firstName}</p>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i} className="rounded-xl p-5 animate-pulse">
+              <div className="w-10 h-10 rounded-lg bg-gray-200 mb-3" />
+              <div className="h-8 bg-gray-200 rounded w-1/2" />
+              <div className="h-4 bg-gray-200 rounded w-3/4 mt-2" />
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div>
+        <h1 className="text-2xl font-semibold">Dashboard</h1>
+        <div className="mt-6 p-6 border border-red-200 rounded-xl bg-red-50 text-center">
+          <p className="text-red-700">{error}</p>
+          <Button variant="outline" className="mt-4" onClick={() => window.location.reload()}>Retry</Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-2xl font-semibold">Dashboard</h1>
+        <p className="text-sm text-gray-500 mt-1">{greeting}, {user?.name || firstName}</p>
+      </div>
+
+      {/* ADMIN Dashboard */}
+      {isAdmin && (
+        <>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatCard icon={Building2} value={deptStats?.totalDepartments ?? 0} label="Total Departments" iconBg="bg-indigo-500" />
+            <StatCard icon={BookOpen} value={courseStats?.totalCourses ?? 0} label="Total Courses" iconBg="bg-violet-500" />
+            <StatCard icon={Clock} value={scheduleStats?.totalSchedules ?? 0} label="Total Schedules" iconBg="bg-sky-500" />
+            <StatCard icon={CalendarDays} value={activeSession?.name ?? "None"} label="Active Session" iconBg="bg-emerald-500" />
+          </div>
+          {/* Charts row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card className="rounded-xl border p-5">
+              <h3 className="font-semibold mb-4">Courses by Level</h3>
+              <div className="space-y-3">
+                {([Level.LEVEL_100, Level.LEVEL_200, Level.LEVEL_300, Level.LEVEL_400, Level.LEVEL_500] as const).map((l) => {
+                  const count = courseStats?.coursesByLevel?.[l] ?? 0;
+                  const max = Math.max(1, ...Object.values(courseStats?.coursesByLevel ?? {}));
+                  const pct = max ? (count / max) * 100 : 0;
+                  const labels: Record<Level, string> = {
+                    [Level.LEVEL_100]: "100L",
+                    [Level.LEVEL_200]: "200L",
+                    [Level.LEVEL_300]: "300L",
+                    [Level.LEVEL_400]: "400L",
+                    [Level.LEVEL_500]: "500L",
+                  };
+                  return (
+                    <div key={l} className="flex items-center gap-3">
+                      <span className="w-10 text-sm text-gray-600">{labels[l]}</span>
+                      <div className="flex-1 h-6 bg-gray-100 rounded overflow-hidden">
+                        <div className="h-full bg-indigo-500 rounded" style={{ width: `${pct}%` }} />
+                      </div>
+                      <span className="w-8 text-sm font-medium">{count}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+            <Card className="rounded-xl border p-5">
+              <h3 className="font-semibold mb-4">Schedules by Day</h3>
+              <div className="flex items-end justify-between gap-2 h-28">
+                {[DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY].map((d) => {
+                  const count = scheduleStats?.schedulesByDay?.[d] ?? 0;
+                  const vals = Object.values(scheduleStats?.schedulesByDay ?? {}).filter((v): v is number => typeof v === "number");
+                  const max = Math.max(1, ...vals);
+                  const heightPct = max ? (count / max) * 100 : 0;
+                  const labels: Record<DayOfWeek, string> = {
+                    [DayOfWeek.MONDAY]: "Mon",
+                    [DayOfWeek.TUESDAY]: "Tue",
+                    [DayOfWeek.WEDNESDAY]: "Wed",
+                    [DayOfWeek.THURSDAY]: "Thu",
+                    [DayOfWeek.FRIDAY]: "Fri",
+                    [DayOfWeek.SATURDAY]: "Sat",
+                    [DayOfWeek.SUNDAY]: "Sun",
+                  };
+                  return (
+                    <div key={d} className="flex-1 flex flex-col items-center justify-end gap-1">
+                      <span className="text-xs text-gray-500">{count}</span>
+                      <div className="w-full bg-gray-100 rounded-t overflow-hidden" style={{ height: 80 }}>
+                        <div className="w-full bg-violet-500 rounded-t transition-all" style={{ height: `${heightPct}%`, minHeight: count ? 4 : 0 }} />
+                      </div>
+                      <span className="text-xs font-medium text-gray-600">{labels[d]}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Card className="rounded-xl p-5">
+              <h3 className="font-semibold mb-4">Generate Schedules</h3>
+              <p className="text-sm text-gray-500 mb-4">Auto-generate timetables for the active session</p>
+              <Button onClick={() => setGenerateModalOpen(true)}>Generate</Button>
+            </Card>
+            <Card className="rounded-xl p-5">
+              <h3 className="font-semibold mb-4">Pending Complaints</h3>
+              <p className="text-4xl font-bold text-amber-600 mb-4">{pendingCount}</p>
+              <Button asChild variant="outline"><Link href="/complaints">View Complaints</Link></Button>
+            </Card>
+            <Card className="rounded-xl p-5">
+              <h3 className="font-semibold mb-4">Academic Session</h3>
+              <p className="text-sm text-gray-500 mb-4">{activeSession?.name ?? "None"}</p>
+              <Button asChild variant="outline"><Link href="/sessions">Manage Sessions</Link></Button>
+            </Card>
+          </div>
+          <GenerateScheduleModal open={generateModalOpen} onOpenChange={setGenerateModalOpen} onSuccess={fetchAdminData} />
+        </>
+      )}
+
+      {/* HOD Dashboard */}
+      {(isHod || isLecturer) && lecturerDashboard && (
+        <>
+          <div className="grid grid-cols-2 gap-4">
+            <StatCard icon={BookOpen} value={lecturerDashboard.totalCourses} label="My Courses" iconBg="bg-indigo-500" />
+            <StatCard icon={Clock} value={lecturerDashboard.totalSchedules} label="Scheduled Classes" iconBg="bg-violet-500" />
+            <StatCard icon={Calendar} value={lecturerDashboard.upcomingClasses} label="Upcoming Classes" iconBg="bg-sky-500" />
+            {isHod && department && (
+              <Card
+                className="rounded-xl p-5 cursor-pointer flex flex-col justify-center touch-manipulation"
+                onClick={() => setLockConfirmOpen(true)}
+              >
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 ${department.isScheduleLocked ? "bg-amber-500" : "bg-emerald-500"}`}>
+                  {department.isScheduleLocked ? <Lock className="h-5 w-5 text-white" /> : <Unlock className="h-5 w-5 text-white" />}
+                </div>
+                <div className="text-2xl font-bold">{department.isScheduleLocked ? "Locked" : "Unlocked"}</div>
+                <p className="text-[13px] text-gray-500 mt-1">Department Schedule</p>
+              </Card>
+            )}
+          </div>
+          <Card className="rounded-xl p-5">
+            <h3 className="font-semibold mb-2">My Schedule This Week</h3>
+            <MobileTimetable schedules={lecturerSchedules} />
+            <Button asChild variant="outline" className="mt-4"><Link href="/schedules">View Full Schedule</Link></Button>
+          </Card>
+          <ConfirmDialog
+            open={lockConfirmOpen}
+            onOpenChange={setLockConfirmOpen}
+            title={department?.isScheduleLocked ? "Unlock Schedule?" : "Lock Schedule?"}
+            description={
+              department?.isScheduleLocked
+                ? "This will unlock the department schedule. Lecturers and admins will be able to modify schedules again."
+                : `This will lock the schedule for ${department?.name ?? "this department"}. No further changes can be made until it is unlocked.`
+            }
+            icon={department?.isScheduleLocked ? Unlock : Lock}
+            iconClassName={department?.isScheduleLocked ? "bg-green-500 text-white" : "bg-amber-500 text-white"}
+            confirmLabel={department?.isScheduleLocked ? "Unlock" : "Lock"}
+            confirmVariant="default"
+            onConfirm={handleToggleLock}
+            loading={togglingLock}
+          />
+        </>
+      )}
+
+      {/* STUDENT Dashboard */}
+      {isStudent && (
+        <>
+          <div className="grid grid-cols-2 gap-4">
+            <StatCard icon={BookOpen} value={schedules.length} label="Total courses this semester" iconBg="bg-indigo-500" />
+            <StatCard icon={Calendar} value={exams.length} label="Upcoming exams" iconBg="bg-violet-500" />
+            <StatCard icon={Clock} value={exams[0] ? new Date(exams[0].date).toLocaleDateString() : "—"} label="Next exam date" iconBg="bg-sky-500" />
+            <StatCard icon={GraduationCap} value="—" label="Next class today" iconBg="bg-emerald-500" />
+          </div>
+          <Card className="rounded-xl p-5">
+            <h3 className="font-semibold mb-2">This Week&apos;s Schedule</h3>
+            <MobileTimetable schedules={schedules} />
+            <Button asChild variant="outline" className="mt-4"><Link href="/schedules">View Schedules</Link></Button>
+          </Card>
+          <Card className="rounded-xl p-5">
+            <h3 className="font-semibold mb-4">Upcoming Exams</h3>
+            <div className="space-y-2">
+              {exams.slice(0, 5).map((e) => (
+                <div key={e.id} className="flex justify-between text-sm gap-2">
+                  <span className="font-medium">{new Date(e.date).toLocaleDateString()}</span>
+                  <span>{e.courseCode}</span>
+                  <span className="text-gray-500 truncate">{VENUE_LABELS[e.venue] ?? e.venue}</span>
+                </div>
+              ))}
+            </div>
+            <Button asChild variant="outline" className="mt-4"><Link href="/exams">View All Exams</Link></Button>
+          </Card>
+        </>
+      )}
+
+      {/* Fallback for roles without specific dashboard */}
+      {!isAdmin && !isHod && !isLecturer && !isStudent && (
+        <Card className="rounded-xl p-8 text-center">
+          <GraduationCap className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+          <h3 className="font-semibold">Welcome</h3>
+          <p className="text-sm text-gray-500 mt-2">Use the sidebar to navigate.</p>
+        </Card>
+      )}
+    </div>
+  );
 }

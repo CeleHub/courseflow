@@ -2,428 +2,510 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/hooks/use-toast'
 import {
   Building2,
   Search,
-  BookOpen,
-  Users,
-  RefreshCw,
-  GraduationCap,
   Upload,
   Download,
-  FileText,
   Plus,
-  Clock
+  MoreVertical,
+  Lock,
+  Unlock,
+  Filter,
 } from 'lucide-react'
 import { apiClient } from '@/lib/api'
 import { getItemsFromResponse } from '@/lib/utils'
-import { Department } from '@/types'
+import { Department, College } from '@/types'
+import { Textarea } from '@/components/ui/textarea'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+
+function getInitials(name: string | null | undefined): string {
+  if (!name?.trim()) return '?'
+  const parts = name.trim().split(/\s+/)
+  if (parts.length >= 2) return (parts[0][0]! + parts[parts.length - 1]![0]!).toUpperCase()
+  return name.slice(0, 2).toUpperCase()
+}
 
 export default function DepartmentsPage() {
   const router = useRouter()
-  const { isAuthenticated, isAdmin, isLecturer } = useAuth()
+  const { isAdmin, user, isHod } = useAuth()
   const { toast } = useToast()
 
-  // Check if user is staff (admin or lecturer)
-  const isStaff = isAdmin || isLecturer
   const [departments, setDepartments] = useState<Department[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-  const [currentPage, setCurrentPage] = useState(1)
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [hasCourses, setHasCourses] = useState(false)
+  const [withoutCourses, setWithoutCourses] = useState(false)
+  const [limit, setLimit] = useState(25)
+  const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
-  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
+  const [total, setTotal] = useState(0)
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [isUploadOpen, setIsUploadOpen] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isUploading, setIsUploading] = useState(false)
+  const [confirmAction, setConfirmAction] = useState<{ open: boolean; type: 'lock' | 'unlock' | 'delete'; dept: Department | null }>({ open: false, type: 'lock', dept: null })
+  const [actionLoading, setActionLoading] = useState(false)
+  const [editDept, setEditDept] = useState<Department | null>(null)
+  const [editForm, setEditForm] = useState({ name: '', code: '', description: '', college: College.CBAS })
+  const [editSaving, setEditSaving] = useState(false)
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchTerm), 300)
+    return () => clearTimeout(t)
+  }, [searchTerm])
 
   const fetchDepartments = useCallback(async () => {
     try {
       setLoading(true)
-      const response = await apiClient.getDepartments({
-        page: currentPage,
-        limit: 12,
-      })
-      const result = getItemsFromResponse<Department>(response)
+      const params: Record<string, string | number | boolean> = {
+        page,
+        limit,
+        ...(debouncedSearch && { searchTerm: debouncedSearch }),
+        ...(hasCourses && { hasCourses: true }),
+        ...(withoutCourses && { withoutCourses: true }),
+      }
+      const res = await apiClient.getDepartments(params)
+      const result = getItemsFromResponse<Department>(res)
       if (result) {
         setDepartments(result.items)
         setTotalPages(result.totalPages)
+        setTotal(result.total)
       }
-    } catch (error) {
-      console.error('Failed to fetch departments:', error)
+    } catch {
+      toast({ title: 'Failed to load departments', variant: 'destructive' })
     } finally {
       setLoading(false)
     }
-  }, [currentPage])
+  }, [page, limit, debouncedSearch, hasCourses, withoutCourses, toast])
 
   useEffect(() => {
     fetchDepartments()
   }, [fetchDepartments])
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (file && file.type === 'text/csv') {
-      setSelectedFile(file)
-    } else {
-      toast({
-        title: "Invalid File",
-        description: "Please select a CSV file",
-        variant: "destructive",
-      })
+  const filterCount = [hasCourses, withoutCourses].filter(Boolean).length
+
+  const handleDownloadTemplate = async () => {
+    try {
+      const res = await apiClient.getDepartmentsBulkTemplate()
+      if (res.success && res.data) {
+        const raw = res.data as unknown
+        const blob = raw instanceof Blob ? raw : new Blob([typeof raw === 'string' ? raw : String(raw)], { type: 'text/csv' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = 'departments-template.csv'
+        a.click()
+        URL.revokeObjectURL(url)
+        toast({ title: 'Template downloaded' })
+      }
+    } catch {
+      toast({ title: 'Failed to download template', variant: 'destructive' })
     }
   }
 
   const handleBulkUpload = async () => {
-    if (!selectedFile) {
-      toast({
-        title: "No File Selected",
-        description: "Please select a CSV file to upload",
-        variant: "destructive",
-      })
-      return
-    }
-
+    if (!selectedFile) return
     try {
       setIsUploading(true)
-      const response = await apiClient.uploadDepartmentsBulk(selectedFile)
-
-      if (response.success) {
-        toast({
-          title: "Upload Successful",
-          description: "Departments have been uploaded successfully",
-        })
-        setIsUploadDialogOpen(false)
+      const res = await apiClient.uploadDepartmentsBulk(selectedFile)
+      const data = res.data as any
+      if (res.success) {
+        const count = data?.summary?.successCount ?? data?.created?.length ?? 0
+        toast({ title: `${count} departments created successfully.` })
+        setIsUploadOpen(false)
         setSelectedFile(null)
         fetchDepartments()
       } else {
-        toast({
-          title: "Upload Failed",
-          description: response.error || "Failed to upload departments",
-          variant: "destructive",
-        })
+        const sum = data?.summary
+        if (sum && (sum.successCount > 0 || sum.errorCount > 0)) {
+          toast({ title: `${sum.successCount ?? 0} created, ${sum.errorCount ?? 0} failed.`, variant: 'destructive' })
+        } else {
+          toast({ title: res.error || 'Upload failed', variant: 'destructive' })
+        }
       }
-    } catch (error) {
-      console.error('Bulk upload failed:', error)
-      toast({
-        title: "Upload Error",
-        description: "An error occurred during upload",
-        variant: "destructive",
-      })
+    } catch {
+      toast({ title: 'Upload failed', variant: 'destructive' })
     } finally {
       setIsUploading(false)
     }
   }
 
-  const handleDownloadTemplate = async () => {
+  const handleConfirmAction = async (): Promise<boolean> => {
+    const { dept, type } = confirmAction
+    if (!dept) return false
     try {
-      const response = await apiClient.getDepartmentsBulkTemplate()
-      if (response.success && typeof response.data === 'string') {
-        const blob = new Blob([response.data], { type: 'text/csv' })
-        const url = window.URL.createObjectURL(blob)
-        const link = document.createElement('a')
-        link.href = url
-        link.download = 'departments_template.csv'
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-        window.URL.revokeObjectURL(url)
-      } else {
-        toast({
-          title: "Download Failed",
-          description: "Failed to download template",
-          variant: "destructive",
-        })
+      setActionLoading(true)
+      let res: { success?: boolean }
+      if (type === 'lock') res = await apiClient.lockDepartmentSchedule(dept.code)
+      else if (type === 'unlock') res = await apiClient.unlockDepartmentSchedule(dept.code)
+      else res = await apiClient.deleteDepartment(dept.code)
+
+      if (res.success) {
+        if (type === 'lock') toast({ title: `Schedule locked for ${dept.name}.` })
+        else if (type === 'unlock') toast({ title: `Schedule unlocked for ${dept.name}.` })
+        else toast({ title: 'Department deleted.' })
+        fetchDepartments()
+        return true
       }
-    } catch (error) {
-      console.error('Template download failed:', error)
-      toast({
-        title: "Download Error",
-        description: "An error occurred while downloading template",
-        variant: "destructive",
-      })
+      toast({ title: (res as any).error || 'Action failed', variant: 'destructive' })
+      return false
+    } catch {
+      toast({ title: 'Action failed', variant: 'destructive' })
+      return false
+    } finally {
+      setActionLoading(false)
     }
   }
 
-  const filteredDepartments = departments.filter(department =>
-    department.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    department.code.toLowerCase().includes(searchTerm.toLowerCase())
-  )
-
-  const handleReset = () => {
-    setSearchTerm('')
-    setCurrentPage(1)
-  }
+  const canLockUnlock = (d: Department) => isAdmin || (isHod && user?.departmentCode === d.code)
 
   return (
-    <div>
-      <div className="space-y-8">
-        {/* Header */}
-        <div className="mb-10">
-          <div className="flex items-center justify-between flex-wrap gap-4 mb-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary/10 rounded-xl flex-shrink-0">
-                <Building2 className="h-8 w-8 md:h-10 md:w-10 text-primary" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h1 className="text-4xl md:text-5xl font-bold mb-2">
-                  <span className="bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-                    Academic Departments
+    <div className="space-y-6">
+      {/* 6.1 Page header */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold">Departments</h1>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={handleDownloadTemplate}>
+            <Download className="h-4 w-4 mr-2" />
+            Download Template
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setIsUploadOpen(true)}>
+            <Upload className="h-4 w-4 mr-2" />
+            Upload CSV
+          </Button>
+          {isAdmin && (
+            <Button size="sm" onClick={() => router.push('/departments/create')}>
+              <Plus className="h-4 w-4 mr-2" />
+              New Department
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* 6.2 Filter bar */}
+      <div className="rounded-xl border border-gray-200 bg-white p-3 md:p-5">
+        <div className="flex flex-col md:flex-row md:items-center gap-3">
+          <div className="relative flex-1 min-w-0">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Search by name or code..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 h-11 md:h-9"
+            />
+          </div>
+          <div className="hidden md:flex items-center gap-2">
+            <Button
+              variant={hasCourses ? 'default' : 'outline'}
+              size="sm"
+              className="h-9"
+              onClick={() => setHasCourses(!hasCourses)}
+            >
+              Has Courses
+            </Button>
+            <Button
+              variant={withoutCourses ? 'default' : 'outline'}
+              size="sm"
+              className="h-9"
+              onClick={() => setWithoutCourses(!withoutCourses)}
+            >
+              Without Courses
+            </Button>
+            <Select value={String(limit)} onValueChange={(v) => { setLimit(Number(v)); setPage(1); }}>
+              <SelectTrigger className="w-20 h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">10</SelectItem>
+                <SelectItem value="25">25</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <Button
+            variant="outline"
+            className="md:hidden h-11 w-full"
+            onClick={() => setFiltersOpen(true)}
+          >
+            <Filter className="h-4 w-4 mr-2" />
+            Filters {filterCount > 0 && `(${filterCount})`}
+          </Button>
+        </div>
+      </div>
+
+      {/* Mobile filters sheet */}
+      <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Filters</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm font-medium mb-2">Has Courses</p>
+              <Button variant={hasCourses ? 'default' : 'outline'} className="w-full" onClick={() => setHasCourses(!hasCourses)}>
+                {hasCourses ? 'On' : 'Off'}
+              </Button>
+            </div>
+            <div>
+              <p className="text-sm font-medium mb-2">Without Courses</p>
+              <Button variant={withoutCourses ? 'default' : 'outline'} className="w-full" onClick={() => setWithoutCourses(!withoutCourses)}>
+                {withoutCourses ? 'On' : 'Off'}
+              </Button>
+            </div>
+            <div>
+              <p className="text-sm font-medium mb-2">Per page</p>
+              <Select value={String(limit)} onValueChange={(v) => { setLimit(Number(v)); setPage(1); setFiltersOpen(false); }}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="25">25</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button className="w-full h-11" onClick={() => setFiltersOpen(false)}>Apply</Button>
+            <button type="button" className="text-sm text-gray-500 underline" onClick={() => { setHasCourses(false); setWithoutCourses(false); setFiltersOpen(false); }}>Clear Filters</button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 6.3 Departments grid */}
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="h-40 rounded-xl border bg-white animate-pulse" />
+          ))}
+        </div>
+      ) : departments.length === 0 ? (
+        <div className="rounded-xl border border-gray-200 p-12 text-center">
+          <Building2 className="h-16 w-16 mx-auto text-gray-300 mb-4" />
+          <h3 className="text-base font-semibold text-gray-700">No departments yet</h3>
+          <p className="text-sm text-gray-400 mt-2">Add your first department to get started.</p>
+          {isAdmin && (
+            <Button className="mt-4" onClick={() => router.push('/departments/create')}>
+              <Plus className="h-4 w-4 mr-2" />
+              New Department
+            </Button>
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {departments.map((dept) => (
+            <div
+              key={dept.id}
+              className="group flex flex-col min-h-[160px] rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md cursor-pointer"
+              onClick={(e) => { if (!(e.target as HTMLElement).closest('[data-menu]')) router.push(`/departments/${dept.code}`); }}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <Badge variant="outline" className={dept.college === College.CBAS ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-purple-100 text-purple-700 border-purple-200'}>
+                  {dept.college}
+                </Badge>
+                {dept.isScheduleLocked && (
+                  <span title="Schedule locked">
+                    <Lock className="h-4 w-4 text-amber-500" />
                   </span>
-                </h1>
-                <p className="text-lg text-muted-foreground">
-                  Explore departments and discover their course offerings
-                </p>
+                )}
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mt-2">{dept.name}</h3>
+              <span className="text-xs font-mono text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded inline-block mt-1">{dept.code}</span>
+              <p className="text-sm text-gray-500 mt-2 line-clamp-2">{dept.description || '—'}</p>
+              <div className="mt-auto pt-4 border-t flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  {dept.hod ? (
+                    <>
+                      <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-medium text-indigo-700 shrink-0">
+                        {getInitials(dept.hod.name)}
+                      </div>
+                      <span className="text-sm truncate">{dept.hod.name}</span>
+                    </>
+                  ) : (
+                    <span className="text-sm text-gray-400 italic">No HOD assigned</span>
+                  )}
+                </div>
+                <div data-menu>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                      <Button size="icon" variant="ghost" className="h-11 w-11 touch-manipulation">
+                        <MoreVertical className="h-5 w-5" />
+                        <span className="sr-only">Menu</span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => router.push(`/departments/${dept.code}`)}>View Details</DropdownMenuItem>
+                      {isAdmin && <DropdownMenuItem onClick={() => { setEditDept(dept); setEditForm({ name: dept.name, code: dept.code, description: dept.description ?? '', college: dept.college }); }}>Edit Department</DropdownMenuItem>}
+                      {canLockUnlock(dept) && (
+                        <>
+                          <DropdownMenuSeparator />
+                          {!dept.isScheduleLocked && (
+                            <DropdownMenuItem onClick={() => setConfirmAction({ open: true, type: 'lock', dept })}>Lock Schedule</DropdownMenuItem>
+                          )}
+                          {dept.isScheduleLocked && (
+                            <DropdownMenuItem onClick={() => setConfirmAction({ open: true, type: 'unlock', dept })}>Unlock Schedule</DropdownMenuItem>
+                          )}
+                        </>
+                      )}
+                      {isAdmin && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem className="text-red-600" onClick={() => setConfirmAction({ open: true, type: 'delete', dept })}>Delete Department</DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               </div>
             </div>
+          ))}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t">
+          <p className="text-sm text-gray-500">Showing {(page - 1) * limit + 1}–{Math.min(page * limit, total)} of {total} results</p>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>Previous</Button>
+            <span className="text-sm text-gray-500">Page {page} of {totalPages}</span>
+            <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>Next</Button>
           </div>
         </div>
+      )}
 
-        {/* Search and Filters */}
-        <Card className="mb-8 border-2 shadow-sm">
-          <CardHeader className="pb-4">
-            <CardTitle className="text-xl font-semibold flex items-center gap-2">
-              <div className="p-1.5 bg-primary/10 rounded-lg">
-                <Search className="h-5 w-5 text-primary" />
+      {/* Upload modal */}
+      <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle>Upload Departments CSV</DialogTitle>
+            <DialogDescription>Drop your CSV file here or click to browse. Max 5MB.</DialogDescription>
+          </DialogHeader>
+          <div
+            className="border-2 border-dashed border-gray-300 rounded-xl p-10 text-center cursor-pointer hover:border-indigo-400 transition-colors"
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f?.name.endsWith('.csv')) setSelectedFile(f); }}
+            onClick={() => document.getElementById('dept-csv-input')?.click()}
+          >
+            <input
+              id="dept-csv-input"
+              type="file"
+              accept=".csv"
+              className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) setSelectedFile(f); }}
+            />
+            {selectedFile ? (
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-sm font-medium">{selectedFile.name}</span>
+                <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); setSelectedFile(null); }}>×</Button>
               </div>
-              Search Departments
-            </CardTitle>
-            <CardDescription>
-              Find departments by name or code
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search departments..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-
-              <div className="flex gap-2">
-                {isAuthenticated && isAdmin && (
-                  <>
-                    <Button variant="outline" onClick={handleDownloadTemplate}>
-                      <Download className="h-4 w-4 mr-2" />
-                      Template
-                    </Button>
-
-                    <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
-                      <DialogTrigger asChild>
-                        <Button variant="outline">
-                          <Upload className="h-4 w-4 mr-2" />
-                          Bulk Upload
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="sm:max-w-md">
-                        <DialogHeader>
-                          <DialogTitle>Bulk Upload Departments</DialogTitle>
-                          <DialogDescription>
-                            Upload a CSV file to create multiple departments at once
-                          </DialogDescription>
-                        </DialogHeader>
-
-                        <div className="space-y-4">
-                          <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center">
-                            <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                            <div className="space-y-2">
-                              <p className="text-sm text-muted-foreground">
-                                {selectedFile ? selectedFile.name : 'Select a CSV file'}
-                              </p>
-                              <Input
-                                type="file"
-                                accept=".csv"
-                                onChange={handleFileSelect}
-                                className="cursor-pointer"
-                              />
-                            </div>
-                          </div>
-
-                          <div className="text-xs text-muted-foreground space-y-1">
-                            <p>• CSV file should contain columns: name, code</p>
-                            <p>• Download the template for the correct format</p>
-                            <p>• Maximum file size: 5MB</p>
-                          </div>
-                        </div>
-
-                        <DialogFooter>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => setIsUploadDialogOpen(false)}
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            onClick={handleBulkUpload}
-                            disabled={!selectedFile || isUploading}
-                          >
-                            {isUploading ? 'Uploading...' : 'Upload'}
-                          </Button>
-                        </DialogFooter>
-                      </DialogContent>
-                    </Dialog>
-
-                    <Button variant="default" onClick={() => router.push('/departments/create')}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Department
-                    </Button>
-                  </>
-                )}
-
-                <Button variant="outline" onClick={handleReset}>
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Reset
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Departments Grid */}
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[...Array(6)].map((_, index) => (
-              <Card key={index} className="animate-pulse">
-                <CardHeader>
-                  <div className="h-5 bg-gray-200 rounded w-3/4"></div>
-                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="h-4 bg-gray-200 rounded"></div>
-                    <div className="h-4 bg-gray-200 rounded w-5/6"></div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+            ) : (
+              <p className="text-sm text-gray-500">Drop your CSV file here or click to browse</p>
+            )}
           </div>
-        ) : (
-          <>
-            <div className="mb-6 flex items-center justify-between">
-              <p className="text-base font-medium text-muted-foreground">
-                Showing <span className="text-foreground font-semibold">{filteredDepartments.length}</span> of{' '}
-                <span className="text-foreground font-semibold">{departments.length}</span> departments
-              </p>
+          <p className="text-xs text-gray-500">
+            <button type="button" className="underline" onClick={handleDownloadTemplate}>Download template</button>
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsUploadOpen(false)}>Cancel</Button>
+            <Button onClick={handleBulkUpload} disabled={!selectedFile || isUploading}>
+              {isUploading ? 'Uploading…' : 'Upload'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirm dialogs */}
+      {/* Edit modal */}
+      <Dialog open={!!editDept} onOpenChange={(o) => !o && setEditDept(null)}>
+        <DialogContent className="sm:max-w-[520px]">
+          <DialogHeader>
+            <DialogTitle>Edit Department</DialogTitle>
+            <DialogDescription>Update department details.</DialogDescription>
+          </DialogHeader>
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault()
+              if (!editDept) return
+              try {
+                setEditSaving(true)
+                const res = await apiClient.updateDepartment(editDept.code, {
+                  name: editForm.name,
+                  code: editForm.code,
+                  description: editForm.description || undefined,
+                })
+                if (res.success) {
+                  toast({ title: 'Department updated.' })
+                  setEditDept(null)
+                  fetchDepartments()
+                } else toast({ title: (res as any).error, variant: 'destructive' })
+              } catch {
+                toast({ title: 'Update failed', variant: 'destructive' })
+              } finally {
+                setEditSaving(false)
+              }
+            }}
+            className="space-y-4"
+          >
+            <div>
+              <label className="text-sm font-medium">Department name</label>
+              <Input value={editForm.name} onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))} className="mt-1.5" required maxLength={100} />
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredDepartments.map((department) => (
-                <Card 
-                  key={department.id} 
-                  className="transition-all hover:shadow-xl hover:scale-[1.02] border-2 hover:border-primary/20 group cursor-pointer"
-                  onClick={() => router.push(`/departments/${department.code}`)}
-                >
-                  <CardHeader className="pb-4">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex-1">
-                        <Badge variant="outline" className="font-mono text-xs mb-2">
-                          {department.code}
-                        </Badge>
-                        <CardTitle className="text-xl font-semibold leading-tight">
-                          {department.name}
-                        </CardTitle>
-                      </div>
-                      <div className="w-14 h-14 bg-primary/10 dark:bg-primary/20 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                        <Building2 className="h-7 w-7 text-primary" />
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3 pt-3 border-t">
-                      {(department as { _count?: { courses: number } })._count && (
-                        <div className="flex items-center gap-3 text-sm">
-                          <div className="p-1.5 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
-                            <BookOpen className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                          </div>
-                          <span className="text-muted-foreground">
-                            <span className="font-semibold text-foreground">{(department as { _count?: { courses: number } })._count!.courses}</span> Course{(department as { _count?: { courses: number } })._count!.courses !== 1 ? 's' : ''} Available
-                          </span>
-                        </div>
-                      )}
-
-                      <div className="flex items-center gap-3 text-sm">
-                        <div className="p-1.5 bg-green-50 dark:bg-green-950/30 rounded-lg">
-                          <GraduationCap className="h-4 w-4 text-green-600 dark:text-green-400" />
-                        </div>
-                        <span className="text-muted-foreground">Academic Department</span>
-                      </div>
-
-                      {department.createdAt && (
-                        <div className="flex items-center gap-3 text-sm">
-                          <div className="p-1.5 bg-purple-50 dark:bg-purple-950/30 rounded-lg">
-                            <Clock className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                          </div>
-                          <span className="text-muted-foreground">
-                            Established <span className="font-semibold text-foreground">{new Date(department.createdAt).getFullYear()}</span>
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+            <div>
+              <label className="text-sm font-medium">Department code</label>
+              <Input value={editForm.code} onChange={(e) => setEditForm((p) => ({ ...p, code: e.target.value.toUpperCase().slice(0, 4) }))} className="mt-1.5 font-mono" required />
             </div>
+            <div>
+              <label className="text-sm font-medium">Description</label>
+              <Textarea value={editForm.description} onChange={(e) => setEditForm((p) => ({ ...p, description: e.target.value }))} rows={3} className="mt-1.5" maxLength={1000} />
+            </div>
+            <div>
+              <label className="text-sm font-medium">College</label>
+              <Select value={editForm.college} onValueChange={(v) => setEditForm((p) => ({ ...p, college: v as College }))}>
+                <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={College.CBAS}>CBAS</SelectItem>
+                  <SelectItem value={College.CHMS}>CHMS</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEditDept(null)}>Cancel</Button>
+              <Button type="submit" disabled={editSaving}>{editSaving ? 'Saving…' : 'Save Changes'}</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
-            {filteredDepartments.length === 0 && (
-              <Card>
-                <CardContent className="py-8 text-center">
-                  <Building2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">No departments found matching your search</p>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Try adjusting your search terms
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="flex justify-center gap-2 mt-8">
-                <Button
-                  variant="outline"
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                  disabled={currentPage === 1}
-                >
-                  Previous
-                </Button>
-
-                <div className="flex items-center gap-2">
-                  {[...Array(Math.min(5, totalPages))].map((_, index) => {
-                    const page = index + 1
-                    return (
-                      <Button
-                        key={page}
-                        variant={currentPage === page ? "default" : "outline"}
-                        onClick={() => setCurrentPage(page)}
-                        className="w-10"
-                      >
-                        {page}
-                      </Button>
-                    )
-                  })}
-                </div>
-
-                <Button
-                  variant="outline"
-                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage === totalPages}
-                >
-                  Next
-                </Button>
-              </div>
-            )}
-          </>
-        )}
-      </div>
+      <ConfirmDialog open={confirmAction.open && confirmAction.type === 'lock'} onOpenChange={(o) => !o && setConfirmAction({ open: false, type: 'lock', dept: null })} title="Lock schedule?" description={`Lock the schedule for ${confirmAction.dept?.name}. No changes can be made until unlocked.`} icon={Lock} iconClassName="bg-amber-500 text-white" confirmLabel="Lock" onConfirm={handleConfirmAction} loading={actionLoading} />
+      <ConfirmDialog open={confirmAction.open && confirmAction.type === 'unlock'} onOpenChange={(o) => !o && setConfirmAction({ open: false, type: 'unlock', dept: null })} title="Unlock schedule?" description={`Unlock the schedule for ${confirmAction.dept?.name}.`} icon={Unlock} iconClassName="bg-green-500 text-white" confirmLabel="Unlock" onConfirm={handleConfirmAction} loading={actionLoading} />
+      <ConfirmDialog open={confirmAction.open && confirmAction.type === 'delete'} onOpenChange={(o) => !o && setConfirmAction({ open: false, type: 'delete', dept: null })} title="Delete department?" description={`This will permanently deactivate ${confirmAction.dept?.name}. Courses will not be deleted but the department will no longer appear in listings.`} icon={Building2} iconClassName="bg-red-500 text-white" confirmLabel="Delete" confirmVariant="destructive" onConfirm={handleConfirmAction} loading={actionLoading} />
     </div>
   )
 }

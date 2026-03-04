@@ -7,14 +7,8 @@ import {
   AcademicSession,
   CreateAcademicSessionData,
   UpdateAcademicSessionData,
+  SessionStatistics,
 } from '@/types'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -24,20 +18,29 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
+  BarChart2,
   CalendarDays,
-  CheckCircle2,
   Loader2,
+  MoreVertical,
+  Pencil,
   Plus,
-  RefreshCw,
+  Archive,
   Trash2,
 } from 'lucide-react'
 import { getItemsFromResponse } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
 export default function AcademicSessionsPage() {
   const { isAuthenticated, isAdmin } = useAuth()
@@ -45,12 +48,21 @@ export default function AcademicSessionsPage() {
 
   const [sessions, setSessions] = useState<AcademicSession[]>([])
   const [activeSession, setActiveSession] = useState<AcademicSession | null>(null)
+  const [sessionStats, setSessionStats] = useState<Record<string, SessionStatistics>>({})
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
-  const [updatingId, setUpdatingId] = useState<string | null>(null)
-  const [activatingId, setActivatingId] = useState<string | null>(null)
-  const [deletingId, setDeletingId] = useState<string | null>(null)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [editSession, setEditSession] = useState<AcademicSession | null>(null)
+  const [statsSession, setStatsSession] = useState<AcademicSession | null>(null)
+  const [statsLoading, setStatsLoading] = useState(false)
+  const [statsData, setStatsData] = useState<SessionStatistics | null>(null)
+  const [confirmState, setConfirmState] = useState<{
+    open: boolean
+    action: 'activate' | 'archive' | 'delete'
+    session: AcademicSession | null
+  }>({ open: false, action: 'activate', session: null })
+  const [actionLoading, setActionLoading] = useState(false)
+
   const [formData, setFormData] = useState<CreateAcademicSessionData>({
     name: '',
     startDate: '',
@@ -60,193 +72,45 @@ export default function AcademicSessionsPage() {
   const fetchSessions = useCallback(async () => {
     try {
       setLoading(true)
-
       const [listRes, activeRes] = await Promise.all([
-        apiClient.getAcademicSessions({ page: 1, limit: 20 }),
+        apiClient.getAcademicSessions({ page: 1, limit: 50 }),
         apiClient.getActiveAcademicSession(),
       ])
 
       const listResult = getItemsFromResponse<AcademicSession>(listRes)
-      if (listResult) setSessions(listResult.items as AcademicSession[])
+      const items = (listResult?.items ?? []) as AcademicSession[]
+      setSessions(items)
 
       if (activeRes.success && activeRes.data != null) {
         setActiveSession(activeRes.data as AcademicSession)
       } else {
         setActiveSession(null)
       }
+
+      // Fetch stats for each session (for card display)
+      const stats: Record<string, SessionStatistics> = {}
+      await Promise.all(
+        items.map(async (s) => {
+          try {
+            const res = await apiClient.getSessionStatistics(s.id)
+            if (res.success && res.data) stats[s.id] = res.data as SessionStatistics
+          } catch {
+            // ignore per-session failures
+          }
+        })
+      )
+      setSessionStats(stats)
     } catch (error) {
       console.error('Failed to fetch academic sessions:', error)
-      toast({
-        title: 'Error',
-        description: 'Failed to load academic sessions',
-        variant: 'destructive',
-      })
+      toast({ title: 'Failed to load academic sessions', variant: 'destructive' })
     } finally {
       setLoading(false)
     }
   }, [toast])
 
   useEffect(() => {
-    if (isAuthenticated && isAdmin) {
-      fetchSessions()
-    }
+    if (isAuthenticated && isAdmin) fetchSessions()
   }, [isAuthenticated, isAdmin, fetchSessions])
-
-  if (!isAdmin) {
-    return (
-      <div className="text-center py-16">
-        <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
-        <p className="text-muted-foreground">
-          You need admin privileges to manage academic sessions.
-        </p>
-      </div>
-    )
-  }
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
-  }
-
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (!formData.name.trim() || !formData.startDate || !formData.endDate) {
-      toast({
-        title: 'Validation Error',
-        description: 'Please fill in name, start date and end date',
-        variant: 'destructive',
-      })
-      return
-    }
-
-    try {
-      setCreating(true)
-      const payload: CreateAcademicSessionData = {
-        ...formData,
-        // ensure ISO strings if the API expects them
-        startDate: new Date(formData.startDate).toISOString(),
-        endDate: new Date(formData.endDate).toISOString(),
-      }
-
-      const res = await apiClient.createAcademicSession(payload)
-      if (res.success) {
-        toast({
-          title: 'Session Created',
-          description: 'Academic session created successfully.',
-        })
-        setIsCreateDialogOpen(false)
-        setFormData({ name: '', startDate: '', endDate: '' })
-        fetchSessions()
-      } else {
-        toast({
-          title: 'Error',
-          description: res.error || 'Failed to create session',
-          variant: 'destructive',
-        })
-      }
-    } catch (error) {
-      console.error('Create session failed:', error)
-      toast({
-        title: 'Error',
-        description: 'An unexpected error occurred',
-        variant: 'destructive',
-      })
-    } finally {
-      setCreating(false)
-    }
-  }
-
-  const handleActivate = async (id: string) => {
-    try {
-      setActivatingId(id)
-      const res = await apiClient.activateAcademicSession(id)
-      if (res.success) {
-        toast({
-          title: 'Session Activated',
-          description: 'Active academic session updated.',
-        })
-        fetchSessions()
-      } else {
-        toast({
-          title: 'Error',
-          description: res.error || 'Failed to activate session',
-          variant: 'destructive',
-        })
-      }
-    } catch (error) {
-      console.error('Activate session failed:', error)
-      toast({
-        title: 'Error',
-        description: 'An unexpected error occurred',
-        variant: 'destructive',
-      })
-    } finally {
-      setActivatingId(null)
-    }
-  }
-
-  const handleUpdateDates = async (id: string, patch: UpdateAcademicSessionData) => {
-    try {
-      setUpdatingId(id)
-      const res = await apiClient.updateAcademicSession(id, patch)
-      if (res.success) {
-        toast({
-          title: 'Session Updated',
-          description: 'Academic session updated successfully.',
-        })
-        fetchSessions()
-      } else {
-        toast({
-          title: 'Error',
-          description: res.error || 'Failed to update session',
-          variant: 'destructive',
-        })
-      }
-    } catch (error) {
-      console.error('Update session failed:', error)
-      toast({
-        title: 'Error',
-        description: 'An unexpected error occurred',
-        variant: 'destructive',
-      })
-    } finally {
-      setUpdatingId(null)
-    }
-  }
-
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this session?')) return
-
-    try {
-      setDeletingId(id)
-      const res = await apiClient.deleteAcademicSession(id)
-      if (res.success) {
-        toast({
-          title: 'Session Deleted',
-          description: 'Academic session deleted successfully.',
-        })
-        fetchSessions()
-      } else {
-        toast({
-          title: 'Error',
-          description:
-            res.error ||
-            'Failed to delete session. It may have linked schedules or exams.',
-          variant: 'destructive',
-        })
-      }
-    } catch (error) {
-      console.error('Delete session failed:', error)
-      toast({
-        title: 'Error',
-        description: 'An unexpected error occurred',
-        variant: 'destructive',
-      })
-    } finally {
-      setDeletingId(null)
-    }
-  }
 
   const formatDate = (iso: string) =>
     new Date(iso).toLocaleDateString(undefined, {
@@ -255,216 +119,400 @@ export default function AcademicSessionsPage() {
       day: 'numeric',
     })
 
-  return (
-    <div>
-      <div className="space-y-8">
-        <div className="flex items-center justify-between gap-4 mb-8">
-          <div>
-            <h1 className="text-3xl font-bold flex items-center gap-2">
-              <CalendarDays className="h-7 w-7 text-primary" />
-              Academic Sessions
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              Manage academic years and control which session is currently active.
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={fetchSessions}
-              disabled={loading}
-            >
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
-            </Button>
-            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  New Session
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Create Academic Session</DialogTitle>
-                  <DialogDescription>
-                    Define the academic year and its start/end dates.
-                  </DialogDescription>
-                </DialogHeader>
-                <form onSubmit={handleCreate} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Name</Label>
-                    <Input
-                      id="name"
-                      name="name"
-                      value={formData.name}
-                      onChange={handleInputChange}
-                      placeholder="e.g., 2024/2025"
-                      required
-                    />
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="startDate">Start Date</Label>
-                      <Input
-                        id="startDate"
-                        name="startDate"
-                        type="date"
-                        value={formData.startDate}
-                        onChange={handleInputChange}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="endDate">End Date</Label>
-                      <Input
-                        id="endDate"
-                        name="endDate"
-                        type="date"
-                        value={formData.endDate}
-                        onChange={handleInputChange}
-                        required
-                      />
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setIsCreateDialogOpen(false)}
-                      disabled={creating}
-                    >
-                      Cancel
-                    </Button>
-                    <Button type="submit" disabled={creating}>
-                      {creating && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                      Create Session
-                    </Button>
-                  </DialogFooter>
-                </form>
-              </DialogContent>
-            </Dialog>
-          </div>
-        </div>
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!formData.name?.trim() || !formData.startDate || !formData.endDate) {
+      toast({ title: 'Please fill name, start date and end date', variant: 'destructive' })
+      return
+    }
+    try {
+      setCreating(true)
+      const res = await apiClient.createAcademicSession({
+        ...formData,
+        startDate: new Date(formData.startDate).toISOString().split('T')[0],
+        endDate: new Date(formData.endDate).toISOString().split('T')[0],
+      })
+      if (res.success) {
+        toast({ title: 'Session created.' })
+        setIsCreateDialogOpen(false)
+        setFormData({ name: '', startDate: '', endDate: '' })
+        fetchSessions()
+      } else {
+        toast({ title: (res as any).error || 'Failed to create', variant: 'destructive' })
+      }
+    } catch {
+      toast({ title: 'Failed to create session', variant: 'destructive' })
+    } finally {
+      setCreating(false)
+    }
+  }
 
-        {activeSession && (
-          <Card className="mb-8 border-2 border-primary/30 bg-primary/5">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <CheckCircle2 className="h-5 w-5 text-primary" />
-                  Active Session: {activeSession.name}
-                </CardTitle>
-                <CardDescription>
-                  {formatDate(activeSession.startDate)} –{' '}
-                  {formatDate(activeSession.endDate)}
-                </CardDescription>
-              </div>
-              <Badge variant="secondary">Active</Badge>
-            </CardHeader>
-          </Card>
-        )}
+  const handleEdit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editSession) return
+    const d = formData
+    if (!d.name?.trim() || !d.startDate || !d.endDate) {
+      toast({ title: 'Please fill all fields', variant: 'destructive' })
+      return
+    }
+    try {
+      setCreating(true)
+      const res = await apiClient.updateAcademicSession(editSession.id, {
+        name: d.name,
+        startDate: new Date(d.startDate).toISOString().split('T')[0],
+        endDate: new Date(d.endDate).toISOString().split('T')[0],
+      })
+      if (res.success) {
+        toast({ title: 'Session updated.' })
+        setEditSession(null)
+        fetchSessions()
+      } else {
+        toast({ title: (res as any).error || 'Failed to update', variant: 'destructive' })
+      }
+    } catch {
+      toast({ title: 'Failed to update', variant: 'destructive' })
+    } finally {
+      setCreating(false)
+    }
+  }
 
-        <Card>
-          <CardHeader>
-            <CardTitle>All Sessions</CardTitle>
-            <CardDescription>
-              Only one session can be active at a time. You cannot delete sessions
-              that have linked schedules or exams.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="space-y-3">
-                {[...Array(3)].map((_, i) => (
-                  <div key={i} className="h-16 rounded-lg bg-muted animate-pulse" />
-                ))}
-              </div>
-            ) : sessions.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No academic sessions have been created yet.
-              </p>
-            ) : (
-              <div className="space-y-4">
-                {sessions.map(session => {
-                  const isActive = activeSession?.id === session.id || session.isActive
-                  return (
-                    <div
-                      key={session.id}
-                      className="flex flex-col md:flex-row md:items-center justify-between gap-3 border rounded-lg p-4 bg-background"
-                    >
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-base">
-                            {session.name}
-                          </span>
-                          {isActive && (
-                            <Badge variant="secondary" className="text-xs">
-                              Active
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          {formatDate(session.startDate)} –{' '}
-                          {formatDate(session.endDate)}
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {!isActive && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleActivate(session.id)}
-                            disabled={activatingId === session.id}
-                          >
-                            {activatingId === session.id && (
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            )}
-                            Set Active
-                          </Button>
-                        )}
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() =>
-                            handleUpdateDates(session.id, {
-                              endDate: new Date(session.endDate).toISOString(),
-                            })
-                          }
-                          disabled={updatingId === session.id}
-                        >
-                          {updatingId === session.id && (
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          )}
-                          Save Dates
-                        </Button>
-                        {!isActive && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-red-600 hover:text-red-700"
-                            onClick={() => handleDelete(session.id)}
-                            disabled={deletingId === session.id}
-                          >
-                            {deletingId === session.id ? (
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            ) : (
-                              <Trash2 className="h-4 w-4 mr-2" />
-                            )}
-                            Delete
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+  const openStatsModal = async (session: AcademicSession) => {
+    setStatsSession(session)
+    setStatsData(null)
+    setStatsLoading(true)
+    try {
+      const res = await apiClient.getSessionStatistics(session.id)
+      if (res.success && res.data) setStatsData(res.data as SessionStatistics)
+    } catch {
+      toast({ title: 'Failed to load statistics', variant: 'destructive' })
+    } finally {
+      setStatsLoading(false)
+    }
+  }
+
+  const handleConfirmAction = async (): Promise<boolean> => {
+    const { session, action } = confirmState
+    if (!session) return false
+    try {
+      setActionLoading(true)
+      let res: { success?: boolean }
+      if (action === 'activate') res = await apiClient.activateAcademicSession(session.id)
+      else if (action === 'archive') res = await apiClient.archiveAcademicSession(session.id)
+      else res = await apiClient.deleteAcademicSession(session.id)
+
+      if (res.success) {
+        if (action === 'activate') toast({ title: `${session.name} is now the active session.` })
+        else if (action === 'archive') toast({ title: 'Session archived.', variant: 'default' })
+        else toast({ title: 'Session deleted.' })
+        fetchSessions()
+        return true
+      }
+      toast({ title: (res as any).error || 'Action failed', variant: 'destructive' })
+      return false
+    } catch {
+      toast({ title: 'Action failed', variant: 'destructive' })
+      return false
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="text-center py-16">
+        <h1 className="text-2xl font-semibold mb-4">Access Denied</h1>
+        <p className="text-gray-500">You need admin privileges to manage academic sessions.</p>
       </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* 5.1 Page header */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold">Academic Sessions</h1>
+        <Button size="default" className="h-10" onClick={() => setIsCreateDialogOpen(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          New Session
+        </Button>
+      </div>
+
+      {/* Sessions list - 5.2 */}
+      {loading ? (
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-24 rounded-xl border bg-white animate-pulse" />
+          ))}
+        </div>
+      ) : sessions.length === 0 ? (
+        <div className="rounded-xl border border-gray-200 p-8 text-center">
+          <CalendarDays className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+          <p className="text-gray-500">No academic sessions have been created yet.</p>
+          <Button className="mt-4" onClick={() => setIsCreateDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            New Session
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {sessions.map((session) => {
+            const isActive = activeSession?.id === session.id || session.isActive
+            const stats = sessionStats[session.id]
+            const schedCount = stats?.totalSchedules ?? '—'
+            const examCount = stats?.totalExams ?? '—'
+
+            return (
+              <div
+                key={session.id}
+                className="flex flex-col md:flex-row md:items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-5 shadow-sm"
+              >
+                <div className="space-y-1 min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant={isActive ? 'default' : 'secondary'} className={isActive ? 'bg-green-600' : ''}>
+                        {isActive ? 'Active' : 'Archived'}
+                      </Badge>
+                      <span className="text-xl font-semibold">{session.name}</span>
+                    </div>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <div className="hidden md:flex items-center gap-1">
+                        {!isActive && (
+                          <Button size="sm" variant="outline" className="h-9" onClick={() => setConfirmState({ open: true, action: 'activate', session })} disabled={actionLoading}>
+                            Activate
+                          </Button>
+                        )}
+                        {isActive && (
+                          <Button size="sm" variant="outline" className="h-9" onClick={() => setConfirmState({ open: true, action: 'archive', session })} disabled={actionLoading}>
+                            Archive
+                          </Button>
+                        )}
+                        <Button size="icon" variant="ghost" className="h-11 w-11 touch-manipulation" onClick={() => openStatsModal(session)}>
+                          <BarChart2 className="h-5 w-5" />
+                          <span className="sr-only">Statistics</span>
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-11 w-11 touch-manipulation" onClick={() => { setEditSession(session); setFormData({ name: session.name, startDate: session.startDate.split('T')[0], endDate: session.endDate.split('T')[0] }); }}>
+                          <Pencil className="h-5 w-5" />
+                          <span className="sr-only">Edit</span>
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-11 w-11 text-red-600 hover:text-red-700 touch-manipulation" onClick={() => setConfirmState({ open: true, action: 'delete', session })} disabled={actionLoading}>
+                          <Trash2 className="h-5 w-5" />
+                          <span className="sr-only">Delete</span>
+                        </Button>
+                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button size="icon" variant="ghost" className="h-11 w-11 md:hidden touch-manipulation">
+                            <MoreVertical className="h-5 w-5" />
+                            <span className="sr-only">Actions</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                          {!isActive && <DropdownMenuItem onClick={() => setConfirmState({ open: true, action: 'activate', session })}>Activate</DropdownMenuItem>}
+                          {isActive && <DropdownMenuItem onClick={() => setConfirmState({ open: true, action: 'archive', session })}>Archive</DropdownMenuItem>}
+                          <DropdownMenuItem onClick={() => openStatsModal(session)}>Statistics</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => { setEditSession(session); setFormData({ name: session.name, startDate: session.startDate.split('T')[0], endDate: session.endDate.split('T')[0] }); }}>Edit</DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem className="text-red-600" onClick={() => setConfirmState({ open: true, action: 'delete', session })}>Delete</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                  <p className="text-sm text-gray-500">
+                    {formatDate(session.startDate)} → {formatDate(session.endDate)}
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    {schedCount} schedules · {examCount} exams
+                  </p>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* 5.3 Create Modal */}
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle>Create Academic Session</DialogTitle>
+            <DialogDescription>Define the academic year and its start/end dates.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleCreate} className="space-y-4">
+            <div>
+              <Label htmlFor="create-name">Session name</Label>
+              <Input
+                id="create-name"
+                name="name"
+                value={formData.name}
+                onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
+                placeholder="e.g. 2024/2025"
+                className="mt-1.5"
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="create-start">Start date</Label>
+              <Input
+                id="create-start"
+                name="startDate"
+                type="date"
+                value={formData.startDate}
+                onChange={(e) => setFormData((p) => ({ ...p, startDate: e.target.value }))}
+                className="mt-1.5"
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="create-end">End date</Label>
+              <Input
+                id="create-end"
+                name="endDate"
+                type="date"
+                value={formData.endDate}
+                onChange={(e) => setFormData((p) => ({ ...p, endDate: e.target.value }))}
+                className="mt-1.5"
+                required
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)} disabled={creating}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={creating}>
+                {creating && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Create Session
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* 5.3 Edit Modal */}
+      <Dialog open={!!editSession} onOpenChange={(o) => !o && setEditSession(null)}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle>Edit Session</DialogTitle>
+            <DialogDescription>Update the academic session details.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleEdit} className="space-y-4">
+            <div>
+              <Label htmlFor="edit-name">Session name</Label>
+              <Input
+                id="edit-name"
+                value={formData.name}
+                onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
+                placeholder="e.g. 2024/2025"
+                className="mt-1.5"
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-start">Start date</Label>
+              <Input
+                id="edit-start"
+                type="date"
+                value={formData.startDate}
+                onChange={(e) => setFormData((p) => ({ ...p, startDate: e.target.value }))}
+                className="mt-1.5"
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-end">End date</Label>
+              <Input
+                id="edit-end"
+                type="date"
+                value={formData.endDate}
+                onChange={(e) => setFormData((p) => ({ ...p, endDate: e.target.value }))}
+                className="mt-1.5"
+                required
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEditSession(null)} disabled={creating}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={creating}>
+                {creating && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Save Changes
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* 5.4 Statistics Modal */}
+      <Dialog open={!!statsSession} onOpenChange={(o) => !o && setStatsSession(null)}>
+        <DialogContent className="sm:max-w-[440px]">
+          <DialogHeader>
+            <DialogTitle>Statistics — {statsSession?.name ?? ''}</DialogTitle>
+          </DialogHeader>
+          {statsLoading ? (
+            <div className="grid grid-cols-2 gap-4 py-6">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-16 rounded-lg bg-gray-100 animate-pulse" />
+              ))}
+            </div>
+          ) : statsData ? (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="rounded-lg border p-4">
+                <p className="text-sm text-gray-500">Total Schedules</p>
+                <p className="text-2xl font-bold">{statsData.totalSchedules}</p>
+              </div>
+              <div className="rounded-lg border p-4">
+                <p className="text-sm text-gray-500">First Semester Schedules</p>
+                <p className="text-2xl font-bold">{statsData.schedulesBySemester?.FIRST ?? 0}</p>
+              </div>
+              <div className="rounded-lg border p-4">
+                <p className="text-sm text-gray-500">Second Semester Schedules</p>
+                <p className="text-2xl font-bold">{statsData.schedulesBySemester?.SECOND ?? 0}</p>
+              </div>
+              <div className="rounded-lg border p-4">
+                <p className="text-sm text-gray-500">Total Exams</p>
+                <p className="text-2xl font-bold">{statsData.totalExams}</p>
+              </div>
+            </div>
+          ) : (
+            <p className="text-gray-500 py-4">Failed to load statistics.</p>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmation dialogs */}
+      <ConfirmDialog
+        open={confirmState.open && confirmState.action === 'activate'}
+        onOpenChange={(o) => !o && setConfirmState({ open: false, action: 'activate', session: null })}
+        title="Activate session?"
+        description={`Make "${confirmState.session?.name}" the active academic session?`}
+        icon={CalendarDays}
+        confirmLabel="Activate"
+        onConfirm={handleConfirmAction}
+        loading={actionLoading}
+      />
+      <ConfirmDialog
+        open={confirmState.open && confirmState.action === 'archive'}
+        onOpenChange={(o) => !o && setConfirmState({ open: false, action: 'archive', session: null })}
+        title="Archive session?"
+        description="This will archive the session. You can activate it again later."
+        icon={Archive}
+        iconClassName="bg-amber-500 text-white"
+        confirmLabel="Archive"
+        confirmVariant="outline"
+        onConfirm={handleConfirmAction}
+        loading={actionLoading}
+      />
+      <ConfirmDialog
+        open={confirmState.open && confirmState.action === 'delete'}
+        onOpenChange={(o) => !o && setConfirmState({ open: false, action: 'delete', session: null })}
+        title="Delete session?"
+        description={`This will permanently delete "${confirmState.session?.name}". Sessions with linked schedules or exams cannot be deleted.`}
+        icon={Trash2}
+        iconClassName="bg-red-500 text-white"
+        confirmLabel="Delete"
+        confirmVariant="destructive"
+        onConfirm={handleConfirmAction}
+        loading={actionLoading}
+      />
     </div>
   )
 }
-
-
