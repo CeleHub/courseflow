@@ -18,17 +18,24 @@ export default function LoginPage() {
   const { login } = useAuth();
   const router = useRouter();
 
+  const [error, setError] = useState("");
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
     setIsLoading(true);
 
     try {
-      const success = await login({ email, password });
-      if (success) {
+      const result = await login({ email, password });
+      if (result.success) {
         router.push("/dashboard");
+      } else {
+        setError(result.error || "Invalid credentials");
+        setPassword("");
       }
-    } catch (error) {
-      console.error("Login error:", error);
+    } catch (err) {
+      setError("An unexpected error occurred");
+      setPassword("");
     } finally {
       setIsLoading(false);
     }
@@ -42,6 +49,11 @@ export default function LoginPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">
+        {error && (
+          <div className="p-3 rounded-lg bg-red-50 text-red-700 text-sm">
+            {error}
+          </div>
+        )}
         <div className="space-y-2">
           <Label htmlFor="email">Email address</Label>
           <Input
@@ -56,15 +68,7 @@ export default function LoginPage() {
         </div>
 
         <div className="space-y-2">
-          <div className="flex justify-between items-center">
-            <Label htmlFor="password">Password</Label>
-            <Link
-              href="/forgot-password"
-              className="text-sm text-indigo-600 hover:underline"
-            >
-              Forgot password?
-            </Link>
-          </div>
+          <Label htmlFor="password">Password</Label>
           <div className="relative">
             <Input
               id="password"
@@ -83,6 +87,14 @@ export default function LoginPage() {
             >
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
+          </div>
+          <div className="flex justify-end">
+            <Link
+              href="/forgot-password"
+              className="text-sm text-indigo-600 hover:underline"
+            >
+              Forgot password?
+            </Link>
           </div>
         </div>
 

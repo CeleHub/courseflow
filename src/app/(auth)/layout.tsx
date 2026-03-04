@@ -16,9 +16,15 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           </p>
         </div>
       </div>
-      {/* Right: form area */}
-      <div className="flex-1 flex items-center justify-center p-6 lg:p-12 bg-white">
-        <div className="w-full max-w-md">{children}</div>
+      {/* Right: form area; mobile/tablet: logo at top + form below */}
+      <div className="flex-1 flex flex-col lg:flex-row lg:items-center justify-center p-6 lg:p-12 bg-white">
+        {/* Logo centered at top (mobile/tablet only) */}
+        <div className="lg:hidden text-center pt-8 pb-4">
+          <GraduationCap className="h-16 w-16 mx-auto mb-4 text-indigo-600" />
+          <h1 className="text-2xl font-bold text-indigo-600">CourseFlow</h1>
+          <p className="text-sm text-gray-500 mt-1">Manage your university, effortlessly.</p>
+        </div>
+        <div className="w-full max-w-md flex-1 flex flex-col justify-center">{children}</div>
       </div>
     </div>
   );

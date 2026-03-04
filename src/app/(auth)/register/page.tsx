@@ -32,6 +32,7 @@ export default function RegisterPage() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [deptLoading, setDeptLoading] = useState(true);
   const [deptError, setDeptError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const { register } = useAuth();
   const { toast } = useToast();
@@ -72,6 +73,7 @@ export default function RegisterPage() {
       toast({ title: "Verification code is required", variant: "destructive" });
       return;
     }
+    setSubmitError(null);
     setIsLoading(true);
     try {
       const payload: any = {
@@ -84,10 +86,11 @@ export default function RegisterPage() {
         departmentCode: needsDepartment ? formData.departmentCode : undefined,
         phone: formData.phone.trim() || undefined,
       };
-      const success = await register(payload);
-      if (success) router.push("/dashboard");
-    } catch (error) {
-      console.error("Registration error:", error);
+      const result = await register(payload);
+      if (result.success) router.push("/dashboard");
+      else setSubmitError(result.error || "Registration failed");
+    } catch (err) {
+      setSubmitError("An unexpected error occurred");
     } finally {
       setIsLoading(false);
     }
@@ -113,6 +116,11 @@ export default function RegisterPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        {submitError && (
+          <div className="p-3 rounded-lg bg-red-50 text-red-700 text-sm">
+            {submitError}
+          </div>
+        )}
         <div className="space-y-2">
           <Label htmlFor="name">Full name</Label>
           <Input

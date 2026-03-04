@@ -9,8 +9,8 @@ import { useToast } from '@/hooks/use-toast'
 interface AuthContextType {
   user: User | null
   loading: boolean
-  login: (data: LoginData) => Promise<boolean>
-  register: (data: RegisterData) => Promise<boolean>
+  login: (data: LoginData) => Promise<{ success: boolean; error?: string }>
+  register: (data: RegisterData) => Promise<{ success: boolean; error?: string }>
   logout: () => void
   isAuthenticated: boolean
   isAdmin: boolean
@@ -86,7 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     validateToken()
   }, [logout])
 
-  const login = async (data: LoginData): Promise<boolean> => {
+  const login = async (data: LoginData): Promise<{ success: boolean; error?: string }> => {
     try {
       setLoading(true)
       const response = await apiClient.login(data.email, data.password)
@@ -96,7 +96,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(authData.user as User)
         apiClient.setToken(authData.access_token)
 
-        // Store user data in localStorage
         localStorage.setItem('user', JSON.stringify(authData.user as User))
 
         toast({
@@ -104,28 +103,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           description: `Welcome back, ${authData.user?.name ?? authData.user?.email ?? "User"}!`,
         })
 
-        return true
+        return { success: true }
       } else {
-        toast({
-          title: "Login Failed",
-          description: response.error || "Invalid credentials",
-          variant: "destructive",
-        })
-        return false
+        return { success: false, error: response.error || "Invalid credentials" }
       }
     } catch (error) {
-      toast({
-        title: "Login Error",
-        description: "An unexpected error occurred",
-        variant: "destructive",
-      })
-      return false
+      return { success: false, error: "An unexpected error occurred" }
     } finally {
       setLoading(false)
     }
   }
 
-  const register = async (data: RegisterData): Promise<boolean> => {
+  const register = async (data: RegisterData): Promise<{ success: boolean; error?: string }> => {
     try {
       setLoading(true)
       const response = await apiClient.register(data)
@@ -135,7 +124,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(authData.user as User)
         apiClient.setToken(authData.access_token)
 
-        // Store user data in localStorage
         localStorage.setItem('user', JSON.stringify(authData.user as User))
 
         toast({
@@ -143,22 +131,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           description: `Welcome to CourseFlow, ${authData.user?.name ?? authData.user?.email ?? "User"}!`,
         })
 
-        return true
+        return { success: true }
       } else {
-        toast({
-          title: "Registration Failed",
-          description: response.error || "Registration failed",
-          variant: "destructive",
-        })
-        return false
+        return { success: false, error: response.error || "Registration failed" }
       }
     } catch (error) {
-      toast({
-        title: "Registration Error",
-        description: "An unexpected error occurred",
-        variant: "destructive",
-      })
-      return false
+      return { success: false, error: "An unexpected error occurred" }
     } finally {
       setLoading(false)
     }
