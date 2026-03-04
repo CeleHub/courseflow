@@ -102,7 +102,7 @@ function MobileTimetable({ schedules }: { schedules: Schedule[] }) {
             key={d}
             type="button"
             onClick={() => setSelectedDay(d)}
-            className={`min-w-[52px] h-9 rounded-full px-3 text-sm font-medium shrink-0 touch-manipulation ${selectedDay === d ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-700"}`}
+            className={`min-w-[52px] min-h-[44px] h-11 rounded-full px-3 text-sm font-medium shrink-0 touch-manipulation ${selectedDay === d ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-700"}`}
           >
             {DAY_LABELS[d]}
           </button>

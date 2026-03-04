@@ -518,7 +518,7 @@ export default function ExamsPage() {
                       <button
                         key={c.code}
                         type="button"
-                        className="w-full px-3 py-2.5 text-left text-sm hover:bg-gray-100 first:rounded-t-lg last:rounded-b-lg focus:bg-gray-100 focus:outline-none"
+                        className="w-full px-3 py-2.5 text-left text-sm hover:bg-gray-100 first:rounded-t-lg last:rounded-b-lg focus:bg-gray-100 focus:outline-2 focus:outline-indigo-600 focus:outline-offset-2"
                         onClick={() => {
                           setFormData((p) => ({ ...p, courseCode: c.code }))
                           setCourseComboboxQuery('')

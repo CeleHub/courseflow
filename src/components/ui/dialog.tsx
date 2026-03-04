@@ -49,7 +49,7 @@ const DialogContent = React.forwardRef<
       {/* Mobile-only drag handle */}
       <div className="hidden max-sm:block w-10 h-1 mx-auto mb-1 rounded-full bg-gray-300 flex-shrink-0" aria-hidden />
       {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 size-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 touch-manipulation data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+      <DialogPrimitive.Close className="absolute right-4 top-4 size-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-2 focus:outline-indigo-600 focus:outline-offset-2 touch-manipulation data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
         <X className="h-5 w-5" />
         <span className="sr-only">Close</span>
       </DialogPrimitive.Close>
