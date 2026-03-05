@@ -230,8 +230,8 @@ export default function CoursesPage() {
   const canEditCourse = (c: Course) => isAdmin || (isHod && user?.departmentCode === c.departmentCode);
 
   return (
-    <div className="space-y-6">
-      {/* 7.1 Page header */}
+    <div className="space-y-4">
+      {/* 7.1 Page header — filter bar margin-top 16px, courses margin-top 16px */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Courses</h1>
         <div className="flex items-center gap-2">

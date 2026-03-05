@@ -45,10 +45,12 @@ import {
   Lock,
   Unlock,
   Filter,
+  FileUp,
+  X,
 } from 'lucide-react'
 import { apiClient } from '@/lib/api'
 import { getItemsFromResponse } from '@/lib/utils'
-import { Department, College } from '@/types'
+import { Department, College, BulkOperationResult } from '@/types'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -81,6 +83,24 @@ export default function DepartmentsPage() {
   const [isUploadOpen, setIsUploadOpen] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isUploading, setIsUploading] = useState(false)
+  const [uploadResult, setUploadResult] = useState<{ type: 'success' | 'mixed'; summary: { successCount: number; errorCount: number }; errors?: Array<{ row: number; field: string; value: unknown; message: string }> } | null>(null)
+
+  const FILE_SIZE_LIMIT = 5 * 1024 * 1024 // 5MB
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  }
+
+  const handleFileSelect = (file: File | null) => {
+    if (file && file.size > FILE_SIZE_LIMIT) {
+      toast({ title: 'File too large. Max 5MB.', variant: 'destructive' })
+      return
+    }
+    setSelectedFile(file)
+    setUploadResult(null)
+  }
   const [confirmAction, setConfirmAction] = useState<{ open: boolean; type: 'lock' | 'unlock' | 'delete'; dept: Department | null }>({ open: false, type: 'lock', dept: null })
   const [actionLoading, setActionLoading] = useState(false)
   const [editDept, setEditDept] = useState<Department | null>(null)
@@ -147,29 +167,42 @@ export default function DepartmentsPage() {
 
   const handleBulkUpload = async () => {
     if (!selectedFile) return
+    if (selectedFile.size > FILE_SIZE_LIMIT) {
+      toast({ title: 'File too large. Max 5MB.', variant: 'destructive' })
+      return
+    }
     try {
       setIsUploading(true)
+      setUploadResult(null)
       const res = await apiClient.uploadDepartmentsBulk(selectedFile)
-      const data = res.data as any
-      if (res.success) {
-        const count = data?.summary?.successCount ?? data?.created?.length ?? 0
-        toast({ title: `${count} departments created successfully.` })
-        setIsUploadOpen(false)
-        setSelectedFile(null)
+      const data = res.data as BulkOperationResult<Department> | undefined
+      const sum = data?.summary
+      if (res.success && data) {
+        const count = sum?.successCount ?? data?.created?.length ?? 0
+        if (sum && sum.errorCount > 0) {
+          setUploadResult({ type: 'mixed', summary: { successCount: sum.successCount, errorCount: sum.errorCount }, errors: data.errors })
+          fetchDepartments()
+        } else {
+          setUploadResult({ type: 'success', summary: { successCount: count, errorCount: 0 } })
+          fetchDepartments()
+        }
+      } else if (sum && (sum.successCount > 0 || sum.errorCount > 0)) {
+        setUploadResult({ type: 'mixed', summary: { successCount: sum.successCount, errorCount: sum.errorCount }, errors: data?.errors })
         fetchDepartments()
       } else {
-        const sum = data?.summary
-        if (sum && (sum.successCount > 0 || sum.errorCount > 0)) {
-          toast({ title: `${sum.successCount ?? 0} created, ${sum.errorCount ?? 0} failed.`, variant: 'destructive' })
-        } else {
-          toast({ title: res.error || 'Upload failed', variant: 'destructive' })
-        }
+        toast({ title: (res as { error?: string }).error || 'Upload failed', variant: 'destructive' })
       }
     } catch {
       toast({ title: 'Upload failed', variant: 'destructive' })
     } finally {
       setIsUploading(false)
     }
+  }
+
+  const closeUploadModal = () => {
+    setIsUploadOpen(false)
+    setSelectedFile(null)
+    setUploadResult(null)
   }
 
   const handleConfirmAction = async (): Promise<boolean> => {
@@ -213,7 +246,7 @@ export default function DepartmentsPage() {
                 <Download className="h-4 w-4 mr-2" />
                 Download Template
               </Button>
-              <Button variant="outline" size="sm" onClick={() => setIsUploadOpen(true)}>
+              <Button variant="outline" size="sm" onClick={() => { setIsUploadOpen(true); setUploadResult(null); setSelectedFile(null); }}>
                 <Upload className="h-4 w-4 mr-2" />
                 Upload CSV
               </Button>
@@ -497,44 +530,99 @@ export default function DepartmentsPage() {
         </div>
       )}
 
-      {/* Upload modal */}
-      <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
-        <DialogContent className="sm:max-w-[480px]" onSwipeDown={() => setIsUploadOpen(false)}>
+      {/* Upload modal — desktop 480px, mobile bottom sheet */}
+      <Dialog open={isUploadOpen} onOpenChange={(o) => { setIsUploadOpen(o); if (!o) { setSelectedFile(null); setUploadResult(null); } }}>
+        <DialogContent className="sm:max-w-[480px]" onSwipeDown={() => closeUploadModal()}>
           <DialogHeader>
             <DialogTitle>Upload Departments CSV</DialogTitle>
-            <DialogDescription>Drop your CSV file here or click to browse. Max 5MB.</DialogDescription>
+            <DialogDescription>Drop your CSV file here or click to browse. Accept .csv only. Max 5MB.</DialogDescription>
           </DialogHeader>
-          <div
-            className="border-2 border-dashed border-gray-300 rounded-xl p-10 text-center cursor-pointer hover:border-indigo-400 transition-colors"
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f?.name.endsWith('.csv')) setSelectedFile(f); }}
-            onClick={() => document.getElementById('dept-csv-input')?.click()}
-          >
-            <input
-              id="dept-csv-input"
-              type="file"
-              accept=".csv"
-              className="hidden"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) setSelectedFile(f); }}
-            />
-            {selectedFile ? (
-              <div className="flex items-center justify-center gap-2">
-                <span className="text-sm font-medium">{selectedFile.name}</span>
-                <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); setSelectedFile(null); }}>×</Button>
+
+          {uploadResult ? (
+            <div className="space-y-4 py-2">
+              {uploadResult.type === 'success' ? (
+                <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-green-800">
+                  <p className="font-medium">{uploadResult.summary.successCount} departments created successfully.</p>
+                </div>
+              ) : (
+                <>
+                  <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-green-800">
+                    <p className="font-medium">{uploadResult.summary.successCount} created, {uploadResult.summary.errorCount} failed.</p>
+                  </div>
+                  {uploadResult.errors && uploadResult.errors.length > 0 && (
+                    <div className="rounded-lg border border-gray-200 overflow-hidden">
+                      <div className="max-h-[240px] overflow-y-auto">
+                        <table className="w-full text-sm">
+                          <thead className="bg-gray-50 sticky top-0">
+                            <tr>
+                              <th className="p-2 text-left font-medium">Row</th>
+                              <th className="p-2 text-left font-medium">Field</th>
+                              <th className="p-2 text-left font-medium">Value</th>
+                              <th className="p-2 text-left font-medium">Error Message</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {uploadResult.errors.map((err, i) => (
+                              <tr key={i} className="border-t">
+                                <td className="p-2">{err.row}</td>
+                                <td className="p-2">{err.field}</td>
+                                <td className="p-2 truncate max-w-[80px]">{String(err.value ?? '—')}</td>
+                                <td className="p-2 text-red-600">{err.message}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+              <DialogFooter>
+                <Button className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700" onClick={closeUploadModal}>Close</Button>
+              </DialogFooter>
+            </div>
+          ) : (
+            <>
+              <div
+                className="border-2 border-dashed border-gray-300 rounded-xl p-10 text-center cursor-pointer hover:border-indigo-400 transition-colors"
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f?.name.toLowerCase().endsWith('.csv')) handleFileSelect(f); }}
+                onClick={() => document.getElementById('dept-csv-input')?.click()}
+              >
+                <input
+                  id="dept-csv-input"
+                  type="file"
+                  accept=".csv"
+                  className="hidden"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); }}
+                />
+                {selectedFile ? (
+                  <div className="flex items-center justify-center gap-2 flex-wrap">
+                    <span className="text-sm font-medium">{selectedFile.name}</span>
+                    <span className="text-sm text-gray-500">({formatFileSize(selectedFile.size)})</span>
+                    <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={(e) => { e.stopPropagation(); handleFileSelect(null); }}>
+                      <X className="h-4 w-4" />
+                      <span className="sr-only">Remove</span>
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-2">
+                    <FileUp className="h-10 w-10 text-gray-400" />
+                    <p className="text-sm text-gray-500">Drop your CSV file here or click to browse</p>
+                  </div>
+                )}
               </div>
-            ) : (
-              <p className="text-sm text-gray-500">Drop your CSV file here or click to browse</p>
-            )}
-          </div>
-          <p className="text-xs text-gray-500">
-            <button type="button" className="underline" onClick={handleDownloadTemplate}>Download template</button>
-          </p>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsUploadOpen(false)}>Cancel</Button>
-            <Button onClick={handleBulkUpload} disabled={!selectedFile || isUploading}>
-              {isUploading ? 'Uploading…' : 'Upload'}
-            </Button>
-          </DialogFooter>
+              <p className="text-xs text-gray-500">
+                <button type="button" className="underline" onClick={handleDownloadTemplate}>Download template</button>
+              </p>
+              <DialogFooter>
+                <Button variant="outline" onClick={closeUploadModal}>Cancel</Button>
+                <Button className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700" onClick={handleBulkUpload} disabled={!selectedFile || isUploading}>
+                  {isUploading ? 'Uploading…' : 'Upload'}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
         </DialogContent>
       </Dialog>
 
