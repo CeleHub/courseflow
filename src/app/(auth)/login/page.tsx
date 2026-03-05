@@ -78,6 +78,7 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               className="text-base min-h-[44px] pr-12"
               required
+              minLength={6}
             />
             <button
               type="button"
@@ -100,7 +101,7 @@ export default function LoginPage() {
 
         <Button
           type="submit"
-          className="w-full h-11 text-base"
+          className="w-full h-11 text-base bg-indigo-600 hover:bg-indigo-700 text-white"
           disabled={isLoading}
         >
           {isLoading ? (
