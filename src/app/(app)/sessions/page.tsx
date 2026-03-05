@@ -129,6 +129,10 @@ export default function AcademicSessionsPage() {
       toast({ title: 'Please fill name, start date and end date', variant: 'destructive' })
       return
     }
+    if (new Date(formData.endDate) <= new Date(formData.startDate)) {
+      toast({ title: 'End date must be after start date', variant: 'destructive' })
+      return
+    }
     try {
       setCreating(true)
       const res = await apiClient.createAcademicSession({
@@ -157,6 +161,10 @@ export default function AcademicSessionsPage() {
     const d = formData
     if (!d.name?.trim() || !d.startDate || !d.endDate) {
       toast({ title: 'Please fill all fields', variant: 'destructive' })
+      return
+    }
+    if (new Date(d.endDate) <= new Date(d.startDate)) {
+      toast({ title: 'End date must be after start date', variant: 'destructive' })
       return
     }
     try {
