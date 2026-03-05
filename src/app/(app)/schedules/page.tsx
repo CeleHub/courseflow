@@ -1085,7 +1085,7 @@ export default function SchedulePage() {
                         Bulk Upload
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="sm:max-w-md">
+                    <DialogContent className="sm:max-w-md" onSwipeDown={() => setIsUploadDialogOpen(false)}>
                       <DialogHeader>
                         <DialogTitle>Bulk Upload Schedules</DialogTitle>
                         <DialogDescription>

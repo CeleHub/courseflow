@@ -60,6 +60,7 @@ export function ConfirmDialog({
           "sm:max-w-[400px]",
           "max-sm:fixed max-sm:bottom-0 max-sm:left-0 max-sm:right-0 max-sm:top-auto max-sm:translate-y-0 max-sm:rounded-t-2xl max-sm:rounded-b-none"
         )}
+        onSwipeDown={() => onOpenChange(false)}
       >
         <div className="flex flex-col items-center text-center sm:block sm:text-left">
           {Icon && (

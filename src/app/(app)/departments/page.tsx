@@ -270,7 +270,7 @@ export default function DepartmentsPage() {
 
       {/* Mobile filters sheet */}
       <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
-        <DialogContent className="sm:max-w-[400px]">
+        <DialogContent className="sm:max-w-[400px]" onSwipeDown={() => setFiltersOpen(false)}>
           <DialogHeader>
             <DialogTitle>Filters</DialogTitle>
           </DialogHeader>
@@ -412,7 +412,7 @@ export default function DepartmentsPage() {
 
       {/* Upload modal */}
       <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
-        <DialogContent className="sm:max-w-[480px]">
+        <DialogContent className="sm:max-w-[480px]" onSwipeDown={() => setIsUploadOpen(false)}>
           <DialogHeader>
             <DialogTitle>Upload Departments CSV</DialogTitle>
             <DialogDescription>Drop your CSV file here or click to browse. Max 5MB.</DialogDescription>
@@ -454,7 +454,7 @@ export default function DepartmentsPage() {
       {/* Confirm dialogs */}
       {/* Edit modal */}
       <Dialog open={!!editDept} onOpenChange={(o) => !o && setEditDept(null)}>
-        <DialogContent className="sm:max-w-[520px]">
+        <DialogContent className="sm:max-w-[520px]" onSwipeDown={() => setEditDept(null)}>
           <DialogHeader>
             <DialogTitle>Edit Department</DialogTitle>
             <DialogDescription>Update department details.</DialogDescription>

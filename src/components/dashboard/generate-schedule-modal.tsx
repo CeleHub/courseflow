@@ -143,6 +143,11 @@ export function GenerateScheduleModal({
       <DialogContent
         className="sm:max-w-[520px] max-sm:fixed max-sm:bottom-0 max-sm:left-0 max-sm:right-0 max-sm:top-auto max-sm:max-h-[90vh] max-sm:rounded-t-2xl max-sm:rounded-b-none"
         onPointerDownOutside={(e) => result && e.preventDefault()}
+        onSwipeDown={() => {
+          if (loading) return
+          if (result) handleClose()
+          else onOpenChange(false)
+        }}
       >
         <div className="max-sm:mt-3 max-sm:w-10 max-sm:h-1 max-sm:mx-auto max-sm:rounded-full max-sm:bg-gray-300" />
         <DialogHeader>

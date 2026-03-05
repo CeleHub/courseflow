@@ -370,7 +370,7 @@ export default function VerificationCodesPage() {
 
       {/* 12.3 Create/Edit Modal */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[500px]" onSwipeDown={() => setIsModalOpen(false)}>
           <DialogHeader>
             <DialogTitle>{editingCode ? 'Edit Verification Code' : 'New Verification Code'}</DialogTitle>
             <DialogDescription>{editingCode ? 'Update code details.' : 'Create a verification code for registration.'}</DialogDescription>

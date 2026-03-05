@@ -228,7 +228,7 @@ export default function ComplaintsPage() {
 
         {/* 11.6 Submit Complaint Modal */}
         <Dialog open={isSubmitOpen} onOpenChange={setIsSubmitOpen}>
-          <DialogContent className="sm:max-w-[520px]">
+          <DialogContent className="sm:max-w-[520px]" onSwipeDown={() => setIsSubmitOpen(false)}>
             <DialogHeader>
               <DialogTitle>Submit Complaint</DialogTitle>
             </DialogHeader>
@@ -264,7 +264,7 @@ export default function ComplaintsPage() {
 
         {/* Student detail (read-only) */}
         <Dialog open={!!detailComplaint} onOpenChange={(o) => !o && setDetailComplaint(null)}>
-          <DialogContent className="sm:max-w-[560px]">
+          <DialogContent className="sm:max-w-[560px]" onSwipeDown={() => setDetailComplaint(null)}>
             {detailComplaint && (
               <>
                 <DialogHeader>
@@ -447,7 +447,7 @@ export default function ComplaintsPage() {
 
       {/* 11.4 Complaint Detail Modal */}
       <Dialog open={!!detailComplaint} onOpenChange={(o) => !o && setDetailComplaint(null)}>
-        <DialogContent className="sm:max-w-[560px]">
+        <DialogContent className="sm:max-w-[560px]" onSwipeDown={() => setDetailComplaint(null)}>
           {detailComplaint && (
             <>
               <DialogHeader>

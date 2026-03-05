@@ -489,7 +489,7 @@ export function UsersPage({ role }: UsersPageProps) {
 
       {/* 10.3 Add/Edit Modal */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="sm:max-w-[520px]">
+        <DialogContent className="sm:max-w-[520px]" onSwipeDown={() => setIsModalOpen(false)}>
           <DialogHeader>
             <DialogTitle>{editingUser ? 'Edit User' : addLabel}</DialogTitle>
             <DialogDescription>{editingUser ? 'Update user details.' : 'Create a new user account.'}</DialogDescription>

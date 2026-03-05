@@ -340,7 +340,7 @@ export default function AcademicSessionsPage() {
 
       {/* 5.3 Create Modal */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="sm:max-w-[480px]">
+        <DialogContent className="sm:max-w-[480px]" onSwipeDown={() => setIsCreateDialogOpen(false)}>
           <DialogHeader>
             <DialogTitle>Create Academic Session</DialogTitle>
             <DialogDescription>Define the academic year and its start/end dates.</DialogDescription>
@@ -397,7 +397,7 @@ export default function AcademicSessionsPage() {
 
       {/* 5.3 Edit Modal */}
       <Dialog open={!!editSession} onOpenChange={(o) => !o && setEditSession(null)}>
-        <DialogContent className="sm:max-w-[480px]">
+        <DialogContent className="sm:max-w-[480px]" onSwipeDown={() => setEditSession(null)}>
           <DialogHeader>
             <DialogTitle>Edit Session</DialogTitle>
             <DialogDescription>Update the academic session details.</DialogDescription>
@@ -451,7 +451,7 @@ export default function AcademicSessionsPage() {
 
       {/* 5.4 Statistics Modal */}
       <Dialog open={!!statsSession} onOpenChange={(o) => !o && setStatsSession(null)}>
-        <DialogContent className="sm:max-w-[440px]">
+        <DialogContent className="sm:max-w-[440px]" onSwipeDown={() => setStatsSession(null)}>
           <DialogHeader>
             <DialogTitle>Statistics — {statsSession?.name ?? ''}</DialogTitle>
           </DialogHeader>
