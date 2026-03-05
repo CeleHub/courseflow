@@ -22,12 +22,11 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet'
 import {
   BarChart2,
   CalendarDays,
@@ -64,6 +63,7 @@ export default function AcademicSessionsPage() {
   }>({ open: false, action: 'activate', session: null })
   const [actionLoading, setActionLoading] = useState(false)
   const [fetchError, setFetchError] = useState<string | null>(null)
+  const [mobileSheetSession, setMobileSheetSession] = useState<AcademicSession | null>(null)
 
   const [formData, setFormData] = useState<CreateAcademicSessionData>({
     name: '',
@@ -272,7 +272,7 @@ export default function AcademicSessionsPage() {
             return (
               <div
                 key={session.id}
-                className="flex flex-col md:flex-row md:items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-5 shadow-sm"
+                className="flex flex-col md:flex-row md:items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-6 py-5 shadow-sm"
               >
                 <div className="space-y-1 min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">
@@ -282,10 +282,10 @@ export default function AcademicSessionsPage() {
                       </Badge>
                       <span className="text-xl font-semibold">{session.name}</span>
                     </div>
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      <div className="hidden md:flex items-center gap-1">
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <div className="hidden md:flex items-center gap-2">
                         {!isActive && (
-                          <Button size="sm" variant="outline" className="h-9" onClick={() => setConfirmState({ open: true, action: 'activate', session })} disabled={actionLoading}>
+                          <Button size="sm" variant="outline" className="h-9 border-indigo-600 text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700" onClick={() => setConfirmState({ open: true, action: 'activate', session })} disabled={actionLoading}>
                             Activate
                           </Button>
                         )}
@@ -307,22 +307,15 @@ export default function AcademicSessionsPage() {
                           <span className="sr-only">Delete</span>
                         </Button>
                       </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button size="icon" variant="ghost" className="h-11 w-11 md:hidden touch-manipulation">
-                            <MoreVertical className="h-5 w-5" />
-                            <span className="sr-only">Actions</span>
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
-                          {!isActive && <DropdownMenuItem onClick={() => setConfirmState({ open: true, action: 'activate', session })}>Activate</DropdownMenuItem>}
-                          {isActive && <DropdownMenuItem onClick={() => setConfirmState({ open: true, action: 'archive', session })}>Archive</DropdownMenuItem>}
-                          <DropdownMenuItem onClick={() => openStatsModal(session)}>Statistics</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => { setEditSession(session); setFormData({ name: session.name, startDate: session.startDate.split('T')[0], endDate: session.endDate.split('T')[0] }); }}>Edit</DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-red-600" onClick={() => setConfirmState({ open: true, action: 'delete', session })}>Delete</DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-11 w-11 md:hidden touch-manipulation"
+                        onClick={() => setMobileSheetSession(session)}
+                        aria-label="Actions"
+                      >
+                        <MoreVertical className="h-5 w-5" />
+                      </Button>
                     </div>
                   </div>
                   <p className="text-sm text-gray-500">
@@ -337,6 +330,67 @@ export default function AcademicSessionsPage() {
           })}
         </div>
       )}
+
+      {/* 5.2 Mobile overflow — bottom sheet */}
+      <Sheet open={!!mobileSheetSession} onOpenChange={(o) => !o && setMobileSheetSession(null)}>
+        <SheetContent side="bottom" className="rounded-t-2xl">
+          <SheetHeader>
+            <SheetTitle>{mobileSheetSession?.name ?? 'Session actions'}</SheetTitle>
+          </SheetHeader>
+          <div className="flex flex-col gap-1 py-4">
+            {mobileSheetSession && (() => {
+              const s = mobileSheetSession
+              const isActive = activeSession?.id === s.id || s.isActive
+              return (
+                <>
+                  {!isActive && (
+                    <button
+                      type="button"
+                      className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-100 text-left w-full min-h-[44px] font-medium text-indigo-600"
+                      onClick={() => { setConfirmState({ open: true, action: 'activate', session: s }); setMobileSheetSession(null); }}
+                    >
+                      Activate
+                    </button>
+                  )}
+                  {isActive && (
+                    <button
+                      type="button"
+                      className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-100 text-left w-full min-h-[44px] font-medium"
+                      onClick={() => { setConfirmState({ open: true, action: 'archive', session: s }); setMobileSheetSession(null); }}
+                    >
+                      Archive
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-100 text-left w-full min-h-[44px] font-medium"
+                    onClick={() => { openStatsModal(s); setMobileSheetSession(null); }}
+                  >
+                    <BarChart2 className="h-5 w-5" />
+                    Statistics
+                  </button>
+                  <button
+                    type="button"
+                    className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-100 text-left w-full min-h-[44px] font-medium"
+                    onClick={() => { setEditSession(s); setFormData({ name: s.name, startDate: s.startDate.split('T')[0], endDate: s.endDate.split('T')[0] }); setMobileSheetSession(null); }}
+                  >
+                    <Pencil className="h-5 w-5" />
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-red-50 text-red-600 text-left w-full min-h-[44px] font-medium"
+                    onClick={() => { setConfirmState({ open: true, action: 'delete', session: s }); setMobileSheetSession(null); }}
+                  >
+                    <Trash2 className="h-5 w-5" />
+                    Delete
+                  </button>
+                </>
+              )
+            })()}
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* 5.3 Create Modal */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
