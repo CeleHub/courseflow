@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -30,6 +30,8 @@ import { Department, Level, Role, Semester, User } from "@/types";
 
 export default function CreateCoursePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const departmentFromUrl = searchParams.get("department") ?? "";
   const { isAuthenticated, isAdmin, isLecturer, isHod } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -91,6 +93,12 @@ export default function CreateCoursePage() {
     }
     fetchData();
   }, [isAuthenticated, canCreate, router, fetchData]);
+
+  useEffect(() => {
+    if (departmentFromUrl && departments.some((d) => d.code === departmentFromUrl)) {
+      setFormData((p) => ({ ...p, departmentCode: departmentFromUrl }));
+    }
+  }, [departmentFromUrl, departments]);
 
   if (!isAuthenticated || !canCreate) {
     return null;

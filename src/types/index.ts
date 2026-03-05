@@ -317,6 +317,7 @@ export interface CreateDepartmentData {
   name: string;
   code: string;
   description?: string;
+  college?: College;
   hodId?: string;
 }
 
