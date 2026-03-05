@@ -18,9 +18,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { BookOpen, ArrowLeft, Loader2 } from "lucide-react";
 import { ErrorState } from "@/components/state/error-state";
+import { LecturerCombobox } from "@/components/courses/lecturer-combobox";
 import { apiClient } from "@/lib/api";
 import { getItemsFromResponse } from "@/lib/utils";
-import { Course, Department, Level, Role, Semester, User } from "@/types";
+import { Course, Department, Level, Semester } from "@/types";
 
 export default function EditCoursePage() {
   const router = useRouter();
@@ -33,7 +34,6 @@ export default function EditCoursePage() {
   const [saving, setSaving] = useState(false);
   const [course, setCourse] = useState<Course | null>(null);
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [lecturers, setLecturers] = useState<User[]>([]);
   const [formData, setFormData] = useState({
     name: "",
     level: "",
@@ -53,10 +53,9 @@ export default function EditCoursePage() {
     setFetchError(null);
     setLoading(true);
     try {
-      const [courseRes, deptRes, lectRes] = await Promise.all([
+      const [courseRes, deptRes] = await Promise.all([
         apiClient.getCourseByCode(code),
         apiClient.getDepartments({ limit: 100 }),
-        apiClient.getUsers({ role: Role.LECTURER, limit: 200 }),
       ]);
       if (courseRes.success && courseRes.data) {
         const c = courseRes.data as Course;
@@ -73,9 +72,7 @@ export default function EditCoursePage() {
           isLocked: c.isLocked,
         });
         const d = getItemsFromResponse<Department>(deptRes);
-        const l = getItemsFromResponse<User>(lectRes);
         if (d) setDepartments(d.items);
-        if (l) setLecturers(l.items);
       } else {
         setFetchError("Course not found");
       }
@@ -179,7 +176,7 @@ export default function EditCoursePage() {
         </h1>
       </div>
 
-      <Card>
+      <Card className="max-w-[560px]">
         <CardHeader>
           <CardTitle>Course Information</CardTitle>
           <CardDescription>Update course details.</CardDescription>
@@ -239,7 +236,7 @@ export default function EditCoursePage() {
               </div>
               <div className="space-y-2">
                 <Label>Department *</Label>
-                <Select value={formData.departmentCode} onValueChange={(v) => setFormData((p) => ({ ...p, departmentCode: v }))}>
+                <Select value={formData.departmentCode} onValueChange={(v) => setFormData((p) => ({ ...p, departmentCode: v, lecturerId: '' }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {departments.map((d) => (
@@ -251,17 +248,12 @@ export default function EditCoursePage() {
             </div>
             <div className="space-y-2">
               <Label>Lecturer</Label>
-              <Select value={formData.lecturerId} onValueChange={(v) => setFormData((p) => ({ ...p, lecturerId: v }))}>
-                <SelectTrigger><SelectValue placeholder="Select lecturer" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">Unassigned</SelectItem>
-                  {lecturers
-                    .filter((u) => !formData.departmentCode || u.departmentCode === formData.departmentCode)
-                    .map((u) => (
-                      <SelectItem key={u.id} value={u.id}>{u.name ?? u.email}</SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
+              <LecturerCombobox
+                value={formData.lecturerId}
+                onChange={(id) => setFormData((p) => ({ ...p, lecturerId: id }))}
+                departmentCode={formData.departmentCode || undefined}
+                placeholder="Search by name or email..."
+              />
             </div>
             <div className="space-y-2">
               <Label>Overview</Label>

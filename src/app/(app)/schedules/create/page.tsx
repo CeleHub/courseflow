@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -17,6 +17,7 @@ import { Course, DayOfWeek } from '@/types'
 
 export default function CreateSchedulePage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { isAuthenticated, isAdmin, isLecturer, isHod } = useAuth()
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
@@ -64,6 +65,13 @@ export default function CreateSchedulePage() {
     }
     fetchCourses()
   }, [isAuthenticated, canCreate, router, fetchCourses])
+
+  const courseFromQuery = searchParams.get('course')
+  useEffect(() => {
+    if (courseFromQuery && courses.some(c => c.code === courseFromQuery)) {
+      setFormData(prev => ({ ...prev, courseCode: courseFromQuery }))
+    }
+  }, [courseFromQuery, courses])
 
   if (!isAuthenticated || !canCreate) {
     return null

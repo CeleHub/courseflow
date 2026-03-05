@@ -22,11 +22,12 @@ import {
 } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { BookOpen, ArrowLeft, User as UserIcon } from "lucide-react";
+import { BookOpen, ArrowLeft } from "lucide-react";
 import { ErrorState } from "@/components/state/error-state";
+import { LecturerCombobox } from "@/components/courses/lecturer-combobox";
 import { apiClient } from "@/lib/api";
 import { getItemsFromResponse } from "@/lib/utils";
-import { Department, Level, Role, Semester, User } from "@/types";
+import { Department, Level, Role, Semester } from "@/types";
 
 export default function CreateCoursePage() {
   const router = useRouter();
@@ -38,7 +39,6 @@ export default function CreateCoursePage() {
   const [loadingData, setLoadingData] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [lecturers, setLecturers] = useState<User[]>([]);
   const [formData, setFormData] = useState({
     code: "",
     name: "",
@@ -66,21 +66,11 @@ export default function CreateCoursePage() {
     setFetchError(null);
     setLoadingData(true);
     try {
-      const [deptResponse, lecturerResponse, hodResponse] = await Promise.all([
-        apiClient.getDepartments({ limit: 100 }),
-        apiClient.getUsers({ role: Role.LECTURER, limit: 100 }),
-        apiClient.getUsers({ role: Role.HOD, limit: 100 }),
-      ]);
+      const deptResponse = await apiClient.getDepartments({ limit: 100 });
       const deptResult = getItemsFromResponse<Department>(deptResponse);
-      const lecturerResult = getItemsFromResponse<User>(lecturerResponse);
-      const hodResult = getItemsFromResponse<User>(hodResponse);
       if (deptResult) setDepartments(deptResult.items);
-      if (lecturerResult || hodResult) {
-        const lecturersList = [...(lecturerResult?.items ?? []), ...(hodResult?.items ?? [])];
-        setLecturers(lecturersList);
-      }
     } catch {
-      setFetchError("Failed to load departments and lecturers");
+      setFetchError("Failed to load departments");
     } finally {
       setLoadingData(false);
     }
@@ -139,11 +129,14 @@ export default function CreateCoursePage() {
   };
 
   const handleSelectChange = (name: string, value: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setFormData((prev) => {
+      const next = { ...prev, [name]: value };
+      if (name === "departmentCode") next.lecturerId = "";
+      return next;
+    });
   };
+
+  const COURSE_CODE_PATTERN = /^[A-Z]{2,4}\d{3}$/;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -163,11 +156,21 @@ export default function CreateCoursePage() {
       return;
     }
 
-    const credits = parseInt(formData.credits);
-    if (isNaN(credits) || credits < 1 || credits > 10) {
+    const codeUpper = formData.code.trim().toUpperCase();
+    if (!COURSE_CODE_PATTERN.test(codeUpper)) {
       toast({
         title: "Validation Error",
-        description: "Credits must be a number between 1 and 10",
+        description: "Course code must match pattern (e.g. CS101, MTH201): 2–4 letters + 3 digits",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const credits = parseInt(formData.credits);
+    if (isNaN(credits) || credits < 1 || credits > 6) {
+      toast({
+        title: "Validation Error",
+        description: "Credits must be a number between 1 and 6",
         variant: "destructive",
       });
       return;
@@ -176,16 +179,13 @@ export default function CreateCoursePage() {
     try {
       setLoading(true);
       const response = await apiClient.createCourse({
-        code: formData.code.trim().toUpperCase(),
+        code: codeUpper,
         name: formData.name.trim(),
         level: formData.level as Level,
         credits: credits,
         semester: formData.semester as Semester,
         departmentCode: formData.departmentCode,
-        lecturerId:
-          formData.lecturerId && formData.lecturerId !== "none"
-            ? formData.lecturerId
-            : undefined,
+        lecturerId: formData.lecturerId || undefined,
         overview: formData.overview.trim() || undefined,
         isGeneral: formData.isGeneral,
         isLocked: formData.isLocked,
@@ -239,7 +239,7 @@ export default function CreateCoursePage() {
           </p>
         </div>
 
-        <Card className="max-w-2xl">
+        <Card className="max-w-[560px]">
           <CardHeader>
             <CardTitle>Course Information</CardTitle>
             <CardDescription>
@@ -261,11 +261,11 @@ export default function CreateCoursePage() {
                     value={formData.code}
                     onChange={handleInputChange}
                     required
-                    maxLength={20}
+                    maxLength={7}
                     style={{ textTransform: "uppercase" }}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Unique identifier (e.g., CS101, MTH201)
+                    2–4 letters + 3 digits (e.g., CS101, MTH201)
                   </p>
                 </div>
 
@@ -282,7 +282,7 @@ export default function CreateCoursePage() {
                     onChange={handleInputChange}
                     required
                     min="1"
-                    max="10"
+                    max="6"
                   />
                 </div>
 
@@ -298,6 +298,7 @@ export default function CreateCoursePage() {
                     value={formData.name}
                     onChange={handleInputChange}
                     required
+                    maxLength={200}
                   />
                 </div>
 
@@ -368,34 +369,13 @@ export default function CreateCoursePage() {
                 </div>
 
                 <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="lecturerId">
-                    <div className="flex items-center gap-2">
-                      <UserIcon className="h-4 w-4" />
-                      Assigned Lecturer (Optional)
-                    </div>
-                  </Label>
-                  <Select
+                  <Label htmlFor="lecturer">Lecturer</Label>
+                  <LecturerCombobox
                     value={formData.lecturerId}
-                    onValueChange={(value) =>
-                      handleSelectChange("lecturerId", value)
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a lecturer (optional)" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">No lecturer assigned</SelectItem>
-                      {lecturers.map((lecturer) => (
-                        <SelectItem key={lecturer.id} value={lecturer.id}>
-                          {lecturer.name ?? lecturer.email} —{" "}
-                          {lecturer.department?.name ?? lecturer.departmentCode ?? "—"}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    Assign a lecturer to this course
-                  </p>
+                    onChange={(id) => handleSelectChange("lecturerId", id)}
+                    departmentCode={formData.departmentCode || undefined}
+                    placeholder="Search by name or email..."
+                  />
                 </div>
 
                 <div className="space-y-2 md:col-span-2">
@@ -407,29 +387,32 @@ export default function CreateCoursePage() {
                     value={formData.overview}
                     onChange={(e) => handleInputChange(e)}
                     rows={4}
+                    maxLength={2000}
                   />
                 </div>
 
-                <div className="space-y-2 md:col-span-2">
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="isGeneral"
-                      name="isGeneral"
-                      checked={formData.isGeneral}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          isGeneral: e.target.checked,
-                        }))
-                      }
-                      className="rounded border-gray-300"
-                    />
-                    <Label htmlFor="isGeneral" className="cursor-pointer">
-                      General Course (GST) - University-wide course
-                    </Label>
+                {isAdmin && (
+                  <div className="space-y-2 md:col-span-2">
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="isGeneral"
+                        name="isGeneral"
+                        checked={formData.isGeneral}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            isGeneral: e.target.checked,
+                          }))
+                        }
+                        className="rounded border-gray-300"
+                      />
+                      <Label htmlFor="isGeneral" className="cursor-pointer">
+                        General Course (GST) - University-wide course
+                      </Label>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {isAdmin && (
                   <div className="space-y-2 md:col-span-2">

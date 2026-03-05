@@ -42,7 +42,7 @@ import {
 } from "lucide-react";
 import { apiClient } from "@/lib/api";
 import { getItemsFromResponse } from "@/lib/utils";
-import { Course, Department, Level, Semester } from "@/types";
+import { AcademicSession, Course, Department, Level, Semester } from "@/types";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ErrorState } from "@/components/state/error-state";
 
@@ -90,6 +90,7 @@ export default function CoursesPage() {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [mobileCourseMenu, setMobileCourseMenu] = useState<Course | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [sessions, setSessions] = useState<AcademicSession[]>([]);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(searchInput), 300);
@@ -103,6 +104,17 @@ export default function CoursesPage() {
       if (r) setDepartments(r.items);
     };
     fetchDepts();
+  }, []);
+
+  useEffect(() => {
+    const fetchSessions = async () => {
+      try {
+        const res = await apiClient.getAcademicSessions({ limit: 50 });
+        const r = getItemsFromResponse<AcademicSession>(res);
+        if (r) setSessions(r.items);
+      } catch { /* ignore */ }
+    };
+    fetchSessions();
   }, []);
 
   const fetchCourses = useCallback(async () => {
@@ -559,9 +571,9 @@ export default function CoursesPage() {
 
       {/* 7.4 Course Detail Sheet */}
       <Sheet open={!!detailCourse} onOpenChange={(o) => !o && setDetailCourse(null)}>
-        <SheetContent side="right" className="w-full sm:max-w-[480px] overflow-y-auto">
-          <SheetHeader className="sr-only md:not-sr-only">
-            <Button variant="ghost" size="icon" className="md:hidden absolute left-4 top-4" onClick={() => setDetailCourse(null)}>
+        <SheetContent side="right" className="w-full sm:max-w-[480px] overflow-y-auto" hideCloseOnMobile>
+          <SheetHeader className="md:sr-only">
+            <Button variant="ghost" size="icon" className="md:hidden absolute left-4 top-4 z-10" onClick={() => setDetailCourse(null)}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
           </SheetHeader>
@@ -582,6 +594,7 @@ export default function CoursesPage() {
                 <p><span className="text-gray-500">Semester</span><br />{detailCourse.semester === Semester.FIRST ? "First" : "Second"}</p>
                 <p><span className="text-gray-500">Credits</span><br />{detailCourse.credits}</p>
                 <p><span className="text-gray-500">Department</span><br />{detailCourse.department?.name ?? detailCourse.departmentCode}</p>
+                <p><span className="text-gray-500">Session</span><br />{detailCourse.schedules?.[0]?.sessionId ? (sessions.find(s => s.id === detailCourse.schedules?.[0]?.sessionId)?.name ?? detailCourse.schedules[0].sessionId) : "—"}</p>
               </div>
               <div className="flex gap-2 flex-wrap">
                 {detailCourse.isActive ? <Badge className="bg-green-100 text-green-700">Active</Badge> : <Badge variant="secondary">Inactive</Badge>}
@@ -595,17 +608,34 @@ export default function CoursesPage() {
               <div className="rounded-lg border p-4">
                 <h3 className="font-medium mb-2">Lecturer</h3>
                 {detailCourse.lecturer ? (
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-sm font-medium text-indigo-700">
-                      {getInitials(detailCourse.lecturer.name)}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-sm font-medium text-indigo-700">
+                        {getInitials(detailCourse.lecturer.name)}
+                      </div>
+                      <div>
+                        <p className="font-medium">{detailCourse.lecturer.name ?? detailCourse.lecturer.email}</p>
+                        <p className="text-sm text-gray-500">{detailCourse.lecturer.email}</p>
+                        {detailCourse.lecturer.departmentCode && (
+                          <p className="text-sm text-gray-500">{departments.find(d => d.code === detailCourse.lecturer?.departmentCode)?.name ?? detailCourse.lecturer.departmentCode}</p>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium">{detailCourse.lecturer.name ?? detailCourse.lecturer.email}</p>
-                      <p className="text-sm text-gray-500">{detailCourse.lecturer.email}</p>
-                    </div>
+                    {canEditCourse(detailCourse) && (
+                      <Button variant="outline" size="sm" onClick={() => { setDetailCourse(null); router.push(`/courses/${detailCourse.code}/edit`); }}>
+                        Change Lecturer
+                      </Button>
+                    )}
                   </div>
                 ) : (
-                  <p className="text-sm text-gray-400 italic">No lecturer assigned</p>
+                  <div className="space-y-2">
+                    <p className="text-sm text-gray-400 italic">No lecturer assigned</p>
+                    {canEditCourse(detailCourse) && (
+                      <Button variant="outline" size="sm" onClick={() => { setDetailCourse(null); router.push(`/courses/${detailCourse.code}/edit`); }}>
+                        Change Lecturer
+                      </Button>
+                    )}
+                  </div>
                 )}
               </div>
               <div className="rounded-lg border p-4">
@@ -613,11 +643,18 @@ export default function CoursesPage() {
                 {detailCourse.schedules && detailCourse.schedules.length > 0 ? (
                   <p className="text-sm">{detailCourse.schedules[0]?.dayOfWeek}, {detailCourse.schedules[0]?.startTime} – {detailCourse.schedules[0]?.endTime}</p>
                 ) : (
-                  <p className="text-sm text-gray-400 italic">Not yet scheduled</p>
+                  <div className="space-y-2">
+                    <p className="text-sm text-gray-400 italic">Not yet scheduled</p>
+                    {isStaff && canEditCourse(detailCourse) && (
+                      <Button variant="outline" size="sm" onClick={() => { setDetailCourse(null); router.push(`/schedules/create?course=${encodeURIComponent(detailCourse.code)}`); }}>
+                        Add to Schedule
+                      </Button>
+                    )}
+                  </div>
                 )}
               </div>
               {isStaff && canEditCourse(detailCourse) && (
-                <Button variant="outline" className="w-full" onClick={() => { setDetailCourse(null); router.push(`/courses/${detailCourse.code}/edit`); }}>
+                <Button variant="outline" className="w-full border-indigo-600 text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700" onClick={() => { setDetailCourse(null); router.push(`/courses/${detailCourse.code}/edit`); }}>
                   Edit Course
                 </Button>
               )}
