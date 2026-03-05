@@ -19,13 +19,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
   Sheet,
   SheetContent,
   SheetHeader,
@@ -95,6 +88,7 @@ export default function CoursesPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [deleteCourse, setDeleteCourse] = useState<Course | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [mobileCourseMenu, setMobileCourseMenu] = useState<Course | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -254,16 +248,16 @@ export default function CoursesPage() {
         </div>
       </div>
 
-      {/* 7.2 Filter bar */}
-      <div className="rounded-xl border border-gray-200 bg-white p-3 md:p-5">
-        <div className="flex flex-col md:flex-row md:items-center md:flex-wrap gap-3">
-          <div className="relative flex-1 min-w-[200px]">
+      {/* 7.2 Filter bar — desktop: padding 12px 20px, mobile: search + Filters (N) on same row */}
+      <div className="rounded-xl border border-gray-200 bg-white py-3 px-5">
+        <div className="flex flex-row flex-wrap items-center gap-3">
+          <div className="relative flex-1 min-w-0 md:min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
               placeholder="Search by code, name or lecturer..."
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              className="pl-10"
+              className="pl-10 w-full"
             />
           </div>
           <div className="hidden md:flex items-center gap-2 flex-wrap">
@@ -318,7 +312,7 @@ export default function CoursesPage() {
               </button>
             )}
           </div>
-          <Button variant="outline" className="md:hidden w-full" onClick={() => setFiltersOpen(true)}>
+          <Button variant="outline" className="md:hidden shrink-0" onClick={() => setFiltersOpen(true)}>
             <Filter className="h-4 w-4 mr-2" />
             Filters {filterCount > 0 ? `(${filterCount})` : ""}
           </Button>
@@ -418,7 +412,7 @@ export default function CoursesPage() {
                     <th className="p-3 w-[90px]">Department</th>
                     <th className="p-3 w-[160px]">Lecturer</th>
                     <th className="p-3 w-[80px] hidden lg:table-cell">Status</th>
-                    <th className="p-3 w-[120px] text-right">Actions</th>
+                    <th className="p-3 w-[80px] text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -449,7 +443,7 @@ export default function CoursesPage() {
                         )}
                       </td>
                       <td className="p-3 text-right">
-                        <div className="flex items-center justify-end gap-1">
+                        <div className="flex items-center justify-end gap-1 min-w-0">
                           <Button size="icon" variant="ghost" className="h-11 w-11 touch-manipulation" onClick={() => openDetail(c)}><Eye className="h-5 w-5" /><span className="sr-only">View</span></Button>
                           {canEditCourse(c) && (
                             <Button size="icon" variant="ghost" className="h-11 w-11 touch-manipulation" onClick={() => router.push(`/courses/${c.code}/edit`)}><Pencil className="h-5 w-5" /><span className="sr-only">Edit</span></Button>
@@ -466,39 +460,19 @@ export default function CoursesPage() {
             </div>
           </div>
 
-          {/* Mobile cards */}
+          {/* Mobile cards — §7.3 layout: Code|Level, Name, Lecturer·Dept, Semester·Credits, divider, Status|[···] */}
           <div className="md:hidden space-y-3">
             {courses.map((c) => (
               <div
                 key={c.id}
                 className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
-                onClick={() => openDetail(c)}
+                onClick={(e) => { if (!(e.target as HTMLElement).closest('[data-menu]')) openDetail(c); }}
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="font-mono text-sm font-semibold">{c.code}</p>
-                    <p className="text-sm text-gray-600 truncate">{c.name}</p>
-                  </div>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="font-mono text-sm font-semibold">{c.code}</p>
                   <Badge variant="secondary" className={LEVEL_PILL[c.level] ?? ""}>{c.level.replace("LEVEL_", "")}</Badge>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                      <Button size="icon" variant="ghost" className="h-11 w-11 shrink-0 touch-manipulation">
-                        <MoreVertical className="h-5 w-5" />
-                        <span className="sr-only">Menu</span>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => openDetail(c)}>View Details</DropdownMenuItem>
-                      {canEditCourse(c) && <DropdownMenuItem onClick={() => router.push(`/courses/${c.code}/edit`)}>Edit Course</DropdownMenuItem>}
-                      {isAdmin && (
-                        <>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-red-600" onClick={() => setDeleteCourse(c)}>Delete Course</DropdownMenuItem>
-                        </>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
                 </div>
+                <p className="text-sm text-gray-600 mt-1">{c.name}</p>
                 <p className="text-xs text-gray-500 mt-1">{c.lecturer?.name ?? "Unassigned"} · {c.department?.name ?? c.departmentCode}</p>
                 <p className="text-xs text-gray-500">{c.semester === Semester.FIRST ? "First" : "Second"} Semester · {c.credits} Credits</p>
                 <div className="mt-3 pt-3 border-t flex justify-between items-center">
@@ -509,10 +483,65 @@ export default function CoursesPage() {
                   ) : (
                     <Badge variant="secondary" className="bg-gray-100 text-gray-600">Inactive</Badge>
                   )}
+                  <div data-menu>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-11 w-11 touch-manipulation"
+                      onClick={(e) => { e.stopPropagation(); setMobileCourseMenu(c); }}
+                    >
+                      <MoreVertical className="h-5 w-5" />
+                      <span className="sr-only">Menu</span>
+                    </Button>
+                  </div>
                 </div>
               </div>
             ))}
           </div>
+
+          {/* Mobile course action bottom sheet */}
+          <Sheet open={!!mobileCourseMenu} onOpenChange={(o) => !o && setMobileCourseMenu(null)}>
+            <SheetContent side="bottom" className="rounded-t-2xl">
+              <SheetHeader>
+                <SheetTitle>{mobileCourseMenu?.name ?? 'Course actions'}</SheetTitle>
+              </SheetHeader>
+              <div className="flex flex-col gap-1 py-4">
+                {mobileCourseMenu && (() => {
+                  const course = mobileCourseMenu
+                  const close = () => setMobileCourseMenu(null)
+                  return (
+                    <>
+                      <button
+                        type="button"
+                        className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-100 text-left w-full min-h-[52px] font-medium"
+                        onClick={() => { openDetail(course); close(); }}
+                      >
+                        View Details
+                      </button>
+                      {canEditCourse(course) && (
+                        <button
+                          type="button"
+                          className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-100 text-left w-full min-h-[52px] font-medium"
+                          onClick={() => { router.push(`/courses/${course.code}/edit`); close(); }}
+                        >
+                          Edit Course
+                        </button>
+                      )}
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-red-50 text-red-600 text-left w-full min-h-[52px] font-medium"
+                          onClick={() => { setDeleteCourse(course); close(); }}
+                        >
+                          Delete Course
+                        </button>
+                      )}
+                    </>
+                  )
+                })()}
+              </div>
+            </SheetContent>
+          </Sheet>
         </>
       )}
 
