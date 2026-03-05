@@ -115,7 +115,7 @@ export default function RegisterPage() {
         <p className="text-sm text-gray-500 mt-1">Fill in your details to get started</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-5">
         {submitError && (
           <div className="p-3 rounded-lg bg-red-50 text-red-700 text-sm">
             {submitError}
@@ -203,68 +203,98 @@ export default function RegisterPage() {
           </Select>
         </div>
 
-        {needsDepartment && (
-          <div className="space-y-2">
-            <Label htmlFor="department">Department {needsVerificationCode && "*"}</Label>
-            <Select
-              value={formData.departmentCode}
-              onValueChange={(v) => {
-                if (v === "__retry__") {
-                  fetchDepartments();
-                  return;
-                }
-                handleChange("departmentCode", v);
-              }}
-            >
-              <SelectTrigger className="text-base min-h-[44px]">
-                <SelectValue placeholder={deptError ? "Failed to load departments. Retry." : "Select department..."} />
-              </SelectTrigger>
-              <SelectContent>
-                {deptLoading ? (
-                  <SelectItem value="" disabled>Loading departments…</SelectItem>
-                ) : deptError ? (
-                  <SelectItem value="__retry__" className="text-indigo-600 font-medium cursor-pointer">
-                    Failed to load departments. Retry.
-                  </SelectItem>
-                ) : (
-                  departments.map((d) => (
-                    <SelectItem key={d.code} value={d.code}>
-                      {d.name} ({d.code})
+        <div
+          className="grid transition-[grid-template-rows] duration-300 ease-in-out"
+          style={{ gridTemplateRows: needsDepartment ? "1fr" : "0fr" }}
+        >
+          <div className="overflow-hidden">
+            <div className="space-y-2 pt-0">
+              <Label htmlFor="department">Department *</Label>
+              <Select
+                value={formData.departmentCode}
+                onValueChange={(v) => {
+                  if (v === "__retry__") {
+                    fetchDepartments();
+                    return;
+                  }
+                  handleChange("departmentCode", v);
+                }}
+                disabled={deptLoading}
+              >
+                <SelectTrigger className="text-base min-h-[44px]">
+                  {deptLoading ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                      Loading departments…
+                    </span>
+                  ) : (
+                    <SelectValue placeholder={deptError ? "Failed to load departments. Retry." : "Select department..."} />
+                  )}
+                </SelectTrigger>
+                <SelectContent>
+                  {deptLoading ? (
+                    <SelectItem value="" disabled>
+                      <span className="flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                        Loading departments…
+                      </span>
                     </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
+                  ) : deptError ? (
+                    <SelectItem value="__retry__" className="text-indigo-600 font-medium cursor-pointer">
+                      Failed to load departments. Retry.
+                    </SelectItem>
+                  ) : (
+                    departments.map((d) => (
+                      <SelectItem key={d.code} value={d.code}>
+                        {d.name} ({d.code})
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-        )}
+        </div>
 
-        {needsVerificationCode && (
-          <div className="space-y-2">
-            <Label htmlFor="verificationCode">Verification code *</Label>
-            <Input
-              id="verificationCode"
-              placeholder="XXXX-XXXX"
-              value={formData.verificationCode}
-              onChange={(e) => handleChange("verificationCode", e.target.value)}
-              className="text-base min-h-[44px]"
-            />
+        <div
+          className="grid transition-[grid-template-rows] duration-300 ease-in-out"
+          style={{ gridTemplateRows: needsVerificationCode ? "1fr" : "0fr" }}
+        >
+          <div className="overflow-hidden">
+            <div className="space-y-2 pt-0">
+              <Label htmlFor="verificationCode">Verification code *</Label>
+              <Input
+                id="verificationCode"
+                placeholder="XXXX-XXXX"
+                value={formData.verificationCode}
+                onChange={(e) => handleChange("verificationCode", e.target.value)}
+                className="text-base min-h-[44px]"
+              />
+            </div>
           </div>
-        )}
+        </div>
 
-        {(formData.role === Role.LECTURER || formData.role === Role.HOD) && (
-          <div className="space-y-2">
-            <Label htmlFor="phone">Phone number</Label>
-            <Input
-              id="phone"
-              placeholder="+234 800 000 0000"
-              value={formData.phone}
-              onChange={(e) => handleChange("phone", e.target.value)}
-              className="text-base min-h-[44px]"
-            />
+        <div
+          className="grid transition-[grid-template-rows] duration-300 ease-in-out"
+          style={{
+            gridTemplateRows: formData.role === Role.LECTURER || formData.role === Role.HOD ? "1fr" : "0fr",
+          }}
+        >
+          <div className="overflow-hidden">
+            <div className="space-y-2 pt-0">
+              <Label htmlFor="phone">Phone number</Label>
+              <Input
+                id="phone"
+                placeholder="+234 800 000 0000"
+                value={formData.phone}
+                onChange={(e) => handleChange("phone", e.target.value)}
+                className="text-base min-h-[44px]"
+              />
+            </div>
           </div>
-        )}
+        </div>
 
-        <Button type="submit" className="w-full h-11" disabled={isLoading}>
+        <Button type="submit" className="w-full h-11 bg-indigo-600 hover:bg-indigo-700 text-white" disabled={isLoading}>
           {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create account"}
         </Button>
       </form>
