@@ -50,8 +50,10 @@ import { apiClient } from '@/lib/api'
 import { getItemsFromResponse } from '@/lib/utils'
 import { Department, College } from '@/types'
 import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { ErrorState } from '@/components/state/error-state'
+import { HodCombobox } from '@/components/departments/hod-combobox'
 
 function getInitials(name: string | null | undefined): string {
   if (!name?.trim()) return '?'
@@ -82,7 +84,7 @@ export default function DepartmentsPage() {
   const [confirmAction, setConfirmAction] = useState<{ open: boolean; type: 'lock' | 'unlock' | 'delete'; dept: Department | null }>({ open: false, type: 'lock', dept: null })
   const [actionLoading, setActionLoading] = useState(false)
   const [editDept, setEditDept] = useState<Department | null>(null)
-  const [editForm, setEditForm] = useState({ name: '', code: '', description: '', college: College.CBAS })
+  const [editForm, setEditForm] = useState({ name: '', code: '', description: '', college: College.CBAS, hodId: '' })
   const [editSaving, setEditSaving] = useState(false)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [mobileDeptMenu, setMobileDeptMenu] = useState<Department | null>(null)
@@ -380,7 +382,7 @@ export default function DepartmentsPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => router.push(`/departments/${dept.code}`)}>View Details</DropdownMenuItem>
-                        {isAdmin && <DropdownMenuItem onClick={() => { setEditDept(dept); setEditForm({ name: dept.name, code: dept.code, description: dept.description ?? '', college: dept.college }); }}>Edit Department</DropdownMenuItem>}
+                        {isAdmin && <DropdownMenuItem onClick={() => { setEditDept(dept); setEditForm({ name: dept.name, code: dept.code, description: dept.description ?? '', college: dept.college, hodId: dept.hodId ?? '' }); }}>Edit Department</DropdownMenuItem>}
                         {canLockUnlock(dept) && (
                           <>
                             <DropdownMenuSeparator />
@@ -440,7 +442,7 @@ export default function DepartmentsPage() {
                     <button
                       type="button"
                       className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-100 text-left w-full min-h-[52px] font-medium"
-                      onClick={() => { setEditDept(d); setEditForm({ name: d.name, code: d.code, description: d.description ?? '', college: d.college }); close(); }}
+                      onClick={() => { setEditDept(d); setEditForm({ name: d.name, code: d.code, description: d.description ?? '', college: d.college, hodId: d.hodId ?? '' }); close(); }}
                     >
                       Edit Department
                     </button>
@@ -554,6 +556,8 @@ export default function DepartmentsPage() {
                   name: editForm.name,
                   code: editForm.code,
                   description: editForm.description || undefined,
+                  college: editForm.college,
+                  hodId: editForm.hodId || undefined,
                 })
                 if (res.success) {
                   toast({ title: 'Department updated.' })
@@ -589,6 +593,16 @@ export default function DepartmentsPage() {
                   <SelectItem value={College.CHMS}>CHMS</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div>
+              <Label className="text-sm font-medium">Head of Department (Optional)</Label>
+              <div className="mt-1.5">
+                <HodCombobox
+                  value={editForm.hodId}
+                  onChange={(v) => setEditForm((p) => ({ ...p, hodId: v }))}
+                  placeholder="Search by name..."
+                />
+              </div>
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setEditDept(null)}>Cancel</Button>

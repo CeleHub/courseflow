@@ -48,8 +48,7 @@ import {
   Plus,
 } from 'lucide-react'
 import { apiClient } from '@/lib/api'
-import { getItemsFromResponse } from '@/lib/utils'
-import { Course, Department, Level, College, Semester, Role } from '@/types'
+import { Course, Department, Level, College, Semester } from '@/types'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/hooks/use-toast'
 import { ErrorState } from '@/components/state/error-state'
@@ -57,6 +56,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
+import { HodCombobox } from '@/components/departments/hod-combobox'
 
 const LEVEL_PILL: Record<Level, string> = {
   [Level.LEVEL_100]: 'bg-slate-100 text-slate-700',
@@ -87,7 +87,6 @@ export default function DepartmentDetailsPage() {
   const [editForm, setEditForm] = useState({ name: '', code: '', description: '', college: College.CBAS, hodId: '' })
   const [editSaving, setEditSaving] = useState(false)
   const [lockLoading, setLockLoading] = useState(false)
-  const [hodCandidates, setHodCandidates] = useState<{ id: string; name: string | null; email: string }[]>([])
   const [detailCourse, setDetailCourse] = useState<Course | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [deleteCourse, setDeleteCourse] = useState<Course | null>(null)
@@ -127,23 +126,6 @@ export default function DepartmentDetailsPage() {
     if (code) fetchDetails()
   }, [code, fetchDetails])
 
-  const fetchHodCandidates = useCallback(async () => {
-    try {
-      const [hodRes, lecturerRes] = await Promise.all([
-        apiClient.getUsers({ role: Role.HOD, limit: 100 }),
-        apiClient.getUsers({ role: Role.LECTURER, limit: 100 }),
-      ])
-      const hodR = getItemsFromResponse<{ id: string; name: string | null; email: string }>(hodRes)
-      const lecturerR = getItemsFromResponse<{ id: string; name: string | null; email: string }>(lecturerRes)
-      const combined = [...(hodR?.items ?? []), ...(lecturerR?.items ?? [])]
-      const seen = new Set<string>()
-      const deduped = combined.filter((u) => { if (seen.has(u.id)) return false; seen.add(u.id); return true })
-      setHodCandidates(deduped)
-    } catch {
-      setHodCandidates([])
-    }
-  }, [])
-
   const openEdit = useCallback(() => {
     if (!department) return
     setEditForm({
@@ -154,8 +136,7 @@ export default function DepartmentDetailsPage() {
       hodId: department.hodId ?? '',
     })
     setEditOpen(true)
-    fetchHodCandidates()
-  }, [department, fetchHodCandidates])
+  }, [department])
 
   const openDetail = async (course: Course) => {
     setDetailCourse(course)
@@ -539,18 +520,14 @@ export default function DepartmentDetailsPage() {
               </Select>
             </div>
             <div>
-              <Label>Head of Department</Label>
-              <Select value={editForm.hodId || 'none'} onValueChange={(v) => setEditForm((p) => ({ ...p, hodId: v === 'none' ? '' : v }))}>
-                <SelectTrigger className="mt-1.5"><SelectValue placeholder="Select HOD" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No HOD assigned</SelectItem>
-                  {hodCandidates.map((u) => (
-                    <SelectItem key={u.id} value={u.id}>
-                      {getInitials(u.name)} {u.name ?? u.email} — {u.email}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Head of Department (Optional)</Label>
+              <div className="mt-1.5">
+                <HodCombobox
+                  value={editForm.hodId}
+                  onChange={(v) => setEditForm((p) => ({ ...p, hodId: v }))}
+                  placeholder="Search by name..."
+                />
+              </div>
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>

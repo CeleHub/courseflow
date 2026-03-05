@@ -15,69 +15,49 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from '@/contexts/AuthContext'
+import { HodCombobox } from '@/components/departments/hod-combobox'
 import { useToast } from '@/hooks/use-toast'
 import { Building2, ArrowLeft } from 'lucide-react'
 import { ErrorState } from '@/components/state/error-state'
 import { apiClient } from '@/lib/api'
-import { getItemsFromResponse } from '@/lib/utils'
-import { Role, User } from '@/types'
+import { College } from '@/types'
 
 export default function CreateDepartmentPage() {
   const router = useRouter()
   const { isAuthenticated, isAdmin, isLecturer, isHod } = useAuth()
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
-  const [loadingData, setLoadingData] = useState(true)
+  const [loadingData, setLoadingData] = useState(false)
   const [fetchError, setFetchError] = useState<string | null>(null)
-  const [hodCandidates, setHodCandidates] = useState<User[]>([])
   const [formData, setFormData] = useState({
     name: '',
     code: '',
     description: '',
+    college: College.CBAS,
     hodId: '',
   })
 
   const canCreate = isAdmin /* Only ADMIN can create departments per 0.1; HOD mutates own dept's courses/schedules only */
-
-  const fetchHodCandidates = useCallback(async () => {
-    setFetchError(null)
-    setLoadingData(true)
-    try {
-      const [hodRes, lecturerRes] = await Promise.all([
-        apiClient.getUsers({ role: Role.HOD, limit: 100 }),
-        apiClient.getUsers({ role: Role.LECTURER, limit: 100 }),
-      ])
-      const hodResult = getItemsFromResponse<User>(hodRes)
-      const lecturerResult = getItemsFromResponse<User>(lecturerRes)
-      const combined = [...(hodResult?.items ?? []), ...(lecturerResult?.items ?? [])]
-      setHodCandidates(combined)
-    } catch {
-      setFetchError('Failed to load HOD candidates')
-    } finally {
-      setLoadingData(false)
-    }
-  }, [])
 
   useEffect(() => {
     if (!isAuthenticated || !canCreate) {
       router.replace(!isAuthenticated ? '/login' : '/dashboard')
       return
     }
-    fetchHodCandidates()
-  }, [isAuthenticated, canCreate, router, fetchHodCandidates])
+  }, [isAuthenticated, canCreate, router])
 
   if (!isAuthenticated || !canCreate) {
     return null
   }
 
-  if (fetchError && !loadingData) {
+  if (fetchError) {
     return (
       <div className="container mx-auto px-4 py-8">
         <Button variant="ghost" onClick={() => router.back()} className="mb-4">
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back
         </Button>
-        <ErrorState title={fetchError} onRetry={fetchHodCandidates} />
+        <ErrorState title={fetchError} onRetry={() => setFetchError(null)} />
       </div>
     )
   }
@@ -102,13 +82,6 @@ export default function CreateDepartmentPage() {
     }))
   }
 
-  const handleSelectChange = (name: string, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }))
-  }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -125,9 +98,10 @@ export default function CreateDepartmentPage() {
       setLoading(true)
       const response = await apiClient.createDepartment({
         name: formData.name.trim(),
-        code: formData.code.trim().toUpperCase(),
+        code: formData.code.trim().toUpperCase().slice(0, 4),
         description: formData.description.trim() || undefined,
-        hodId: formData.hodId && formData.hodId !== "none" ? formData.hodId : undefined,
+        college: formData.college,
+        hodId: formData.hodId || undefined,
       })
 
       if (response.success) {
@@ -200,6 +174,7 @@ export default function CreateDepartmentPage() {
                     value={formData.name}
                     onChange={handleInputChange}
                     required
+                    maxLength={100}
                   />
                 </div>
 
@@ -211,13 +186,13 @@ export default function CreateDepartmentPage() {
                     type="text"
                     placeholder="e.g., CS"
                     value={formData.code}
-                    onChange={handleInputChange}
+                    onChange={(e) => setFormData((p) => ({ ...p, code: e.target.value.toUpperCase().slice(0, 4) }))}
                     required
-                    maxLength={10}
-                    style={{ textTransform: 'uppercase' }}
+                    maxLength={4}
+                    className="font-mono"
                   />
                   <p className="text-xs text-muted-foreground">
-                    Short code for the department (will be converted to uppercase)
+                    2–4 uppercase letters
                   </p>
                 </div>
 
@@ -230,29 +205,28 @@ export default function CreateDepartmentPage() {
                     value={formData.description}
                     onChange={handleInputChange}
                     rows={3}
+                    maxLength={1000}
                   />
                 </div>
 
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="hodId">Head of Department (Optional)</Label>
-                  <Select
-                    value={formData.hodId}
-                    onValueChange={(value) =>
-                      handleSelectChange("hodId", value)
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select Head of Department" />
-                    </SelectTrigger>
+                <div className="space-y-2">
+                  <Label>College *</Label>
+                  <Select value={formData.college} onValueChange={(v) => setFormData((p) => ({ ...p, college: v as College }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">No HOD assigned</SelectItem>
-                      {hodCandidates.map((user) => (
-                        <SelectItem key={user.id} value={user.id}>
-                          {user.name ?? user.email} — {user.department?.name ?? user.departmentCode ?? "—"}
-                        </SelectItem>
-                      ))}
+                      <SelectItem value={College.CBAS}>CBAS</SelectItem>
+                      <SelectItem value={College.CHMS}>CHMS</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+
+                <div className="space-y-2 md:col-span-2">
+                  <Label>Head of Department (Optional)</Label>
+                  <HodCombobox
+                    value={formData.hodId}
+                    onChange={(v) => setFormData((p) => ({ ...p, hodId: v }))}
+                    placeholder="Search by name..."
+                  />
                   <p className="text-xs text-muted-foreground">
                     Automatically links Head of Department to this department
                   </p>
