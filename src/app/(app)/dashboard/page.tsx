@@ -68,6 +68,25 @@ function getGreeting(): string {
 }
 
 const WEEKDAYS = [DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY] as const;
+const JS_DAY_TO_DOW: DayOfWeek[] = [
+  DayOfWeek.SUNDAY, DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY,
+  DayOfWeek.THURSDAY, DayOfWeek.FRIDAY, DayOfWeek.SATURDAY,
+];
+
+function getNextClassToday(schedules: Schedule[]): string {
+  const now = new Date();
+  const today = JS_DAY_TO_DOW[now.getDay()];
+  const nowStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  const todaySchedules = schedules
+    .filter((s) => s.dayOfWeek === today && s.startTime)
+    .sort((a, b) => (a.startTime || "").localeCompare(b.startTime || ""));
+  const next = todaySchedules.find((s) => (s.startTime || "") > nowStr);
+  if (next) {
+    const code = next.course?.code ?? next.courseCode;
+    return `${next.startTime} — ${code}`;
+  }
+  return "—";
+}
 const DAY_LABELS: Record<DayOfWeek, string> = {
   [DayOfWeek.MONDAY]: "MON",
   [DayOfWeek.TUESDAY]: "TUE",
@@ -441,8 +460,12 @@ export default function DashboardPage() {
           <div className="grid grid-cols-2 gap-3 sm:gap-4">
             <StatCard icon={BookOpen} value={schedules.length} label="Total courses this semester" iconBg="bg-indigo-500" />
             <StatCard icon={Calendar} value={exams.length} label="Upcoming exams" iconBg="bg-violet-500" />
-            <StatCard icon={Clock} value={exams[0] ? new Date(exams[0].date).toLocaleDateString() : "—"} label="Next exam date" iconBg="bg-sky-500" />
-            <StatCard icon={GraduationCap} value="—" label="Next class today" iconBg="bg-emerald-500" />
+            <StatCard icon={Clock} value={(() => {
+              const today = new Date().toISOString().slice(0, 10);
+              const sorted = [...exams].filter((e) => e.date >= today).sort((a, b) => a.date.localeCompare(b.date));
+              return sorted[0] ? new Date(sorted[0].date).toLocaleDateString() : "—";
+            })()} label="Next exam date" iconBg="bg-sky-500" />
+            <StatCard icon={GraduationCap} value={getNextClassToday(schedules)} label="Next class today" iconBg="bg-emerald-500" />
           </div>
           <Card className="rounded-xl p-5">
             <h3 className="font-semibold mb-2">This Week&apos;s Schedule</h3>
@@ -452,7 +475,11 @@ export default function DashboardPage() {
           <Card className="rounded-xl p-5">
             <h3 className="font-semibold mb-4">Upcoming Exams</h3>
             <div className="space-y-2">
-              {exams.slice(0, 5).map((e) => (
+              {[...exams]
+                .filter((e) => e.date >= new Date().toISOString().slice(0, 10))
+                .sort((a, b) => a.date.localeCompare(b.date))
+                .slice(0, 5)
+                .map((e) => (
                 <div key={e.id} className="flex justify-between text-sm gap-2">
                   <span className="font-medium">{new Date(e.date).toLocaleDateString()}</span>
                   <span>{e.courseCode}</span>
