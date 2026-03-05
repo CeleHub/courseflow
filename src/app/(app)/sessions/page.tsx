@@ -235,7 +235,7 @@ export default function AcademicSessionsPage() {
       {/* 5.1 Page header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Academic Sessions</h1>
-        <Button size="default" className="h-10" onClick={() => setIsCreateDialogOpen(true)}>
+        <Button size="default" className="h-10 bg-indigo-600 hover:bg-indigo-700 text-white" onClick={() => setIsCreateDialogOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
           New Session
         </Button>
