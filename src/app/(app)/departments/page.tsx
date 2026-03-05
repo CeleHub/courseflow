@@ -27,6 +27,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/hooks/use-toast'
 import {
@@ -79,6 +85,7 @@ export default function DepartmentsPage() {
   const [editForm, setEditForm] = useState({ name: '', code: '', description: '', college: College.CBAS })
   const [editSaving, setEditSaving] = useState(false)
   const [fetchError, setFetchError] = useState<string | null>(null)
+  const [mobileDeptMenu, setMobileDeptMenu] = useState<Department | null>(null)
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(searchTerm), 300)
@@ -332,7 +339,7 @@ export default function DepartmentsPage() {
           {departments.map((dept) => (
             <div
               key={dept.id}
-              className="group flex flex-col min-h-[160px] rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md cursor-pointer"
+              className="group flex flex-col min-h-[160px] rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-shadow duration-150 hover:shadow-md cursor-pointer"
               onClick={(e) => { if (!(e.target as HTMLElement).closest('[data-menu]')) router.push(`/departments/${dept.code}`); }}
             >
               <div className="flex items-start justify-between gap-2">
@@ -352,6 +359,7 @@ export default function DepartmentsPage() {
                 <div className="flex items-center gap-2 min-w-0">
                   {dept.hod ? (
                     <>
+                      <span className="text-sm text-gray-500 shrink-0">HOD:</span>
                       <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-medium text-indigo-700 shrink-0">
                         {getInitials(dept.hod.name)}
                       </div>
@@ -362,41 +370,118 @@ export default function DepartmentsPage() {
                   )}
                 </div>
                 <div data-menu>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                      <Button size="icon" variant="ghost" className="h-11 w-11 touch-manipulation">
-                        <MoreVertical className="h-5 w-5" />
-                        <span className="sr-only">Menu</span>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => router.push(`/departments/${dept.code}`)}>View Details</DropdownMenuItem>
-                      {isAdmin && <DropdownMenuItem onClick={() => { setEditDept(dept); setEditForm({ name: dept.name, code: dept.code, description: dept.description ?? '', college: dept.college }); }}>Edit Department</DropdownMenuItem>}
-                      {canLockUnlock(dept) && (
-                        <>
-                          <DropdownMenuSeparator />
-                          {!dept.isScheduleLocked && (
-                            <DropdownMenuItem onClick={() => setConfirmAction({ open: true, type: 'lock', dept })}>Lock Schedule</DropdownMenuItem>
-                          )}
-                          {dept.isScheduleLocked && (
-                            <DropdownMenuItem onClick={() => setConfirmAction({ open: true, type: 'unlock', dept })}>Unlock Schedule</DropdownMenuItem>
-                          )}
-                        </>
-                      )}
-                      {isAdmin && (
-                        <>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-red-600" onClick={() => setConfirmAction({ open: true, type: 'delete', dept })}>Delete Department</DropdownMenuItem>
-                        </>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <div className="hidden md:block">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                        <Button size="icon" variant="ghost" className="h-11 w-11 touch-manipulation">
+                          <MoreVertical className="h-5 w-5" />
+                          <span className="sr-only">Menu</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => router.push(`/departments/${dept.code}`)}>View Details</DropdownMenuItem>
+                        {isAdmin && <DropdownMenuItem onClick={() => { setEditDept(dept); setEditForm({ name: dept.name, code: dept.code, description: dept.description ?? '', college: dept.college }); }}>Edit Department</DropdownMenuItem>}
+                        {canLockUnlock(dept) && (
+                          <>
+                            <DropdownMenuSeparator />
+                            {!dept.isScheduleLocked && (
+                              <DropdownMenuItem onClick={() => setConfirmAction({ open: true, type: 'lock', dept })}>Lock Schedule</DropdownMenuItem>
+                            )}
+                            {dept.isScheduleLocked && (
+                              <DropdownMenuItem onClick={() => setConfirmAction({ open: true, type: 'unlock', dept })}>Unlock Schedule</DropdownMenuItem>
+                            )}
+                          </>
+                        )}
+                        {isAdmin && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="text-red-600" onClick={() => setConfirmAction({ open: true, type: 'delete', dept })}>Delete Department</DropdownMenuItem>
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="md:hidden h-11 w-11 touch-manipulation"
+                    onClick={(e) => { e.stopPropagation(); setMobileDeptMenu(dept); }}
+                    aria-label="Actions"
+                  >
+                    <MoreVertical className="h-5 w-5" />
+                  </Button>
                 </div>
               </div>
             </div>
           ))}
         </div>
       )}
+
+      {/* 6.3 Mobile department action sheet */}
+      <Sheet open={!!mobileDeptMenu} onOpenChange={(o) => !o && setMobileDeptMenu(null)}>
+        <SheetContent side="bottom" className="rounded-t-2xl">
+          <SheetHeader>
+            <SheetTitle>{mobileDeptMenu?.name ?? 'Department actions'}</SheetTitle>
+          </SheetHeader>
+          <div className="flex flex-col gap-1 py-4">
+            {mobileDeptMenu && (() => {
+              const d = mobileDeptMenu
+              const close = () => setMobileDeptMenu(null)
+              return (
+                <>
+                  <button
+                    type="button"
+                    className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-100 text-left w-full min-h-[52px] font-medium"
+                    onClick={() => { router.push(`/departments/${d.code}`); close(); }}
+                  >
+                    View Details
+                  </button>
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-100 text-left w-full min-h-[52px] font-medium"
+                      onClick={() => { setEditDept(d); setEditForm({ name: d.name, code: d.code, description: d.description ?? '', college: d.college }); close(); }}
+                    >
+                      Edit Department
+                    </button>
+                  )}
+                  {canLockUnlock(d) && (
+                    <>
+                      {!d.isScheduleLocked && (
+                        <button
+                          type="button"
+                          className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-100 text-left w-full min-h-[52px] font-medium"
+                          onClick={() => { setConfirmAction({ open: true, type: 'lock', dept: d }); close(); }}
+                        >
+                          Lock Schedule
+                        </button>
+                      )}
+                      {d.isScheduleLocked && (
+                        <button
+                          type="button"
+                          className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-100 text-left w-full min-h-[52px] font-medium"
+                          onClick={() => { setConfirmAction({ open: true, type: 'unlock', dept: d }); close(); }}
+                        >
+                          Unlock Schedule
+                        </button>
+                      )}
+                    </>
+                  )}
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-red-50 text-red-600 text-left w-full min-h-[52px] font-medium"
+                      onClick={() => { setConfirmAction({ open: true, type: 'delete', dept: d }); close(); }}
+                    >
+                      Delete Department
+                    </button>
+                  )}
+                </>
+              )
+            })()}
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* Pagination */}
       {totalPages > 1 && (
