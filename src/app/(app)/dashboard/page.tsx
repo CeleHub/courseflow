@@ -142,10 +142,10 @@ function StatCard({
 }) {
   return (
     <Card className="rounded-xl border border-gray-200 p-5 shadow-sm">
-      <div className={`w-10 h-10 rounded-lg ${iconBg} flex items-center justify-center mb-3`}>
+      <div className={`w-10 h-10 rounded-full ${iconBg} flex items-center justify-center mb-3`}>
         <Icon className="h-5 w-5 text-white" />
       </div>
-      <div className="text-2xl font-bold">{value}</div>
+      <div className="text-[28px] font-bold leading-tight">{value}</div>
       <p className="text-[13px] text-gray-500 mt-1">{label}</p>
     </Card>
   );
@@ -262,7 +262,7 @@ export default function DashboardPage() {
       <div>
         <h1 className="text-2xl font-semibold">Dashboard</h1>
         <p className="text-sm text-gray-500 mt-1">{greeting}, {firstName}</p>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mt-6">
           {[1, 2, 3, 4].map((i) => (
             <Card key={i} className="rounded-xl p-5 animate-pulse">
               <div className="w-10 h-10 rounded-lg bg-gray-200 mb-3" />
@@ -296,7 +296,7 @@ export default function DashboardPage() {
       {/* ADMIN Dashboard */}
       {isAdmin && (
         <>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <StatCard icon={Building2} value={deptStats?.totalDepartments ?? 0} label="Total Departments" iconBg="bg-indigo-500" />
             <StatCard icon={BookOpen} value={courseStats?.totalCourses ?? 0} label="Total Courses" iconBg="bg-violet-500" />
             <StatCard icon={Clock} value={scheduleStats?.totalSchedules ?? 0} label="Total Schedules" iconBg="bg-sky-500" />
@@ -361,19 +361,29 @@ export default function DashboardPage() {
             </Card>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card className="rounded-xl p-5">
-              <h3 className="font-semibold mb-4">Generate Schedules</h3>
-              <p className="text-sm text-gray-500 mb-4">Auto-generate timetables for the active session</p>
-              <Button onClick={() => setGenerateModalOpen(true)}>Generate</Button>
+            <Card className="rounded-xl border border-gray-200 p-5">
+              <div className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center mb-3">
+                <RefreshCw className="h-5 w-5 text-white" />
+              </div>
+              <h3 className="text-base font-semibold mb-2">Generate Schedules</h3>
+              <p className="text-[13px] text-gray-500 mb-4">Auto-generate timetables for the active session</p>
+              <Button onClick={() => setGenerateModalOpen(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white">Generate</Button>
             </Card>
-            <Card className="rounded-xl p-5">
-              <h3 className="font-semibold mb-4">Pending Complaints</h3>
+            <Card className="rounded-xl border border-gray-200 p-5">
+              <div className="w-10 h-10 rounded-full bg-amber-500 flex items-center justify-center mb-3">
+                <MessageCircle className="h-5 w-5 text-white" />
+              </div>
+              <h3 className="text-base font-semibold mb-2">Pending Complaints</h3>
+              <p className="text-[13px] text-gray-500 mb-2">Complaints awaiting your response</p>
               <p className="text-4xl font-bold text-amber-600 mb-4">{pendingCount}</p>
               <Button asChild variant="outline"><Link href="/complaints">View Complaints</Link></Button>
             </Card>
-            <Card className="rounded-xl p-5">
-              <h3 className="font-semibold mb-4">Academic Session</h3>
-              <p className="text-sm text-gray-500 mb-4">{activeSession?.name ?? "None"}</p>
+            <Card className="rounded-xl border border-gray-200 p-5">
+              <div className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center mb-3">
+                <CalendarDays className="h-5 w-5 text-white" />
+              </div>
+              <h3 className="text-base font-semibold mb-2">Academic Session</h3>
+              <p className="text-[13px] text-gray-500 mb-4">{activeSession?.name ?? "None"}</p>
               <Button asChild variant="outline"><Link href="/sessions">Manage Sessions</Link></Button>
             </Card>
           </div>
@@ -384,7 +394,7 @@ export default function DashboardPage() {
       {/* HOD Dashboard */}
       {(isHod || isLecturer) && lecturerDashboard && (
         <>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
             <StatCard icon={BookOpen} value={lecturerDashboard.totalCourses} label="My Courses" iconBg="bg-indigo-500" />
             <StatCard icon={Clock} value={lecturerDashboard.totalSchedules} label="Scheduled Classes" iconBg="bg-violet-500" />
             <StatCard icon={Calendar} value={lecturerDashboard.upcomingClasses} label="Upcoming Classes" iconBg="bg-sky-500" />
@@ -393,7 +403,7 @@ export default function DashboardPage() {
                 className="rounded-xl p-5 cursor-pointer flex flex-col justify-center touch-manipulation"
                 onClick={() => setLockConfirmOpen(true)}
               >
-                <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 ${department.isScheduleLocked ? "bg-amber-500" : "bg-emerald-500"}`}>
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-3 ${department.isScheduleLocked ? "bg-amber-500" : "bg-emerald-500"}`}>
                   {department.isScheduleLocked ? <Lock className="h-5 w-5 text-white" /> : <Unlock className="h-5 w-5 text-white" />}
                 </div>
                 <div className="text-2xl font-bold">{department.isScheduleLocked ? "Locked" : "Unlocked"}</div>
@@ -428,7 +438,7 @@ export default function DashboardPage() {
       {/* STUDENT Dashboard */}
       {isStudent && (
         <>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
             <StatCard icon={BookOpen} value={schedules.length} label="Total courses this semester" iconBg="bg-indigo-500" />
             <StatCard icon={Calendar} value={exams.length} label="Upcoming exams" iconBg="bg-violet-500" />
             <StatCard icon={Clock} value={exams[0] ? new Date(exams[0].date).toLocaleDateString() : "—"} label="Next exam date" iconBg="bg-sky-500" />
