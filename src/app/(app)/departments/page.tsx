@@ -193,7 +193,7 @@ export default function DepartmentsPage() {
   const canLockUnlock = (d: Department) => isAdmin || (isHod && user?.departmentCode === d.code)
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* 6.1 Page header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Departments</h1>
@@ -218,9 +218,9 @@ export default function DepartmentsPage() {
       </div>
 
       {/* 6.2 Filter bar */}
-      <div className="rounded-xl border border-gray-200 bg-white p-3 md:p-5">
-        <div className="flex flex-col md:flex-row md:items-center gap-3">
-          <div className="relative flex-1 min-w-0">
+      <div className="rounded-xl border border-gray-200 bg-white p-3 md:py-3 md:px-5">
+        <div className="flex flex-row md:items-center gap-3">
+          <div className="relative flex-1 min-w-0 md:min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
               placeholder="Search by name or code..."
@@ -259,7 +259,7 @@ export default function DepartmentsPage() {
           </div>
           <Button
             variant="outline"
-            className="md:hidden h-11 w-full"
+            className="md:hidden h-11 shrink-0"
             onClick={() => setFiltersOpen(true)}
           >
             <Filter className="h-4 w-4 mr-2" />
@@ -277,13 +277,13 @@ export default function DepartmentsPage() {
           <div className="space-y-4">
             <div>
               <p className="text-sm font-medium mb-2">Has Courses</p>
-              <Button variant={hasCourses ? 'default' : 'outline'} className="w-full" onClick={() => setHasCourses(!hasCourses)}>
+              <Button variant={hasCourses ? 'default' : 'outline'} className="w-full rounded-full" onClick={() => setHasCourses(!hasCourses)}>
                 {hasCourses ? 'On' : 'Off'}
               </Button>
             </div>
             <div>
               <p className="text-sm font-medium mb-2">Without Courses</p>
-              <Button variant={withoutCourses ? 'default' : 'outline'} className="w-full" onClick={() => setWithoutCourses(!withoutCourses)}>
+              <Button variant={withoutCourses ? 'default' : 'outline'} className="w-full rounded-full" onClick={() => setWithoutCourses(!withoutCourses)}>
                 {withoutCourses ? 'On' : 'Off'}
               </Button>
             </div>
@@ -298,8 +298,8 @@ export default function DepartmentsPage() {
                 </SelectContent>
               </Select>
             </div>
-            <Button className="w-full h-11" onClick={() => setFiltersOpen(false)}>Apply</Button>
-            <button type="button" className="text-sm text-gray-500 underline" onClick={() => { setHasCourses(false); setWithoutCourses(false); setFiltersOpen(false); }}>Clear Filters</button>
+            <Button className="w-full h-11 bg-indigo-600 hover:bg-indigo-700 text-white" onClick={() => setFiltersOpen(false)}>Apply</Button>
+            <button type="button" className="text-sm text-gray-500 underline" onClick={() => { setHasCourses(false); setWithoutCourses(false); setLimit(25); setPage(1); setFiltersOpen(false); }}>Clear Filters</button>
           </div>
         </DialogContent>
       </Dialog>
@@ -310,7 +310,7 @@ export default function DepartmentsPage() {
           <ErrorState title={fetchError} onRetry={() => { setFetchError(null); fetchDepartments(); }} />
         </div>
       ) : loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-4">
           {[1, 2, 3, 4, 5, 6].map((i) => (
             <div key={i} className="h-40 rounded-xl border bg-white animate-pulse" />
           ))}
@@ -328,7 +328,7 @@ export default function DepartmentsPage() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-4">
           {departments.map((dept) => (
             <div
               key={dept.id}
