@@ -1026,7 +1026,7 @@ export default function SchedulePage() {
             </Button>
           )}
         </div>
-        <GenerateScheduleModal open={generateModalOpen} onOpenChange={setGenerateModalOpen} onSuccess={fetchSchedules} isHod={!!isHod} departmentCode={isHod && user?.departmentCode ? user.departmentCode : undefined} departmentName={undefined} />
+        <GenerateScheduleModal open={generateModalOpen} onOpenChange={setGenerateModalOpen} onSuccess={fetchSchedules} isHod={!!isHod} departmentCode={isHod && user?.departmentCode ? user.departmentCode : undefined} departmentName={isHod && user?.departmentCode ? departments.find((d) => d.code === user.departmentCode)?.name : undefined} />
         <CreateScheduleModal
           open={createModalOpen}
           onOpenChange={(o) => {

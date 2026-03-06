@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -152,11 +151,6 @@ export function GenerateScheduleModal({
         <div className="max-sm:mt-3 max-sm:w-10 max-sm:h-1 max-sm:mx-auto max-sm:rounded-full max-sm:bg-gray-300" />
         <DialogHeader>
           <DialogTitle>Generate Schedules</DialogTitle>
-          {!result && (
-            <DialogDescription>
-              This will delete all existing auto-generated schedules for the selected scope and regenerate them. Manual overrides and fixed schedules will be preserved.
-            </DialogDescription>
-          )}
         </DialogHeader>
 
         {result ? (
@@ -168,8 +162,8 @@ export function GenerateScheduleModal({
                   <h3 className="text-lg font-semibold">Schedule Generation Complete</h3>
                 </div>
                 <div className="rounded-lg border bg-gray-50 p-4 space-y-2 text-sm">
-                  <div className="flex justify-between"><span>Session</span><span className="font-medium">{result.session ?? "—"}</span></div>
-                  <div className="flex justify-between"><span>Semester</span><span className="font-medium">{result.semester ?? "—"}</span></div>
+                  <div className="flex justify-between"><span>Session</span><span className="font-medium">{sessions.find((s) => s.id === activeSessionId)?.name ?? result.session ?? "—"}</span></div>
+                  <div className="flex justify-between"><span>Semester</span><span className="font-medium">{semester === Semester.FIRST ? "First" : "Second"}</span></div>
                   <div className="flex justify-between"><span>Total Courses</span><span className="font-medium">{result.totalCourses ?? "—"}</span></div>
                   <div className="flex justify-between"><span>Scheduled</span><span className="font-medium">{result.scheduled ?? "—"}</span></div>
                   {result.preserved != null && <div className="flex justify-between"><span>Preserved</span><span className="font-medium">{result.preserved} manual overrides</span></div>}
@@ -177,7 +171,7 @@ export function GenerateScheduleModal({
                 </div>
                 <DialogFooter className="gap-2">
                   <Button variant="outline" onClick={handleClose}>Close</Button>
-                  <Button asChild><Link href="/schedules" onClick={handleClose}>View Schedules</Link></Button>
+                  <Button asChild className="bg-indigo-600 hover:bg-indigo-700"><Link href="/schedules" onClick={() => { onSuccess?.(); handleClose(); }}>View Schedules</Link></Button>
                 </DialogFooter>
               </>
             ) : (
@@ -213,7 +207,7 @@ export function GenerateScheduleModal({
         ) : (
           <>
             <div className="space-y-4 py-4">
-              <div className="rounded-lg border-l-4 border-amber-500 bg-amber-50 p-3 text-sm text-amber-800">
+              <div className="rounded-lg border-l-[3px] border-amber-600 bg-amber-50 py-3 px-4 text-sm text-amber-800">
                 This will delete all existing auto-generated schedules for the selected scope and regenerate them. Manual overrides and fixed schedules will be preserved.
               </div>
               <div className="grid gap-4">
@@ -268,7 +262,7 @@ export function GenerateScheduleModal({
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>Cancel</Button>
-              <Button onClick={handleSubmit} disabled={loading || loadingData}>
+              <Button onClick={handleSubmit} disabled={loading || loadingData} className="bg-indigo-600 hover:bg-indigo-700">
                 {loading ? (
                   <span className="flex items-center gap-2">
                     <RefreshCw className="h-4 w-4 animate-spin" />
