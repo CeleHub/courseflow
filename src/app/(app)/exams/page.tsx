@@ -278,22 +278,22 @@ export default function ExamsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* 9.1 Page Layout */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Exam Schedule</h1>
         {isAdmin && (
-          <Button size="sm" onClick={() => setIsCreateOpen(true)}>
+          <Button size="sm" onClick={() => setIsCreateOpen(true)} className="bg-indigo-600 hover:bg-indigo-700">
             <Plus className="h-4 w-4 mr-2" />
             Schedule Exam
           </Button>
         )}
       </div>
 
-      {/* Filter bar */}
+      {/* Filter bar (margin-top 16px via space-y-4) */}
       <div className="rounded-xl border border-gray-200 bg-white p-3 md:p-5">
         <div className="flex flex-col md:flex-row md:items-center gap-3">
-          <div className="relative flex-1 min-w-0">
+          <div className="relative flex-1 min-w-0 order-2">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
               placeholder="Search by course code..."
@@ -302,7 +302,7 @@ export default function ExamsPage() {
               className="pl-10"
             />
           </div>
-          <div className="hidden md:flex items-center gap-2">
+          <div className="hidden md:flex items-center gap-2 order-1">
             <Select value={sessionId || 'all'} onValueChange={(v) => setSessionId(v === 'all' ? '' : v)}>
               <SelectTrigger className="w-[160px]"><SelectValue placeholder="Session" /></SelectTrigger>
               <SelectContent>
@@ -321,7 +321,7 @@ export default function ExamsPage() {
               </SelectContent>
             </Select>
           </div>
-          <Button variant="outline" className="md:hidden" onClick={() => setFiltersOpen(true)}>
+          <Button variant="outline" className="md:hidden order-3" onClick={() => setFiltersOpen(true)}>
             <Filter className="h-4 w-4 mr-2" />
             Filters
           </Button>
@@ -377,7 +377,7 @@ export default function ExamsPage() {
           <h3 className="text-base font-semibold text-gray-700">No exams scheduled</h3>
           <p className="text-sm text-gray-400 mt-2">Schedule exams for the active session.</p>
           {isAdmin && (
-            <Button className="mt-4" onClick={() => setIsCreateOpen(true)}>
+            <Button className="mt-4 bg-indigo-600 hover:bg-indigo-700" onClick={() => setIsCreateOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
               Schedule Exam
             </Button>
