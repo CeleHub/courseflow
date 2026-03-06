@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/hooks/use-toast'
 import {
@@ -17,8 +17,6 @@ import {
   Clock,
   BookOpen,
   RefreshCw,
-  Upload,
-  Download,
   FileText,
   Plus,
   FileDown,
@@ -81,9 +79,6 @@ export default function SchedulePage() {
   const [selectedSessionId, setSelectedSessionId] = useState<string>('')
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
-  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [isUploading, setIsUploading] = useState(false)
 
   const dayOptions = [
     { value: DayOfWeek.MONDAY, label: 'Monday', shortLabel: 'MON.' },
@@ -221,35 +216,6 @@ export default function SchedulePage() {
     setSelectedSemester('all')
     setSelectedSessionId('')
     setCurrentPage(1)
-  }
-
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (file && file.type === 'text/csv') {
-      setSelectedFile(file)
-    } else {
-      toast({
-        title: "Invalid File",
-        description: "Please select a CSV file",
-        variant: "destructive",
-      })
-    }
-  }
-
-  const handleBulkUpload = async () => {
-    toast({
-      title: "Not available",
-      description: "Schedule bulk upload is not yet supported.",
-      variant: "destructive",
-    })
-  }
-
-  const handleDownloadTemplate = async () => {
-    toast({
-      title: "Not available",
-      description: "Schedule bulk template download is not yet supported.",
-      variant: "destructive",
-    })
   }
 
   // Helper function to get time slots from schedules
@@ -1093,7 +1059,7 @@ export default function SchedulePage() {
         {/* 8.2 Filter bar — desktop: white card rounded-xl padding 12px 20px; mobile: search + Filters(N) */}
         <div className="rounded-xl border border-gray-200 bg-white py-3 px-5">
           <div className="flex flex-row flex-wrap items-center gap-3">
-            <div className="relative flex-1 min-w-0 md:min-w-[200px]">
+            <div className="relative flex-1 min-w-0 md:min-w-[200px] md:hidden">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
                 placeholder="Search by course code or name..."
@@ -1173,57 +1139,6 @@ export default function SchedulePage() {
                 >
                   Clear Filters
                 </button>
-              )}
-              {isAuthenticated && canMutateSchedules && (
-                <>
-                  <Button variant="outline" size="sm" onClick={handleDownloadTemplate}>
-                    <Download className="h-4 w-4 mr-2" />
-                    Template
-                  </Button>
-                  <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button variant="outline" size="sm">
-                        <Upload className="h-4 w-4 mr-2" />
-                        Bulk Upload
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-md" onSwipeDown={() => setIsUploadDialogOpen(false)}>
-                      <DialogHeader>
-                        <DialogTitle>Bulk Upload Schedules</DialogTitle>
-                        <DialogDescription>
-                          Upload a CSV file to create multiple schedules at once
-                        </DialogDescription>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center">
-                          <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                          <div className="space-y-2">
-                            <p className="text-sm text-muted-foreground">
-                              {selectedFile ? selectedFile.name : 'Select a CSV file'}
-                            </p>
-                            <Input
-                              type="file"
-                              accept=".csv"
-                              onChange={handleFileSelect}
-                              className="cursor-pointer"
-                            />
-                          </div>
-                        </div>
-                        <div className="text-xs text-muted-foreground space-y-1">
-                          <p>• CSV file should contain columns: courseCode, dayOfWeek, startTime, endTime</p>
-                          <p>• Download the template for the correct format</p>
-                          <p>• Maximum file size: 5MB</p>
-                        </div>
-                      </div>
-                      <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => setIsUploadDialogOpen(false)}>Cancel</Button>
-                        <Button onClick={handleBulkUpload} disabled={!selectedFile || isUploading}>
-                          {isUploading ? 'Uploading...' : 'Upload'}
-                        </Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-                </>
               )}
             </div>
             <Button variant="outline" size="sm" className="md:hidden shrink-0" onClick={() => setFiltersOpen(true)}>

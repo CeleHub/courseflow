@@ -162,7 +162,7 @@ export function TimetableGrid({ schedules, onScheduleClick, onEmptyCellClick, ca
           return (
             <div
               key={`cell-${day}-${startTime}`}
-              className={`relative ${isCutoff ? '' : 'bg-white'}`}
+              className={`group relative ${isCutoff ? '' : 'bg-white'}`}
               style={{
                 gridColumn: colIdx + 2,
                 gridRow: rowIdx + 2,
@@ -176,9 +176,9 @@ export function TimetableGrid({ schedules, onScheduleClick, onEmptyCellClick, ca
                 <button
                   type="button"
                   onClick={() => onEmptyCellClick?.(day, startTime)}
-                  className="w-full h-full min-h-[59px] flex items-center justify-center border border-dashed border-gray-300 rounded hover:border-gray-400 hover:bg-gray-50/50 transition-colors touch-manipulation"
+                  className="w-full h-full min-h-[59px] flex items-center justify-center rounded border border-transparent group-hover:border-dashed group-hover:border-gray-300 group-hover:bg-gray-50/50 transition-colors touch-manipulation"
                 >
-                  <span className="text-gray-400 text-lg">+</span>
+                  <span className="text-transparent group-hover:text-gray-400 text-lg transition-colors">+</span>
                 </button>
               )}
             </div>
