@@ -81,9 +81,22 @@ export default function ComplaintsPage() {
       setLoading(true)
       setFetchError(null)
       if (isManager) {
-        const res = await apiClient.getComplaints({ page: 1, limit: 200, orderBy: 'createdAt', orderDirection: orderBy === 'newest' ? 'desc' : 'asc' })
+        let res
+        if (activeTab === 'all') {
+          res = await apiClient.getComplaints({ page: 1, limit: 200, orderBy: 'createdAt', orderDirection: orderBy === 'newest' ? 'desc' : 'asc' })
+        } else if (activeTab === ComplaintStatus.PENDING) {
+          res = await apiClient.getPendingComplaints()
+        } else if (activeTab === ComplaintStatus.RESOLVED) {
+          res = await apiClient.getResolvedComplaints()
+        } else {
+          res = await apiClient.getComplaints({ page: 1, limit: 200, orderBy: 'createdAt', orderDirection: orderBy === 'newest' ? 'desc' : 'asc' })
+        }
         const r = getItemsFromResponse<Complaint>(res)
-        setComplaints(r?.items ?? [])
+        let items = r?.items ?? []
+        if (activeTab === ComplaintStatus.IN_PROGRESS || activeTab === ComplaintStatus.CLOSED) {
+          items = items.filter((c) => c.status === activeTab)
+        }
+        setComplaints(items)
       } else {
         const res = await apiClient.getMyComplaints()
         const data = (res as any)?.data
@@ -96,7 +109,7 @@ export default function ComplaintsPage() {
     } finally {
       setLoading(false)
     }
-  }, [isManager, orderBy, toast])
+  }, [isManager, orderBy, activeTab, toast])
 
   useEffect(() => {
     if (user) setFormData((p) => ({ ...p, name: user.name ?? p.name, email: user.email ?? p.email }))
@@ -307,8 +320,8 @@ export default function ComplaintsPage() {
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold">Complaints</h1>
 
-      {/* 11.2 Status tab bar */}
-      <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
+      {/* 11.2 Status tab bar (margin-top 16px per spec) */}
+      <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 !mt-4">
         <div className="flex gap-1 border-b border-gray-200 min-w-max pb-px">
           {tabs.map((t) => (
             <button
