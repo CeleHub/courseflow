@@ -25,6 +25,15 @@ import { getItemsFromResponse } from '@/lib/utils'
 import { Course, DayOfWeek, Schedule } from '@/types'
 
 const WEEKDAYS = [DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY]
+const DAY_LABELS: Record<DayOfWeek, string> = {
+  [DayOfWeek.MONDAY]: 'Monday',
+  [DayOfWeek.TUESDAY]: 'Tuesday',
+  [DayOfWeek.WEDNESDAY]: 'Wednesday',
+  [DayOfWeek.THURSDAY]: 'Thursday',
+  [DayOfWeek.FRIDAY]: 'Friday',
+  [DayOfWeek.SATURDAY]: 'Saturday',
+  [DayOfWeek.SUNDAY]: 'Sunday',
+}
 
 const START_TIMES_BASE = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00']
 const WEDNESDAY_START_TIMES = ['09:00', '10:00', '11:00', '12:00', '13:00']
@@ -238,7 +247,7 @@ export function CreateScheduleModal({
               <SelectContent>
                 {WEEKDAYS.map((d) => (
                   <SelectItem key={d} value={d}>
-                    {d.replace('DAY', '')}
+                    {DAY_LABELS[d]}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -287,7 +296,7 @@ export function CreateScheduleModal({
               className="rounded border-gray-300"
             />
             <Label htmlFor="isFixed" className="cursor-pointer text-sm">
-              Pin this slot (isFixed) — so auto-generation never moves it
+              Pin this slot (isFixed) — Fix this slot so auto-generation never moves it.
             </Label>
           </div>
 
