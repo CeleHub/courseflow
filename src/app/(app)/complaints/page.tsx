@@ -428,17 +428,18 @@ export default function ComplaintsPage() {
             </div>
           </div>
 
-          {/* Mobile cards */}
+          {/* Mobile cards — 11.3: subject + status row 1, name·dept, submitted, message, divider, [···] footer */}
           <div className="md:hidden space-y-3">
             {sortedComplaints.map((c) => (
               <div key={c.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
                 <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="font-semibold">{c.subject}</p>
-                    <p className="text-sm text-gray-500">{c.name} · {c.department}</p>
-                    <p className="text-xs text-gray-500">{formatRelative(c.createdAt)}</p>
-                    <p className="text-sm text-gray-600 mt-1 line-clamp-2">{c.message}</p>
-                  </div>
+                  <p className="font-semibold">{c.subject}</p>
+                  <Badge className={`shrink-0 ${STATUS_BADGES[c.status]}`}>{c.status.replace('_', ' ')}</Badge>
+                </div>
+                <p className="text-sm text-gray-500 mt-1">{c.name} · {c.department}</p>
+                <p className="text-xs text-gray-500">{formatRelative(c.createdAt)}</p>
+                <p className="text-sm text-gray-600 mt-1 line-clamp-2">{c.message}</p>
+                <div className="border-t mt-3 pt-3 flex justify-end">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button size="icon" variant="ghost" className="h-11 w-11 shrink-0"><MoreVertical className="h-5 w-5" /><span className="sr-only">Menu</span></Button>
@@ -451,7 +452,6 @@ export default function ComplaintsPage() {
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
-                <Badge className={`mt-2 ${STATUS_BADGES[c.status]}`}>{c.status.replace('_', ' ')}</Badge>
               </div>
             ))}
           </div>
