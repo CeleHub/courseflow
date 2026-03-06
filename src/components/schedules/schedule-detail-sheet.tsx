@@ -4,7 +4,17 @@ import { Sheet, SheetContent, SheetHeader } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Lock, ArrowLeft, Pencil, Trash2 } from 'lucide-react'
-import { Schedule, AcademicSession, Semester } from '@/types'
+import { Schedule, Semester, DayOfWeek } from '@/types'
+
+const DAY_LABELS: Record<DayOfWeek, string> = {
+  [DayOfWeek.MONDAY]: 'Monday',
+  [DayOfWeek.TUESDAY]: 'Tuesday',
+  [DayOfWeek.WEDNESDAY]: 'Wednesday',
+  [DayOfWeek.THURSDAY]: 'Thursday',
+  [DayOfWeek.FRIDAY]: 'Friday',
+  [DayOfWeek.SATURDAY]: 'Saturday',
+  [DayOfWeek.SUNDAY]: 'Sunday',
+}
 
 export interface ScheduleDetailSheetProps {
   schedule: Schedule | null
@@ -31,7 +41,7 @@ export function ScheduleDetailSheet({
 
   return (
     <Sheet open={!!schedule} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent side="right" className="w-full sm:max-w-[420px] overflow-y-auto" hideCloseOnMobile>
+      <SheetContent side="right" className="w-full max-sm:h-full sm:max-w-[420px] overflow-y-auto" hideCloseOnMobile>
         <SheetHeader className="md:sr-only">
           <Button variant="ghost" size="icon" className="md:hidden absolute left-4 top-4 z-10" onClick={onClose}>
             <ArrowLeft className="h-5 w-5" />
@@ -47,7 +57,7 @@ export function ScheduleDetailSheet({
 
           <div>
             <p className="text-lg font-semibold">
-              {schedule.dayOfWeek.replace('DAY', '')}, {schedule.startTime} – {schedule.endTime}
+              {DAY_LABELS[schedule.dayOfWeek as DayOfWeek] ?? schedule.dayOfWeek}, {schedule.startTime} – {schedule.endTime}
             </p>
             <p className="text-sm text-gray-500 mt-1">
               {sessionName || schedule.sessionId} · {schedule.semester === Semester.FIRST ? 'First' : 'Second'} Semester
@@ -63,7 +73,7 @@ export function ScheduleDetailSheet({
             ) : schedule.isManualOverride ? (
               <Badge className="bg-amber-100 text-amber-700">Manual Override</Badge>
             ) : (
-              <Badge variant="secondary">Auto-generated</Badge>
+              <Badge variant="secondary" className="bg-gray-100 text-gray-600">Auto-generated</Badge>
             )}
           </div>
 
@@ -76,11 +86,13 @@ export function ScheduleDetailSheet({
             </p>
             <p className="text-sm">
               <span className="text-gray-500">Department:</span>{' '}
-              <span className="font-mono text-xs">{schedule.course?.departmentCode ?? '—'}</span>
+              <span className="text-xs font-mono text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">{schedule.course?.departmentCode ?? '—'}</span>
             </p>
             <p className="text-sm">
               <span className="text-gray-500">Lecturer:</span>{' '}
-              {schedule.course?.lecturer?.name ?? schedule.course?.lecturer?.email ?? '—'}
+              {schedule.course?.lecturer?.name && schedule.course?.lecturer?.email
+                ? `${schedule.course.lecturer.name} (${schedule.course.lecturer.email})`
+                : schedule.course?.lecturer?.name ?? schedule.course?.lecturer?.email ?? '—'}
             </p>
           </div>
 
@@ -90,16 +102,17 @@ export function ScheduleDetailSheet({
                 <Pencil className="h-4 w-4 mr-2" />
                 Edit Schedule
               </Button>
-              <Button
-                variant="outline"
-                className="w-full text-red-600 border-red-200 hover:bg-red-50"
-                onClick={() => onDelete(schedule)}
-                disabled={!canDelete}
-                title={schedule.isFixed ? 'This slot is fixed. Contact an admin to remove it.' : undefined}
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete Schedule
-              </Button>
+              <span title={!canDelete && schedule.isFixed ? 'This slot is fixed. Contact an admin to remove it.' : undefined} className="block">
+                <Button
+                  variant="outline"
+                  className="w-full text-red-600 border-red-200 hover:bg-red-50"
+                  onClick={() => onDelete(schedule)}
+                  disabled={!canDelete}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete Schedule
+                </Button>
+              </span>
             </div>
           )}
         </div>
