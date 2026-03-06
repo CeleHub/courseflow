@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -15,7 +15,6 @@ import {
   Search,
   Filter,
   Clock,
-  MapPin,
   BookOpen,
   RefreshCw,
   Upload,
@@ -23,12 +22,20 @@ import {
   FileText,
   Plus,
   FileDown,
-  ChevronDown
+  ChevronDown,
+  Pencil,
+  Trash2,
+  MoreVertical,
 } from 'lucide-react'
 import { apiClient } from '@/lib/api'
 import { getItemsFromResponse } from '@/lib/utils'
 import { Schedule, Department, Level, DayOfWeek, Semester, Course, AcademicSession } from '@/types'
 import { GenerateScheduleModal } from '@/components/dashboard/generate-schedule-modal'
+import { TimetableGrid } from '@/components/schedules/timetable-grid'
+import { MobileTimetable } from '@/components/schedules/mobile-timetable'
+import { ScheduleDetailSheet } from '@/components/schedules/schedule-detail-sheet'
+import { CreateScheduleModal } from '@/components/schedules/create-schedule-modal'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { ErrorState } from '@/components/state/error-state'
 import {
   DropdownMenu,
@@ -43,6 +50,7 @@ import html2canvas from 'html2canvas'
 
 export default function SchedulePage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { isAuthenticated, isAdmin, isLecturer, isHod, user } = useAuth()
   const { toast } = useToast()
 
@@ -54,6 +62,15 @@ export default function SchedulePage() {
   const [activeSession, setActiveSession] = useState<AcademicSession | null>(null)
   const [viewMode, setViewMode] = useState<'timetable' | 'list'>('timetable')
   const [generateModalOpen, setGenerateModalOpen] = useState(false)
+  const [detailSchedule, setDetailSchedule] = useState<Schedule | null>(null)
+  const [createModalOpen, setCreateModalOpen] = useState(false)
+  const [createModalPrefill, setCreateModalPrefill] = useState<{ courseCode?: string; dayOfWeek?: DayOfWeek; startTime?: string }>({})
+  const [mobileSelectedDay, setMobileSelectedDay] = useState<DayOfWeek>(DayOfWeek.MONDAY)
+  const [deleteSchedule, setDeleteSchedule] = useState<Schedule | null>(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [editSchedule, setEditSchedule] = useState<Schedule | null>(null)
+  const [listSort, setListSort] = useState<{ key: 'day' | 'time'; dir: 'asc' | 'desc' | null }>({ key: 'day', dir: 'asc' })
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
@@ -103,7 +120,6 @@ export default function SchedulePage() {
         const s = getItemsFromResponse<AcademicSession>(sessRes)
         if (d) setDepartments(d.items)
         if (s) setSessions(s.items)
-        if (s) setSessions(s.items)
         if (activeRes.success && activeRes.data) {
           const act = activeRes.data as AcademicSession
           setActiveSession(act)
@@ -151,10 +167,51 @@ export default function SchedulePage() {
     fetchSchedules()
   }, [fetchSchedules])
 
+  useEffect(() => {
+    const create = searchParams.get('create')
+    const course = searchParams.get('course')
+    const day = searchParams.get('day') as DayOfWeek | null
+    const start = searchParams.get('start')
+    if (create === '1' && canMutateSchedules) {
+      setCreateModalOpen(true)
+      setCreateModalPrefill({ courseCode: course ?? undefined, dayOfWeek: day ?? undefined, startTime: start ?? undefined })
+    }
+  }, [searchParams, canMutateSchedules])
+
+  const handleDeleteSchedule = async (): Promise<boolean> => {
+    if (!deleteSchedule) return false
+    try {
+      setDeleteLoading(true)
+      const res = await apiClient.deleteSchedule(deleteSchedule.id)
+      if (res.success) {
+        toast({ title: 'Schedule deleted' })
+        setDeleteSchedule(null)
+        setDetailSchedule(null)
+        fetchSchedules()
+        return true
+      }
+      toast({ title: (res as any).error ?? 'Failed', variant: 'destructive' })
+      return false
+    } catch {
+      toast({ title: 'Delete failed', variant: 'destructive' })
+      return false
+    } finally {
+      setDeleteLoading(false)
+    }
+  }
+
   const filteredSchedules = schedules.filter(schedule =>
     schedule.course?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     schedule.course?.code.toLowerCase().includes(searchTerm.toLowerCase())
   )
+
+  const filterCount = [
+    selectedSessionId && selectedSessionId !== 'all',
+    selectedSemester !== 'all',
+    selectedDepartment !== 'all',
+    selectedLevel !== 'all',
+    viewMode === 'timetable' && selectedDay !== 'all',
+  ].filter(Boolean).length
 
   const handleReset = () => {
     setSearchTerm('')
@@ -162,6 +219,7 @@ export default function SchedulePage() {
     setSelectedLevel('all')
     setSelectedDay('all')
     setSelectedSemester('all')
+    setSelectedSessionId('')
     setCurrentPage(1)
   }
 
@@ -928,26 +986,19 @@ export default function SchedulePage() {
 
   return (
     <div>
-      <div className="space-y-8">
-        {/* 8.1 Page header */}
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+      <div className="space-y-4">
+        {/* 8.1 Page header — mobile: Schedules + Generate only; view toggle + Manual in secondary row */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-2xl font-semibold">Schedules</h1>
             {(activeSession || selectedSessionId) && (
-              <Badge variant="secondary" className="text-xs bg-indigo-100 text-indigo-700">
+              <Badge variant="secondary" className="bg-indigo-100 text-indigo-700" style={{ fontSize: 13 }}>
                 {(sessions.find((x) => x.id === selectedSessionId) ?? activeSession)?.name ?? 'Session'} · {selectedSemester === Semester.FIRST ? 'First' : selectedSemester === Semester.SECOND ? 'Second' : 'All'} Semester
               </Badge>
             )}
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="hidden md:flex items-center gap-2 flex-wrap">
             <div className="flex rounded-lg border p-0.5">
-              <button
-                type="button"
-                onClick={() => setViewMode('timetable')}
-                className={`px-3 py-1.5 text-sm rounded-md ${viewMode === 'timetable' ? 'bg-indigo-600 text-white' : 'text-gray-600'}`}
-              >
-                Timetable
-              </button>
               <button
                 type="button"
                 onClick={() => setViewMode('list')}
@@ -955,10 +1006,17 @@ export default function SchedulePage() {
               >
                 List
               </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('timetable')}
+                className={`px-3 py-1.5 text-sm rounded-md ${viewMode === 'timetable' ? 'bg-indigo-600 text-white' : 'text-gray-600'}`}
+              >
+                Timetable
+              </button>
             </div>
             {canMutateSchedules && (
               <>
-                <Button variant="outline" size="sm" onClick={() => router.push('/schedules/create')}>
+                <Button variant="outline" size="sm" onClick={() => { setEditSchedule(null); setCreateModalPrefill({}); setCreateModalOpen(true); }}>
                   <Plus className="h-4 w-4 mr-2" />
                   Manual Schedule
                 </Button>
@@ -968,34 +1026,85 @@ export default function SchedulePage() {
               </>
             )}
           </div>
+          <div className="md:hidden">
+            <Button size="sm" onClick={() => setGenerateModalOpen(true)}>
+              Generate
+            </Button>
+          </div>
         </div>
-        {canMutateSchedules && (
-          <div className="md:hidden flex gap-2 mb-4">
-            <Button variant="outline" size="sm" className="flex-1" onClick={() => router.push('/schedules/create')}>
+        <div className="md:hidden flex gap-2">
+          <div className="flex rounded-lg border p-0.5 flex-1">
+            <button
+              type="button"
+              onClick={() => setViewMode('list')}
+              className={`flex-1 px-3 py-1.5 text-sm rounded-md ${viewMode === 'list' ? 'bg-indigo-600 text-white' : 'text-gray-600'}`}
+            >
+              List
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('timetable')}
+              className={`flex-1 px-3 py-1.5 text-sm rounded-md ${viewMode === 'timetable' ? 'bg-indigo-600 text-white' : 'text-gray-600'}`}
+            >
+              Timetable
+            </button>
+          </div>
+          {canMutateSchedules && (
+            <Button variant="outline" size="sm" className="flex-1" onClick={() => { setEditSchedule(null); setCreateModalPrefill({}); setCreateModalOpen(true); }}>
               <Plus className="h-4 w-4 mr-2" />
               Manual
             </Button>
-          </div>
-        )}
+          )}
+        </div>
         <GenerateScheduleModal open={generateModalOpen} onOpenChange={setGenerateModalOpen} onSuccess={fetchSchedules} isHod={!!isHod} departmentCode={isHod && user?.departmentCode ? user.departmentCode : undefined} departmentName={undefined} />
+        <CreateScheduleModal
+          open={createModalOpen}
+          onOpenChange={(o) => {
+            if (!o) setEditSchedule(null)
+            setCreateModalOpen(o)
+          }}
+          onSuccess={fetchSchedules}
+          prefill={createModalPrefill}
+          editSchedule={editSchedule}
+          activeSessionId={selectedSessionId || activeSession?.id}
+          existingSchedules={schedules}
+        />
+        <ScheduleDetailSheet
+          schedule={detailSchedule}
+          sessionName={sessions.find((s) => s.id === detailSchedule?.sessionId)?.name}
+          onClose={() => setDetailSchedule(null)}
+          onEdit={(s) => { setDetailSchedule(null); setEditSchedule(s); setCreateModalOpen(true); }}
+          onDelete={(s) => setDeleteSchedule(s)}
+          canMutate={canMutateSchedules}
+          isAdmin={isAdmin}
+        />
+        <ConfirmDialog
+          open={!!deleteSchedule}
+          onOpenChange={(o) => !o && setDeleteSchedule(null)}
+          title="Delete schedule?"
+          description={deleteSchedule ? `Remove ${deleteSchedule.course?.code ?? deleteSchedule.courseCode} from the timetable?` : ''}
+          icon={Trash2}
+          confirmLabel="Delete"
+          variant="destructive"
+          onConfirm={handleDeleteSchedule}
+          loading={deleteLoading}
+        />
 
-        {/* Filters */}
-        <Card className="mb-8 border-2 shadow-sm">
-          <CardHeader className="pb-4">
-            <CardTitle className="text-xl font-semibold flex items-center gap-2">
-              <div className="p-1.5 bg-primary/10 rounded-lg">
-                <Filter className="h-5 w-5 text-primary" />
-              </div>
-              Filter Timetable
-            </CardTitle>
-            <CardDescription>
-              Refine your schedule view by department, level, or day
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+        {/* 8.2 Filter bar — desktop: white card rounded-xl padding 12px 20px; mobile: search + Filters(N) */}
+        <div className="rounded-xl border border-gray-200 bg-white py-3 px-5">
+          <div className="flex flex-row flex-wrap items-center gap-3">
+            <div className="relative flex-1 min-w-0 md:min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Search by course code or name..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 w-full"
+              />
+            </div>
+            <div className="hidden md:flex items-center gap-3 flex-wrap">
               <Select value={selectedSessionId || 'all'} onValueChange={(v) => setSelectedSessionId(v === 'all' ? '' : v)}>
-                <SelectTrigger>
+                <SelectTrigger className="w-[140px]">
                   <SelectValue placeholder="Session" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1005,9 +1114,8 @@ export default function SchedulePage() {
                   ))}
                 </SelectContent>
               </Select>
-
               <Select value={selectedSemester} onValueChange={setSelectedSemester}>
-                <SelectTrigger>
+                <SelectTrigger className="w-[150px]">
                   <SelectValue placeholder="Semester" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1016,19 +1124,8 @@ export default function SchedulePage() {
                   <SelectItem value={Semester.SECOND}>Second Semester</SelectItem>
                 </SelectContent>
               </Select>
-
-              <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search schedules..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-
               <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
-                <SelectTrigger>
+                <SelectTrigger className="w-[160px]">
                   <SelectValue placeholder="All Departments" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1040,9 +1137,8 @@ export default function SchedulePage() {
                   ))}
                 </SelectContent>
               </Select>
-
               <Select value={selectedLevel} onValueChange={setSelectedLevel}>
-                <SelectTrigger>
+                <SelectTrigger className="w-[130px]">
                   <SelectValue placeholder="All Levels" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1054,10 +1150,9 @@ export default function SchedulePage() {
                   ))}
                 </SelectContent>
               </Select>
-
               {viewMode === 'timetable' && (
                 <Select value={selectedDay} onValueChange={setSelectedDay}>
-                  <SelectTrigger>
+                  <SelectTrigger className="w-[130px]">
                     <SelectValue placeholder="All Days" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1070,17 +1165,24 @@ export default function SchedulePage() {
                   </SelectContent>
                 </Select>
               )}
-
+              {filterCount > 0 && (
+                <button
+                  type="button"
+                  className="text-sm text-gray-500 hover:text-gray-700"
+                  onClick={handleReset}
+                >
+                  Clear Filters
+                </button>
+              )}
               {isAuthenticated && canMutateSchedules && (
                 <>
-                  <Button variant="outline" onClick={handleDownloadTemplate}>
+                  <Button variant="outline" size="sm" onClick={handleDownloadTemplate}>
                     <Download className="h-4 w-4 mr-2" />
                     Template
                   </Button>
-
                   <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
                     <DialogTrigger asChild>
-                      <Button variant="outline">
+                      <Button variant="outline" size="sm">
                         <Upload className="h-4 w-4 mr-2" />
                         Bulk Upload
                       </Button>
@@ -1092,7 +1194,6 @@ export default function SchedulePage() {
                           Upload a CSV file to create multiple schedules at once
                         </DialogDescription>
                       </DialogHeader>
-
                       <div className="space-y-4">
                         <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center">
                           <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
@@ -1108,46 +1209,104 @@ export default function SchedulePage() {
                             />
                           </div>
                         </div>
-
                         <div className="text-xs text-muted-foreground space-y-1">
                           <p>• CSV file should contain columns: courseCode, dayOfWeek, startTime, endTime</p>
                           <p>• Download the template for the correct format</p>
                           <p>• Maximum file size: 5MB</p>
                         </div>
                       </div>
-
                       <DialogFooter>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => setIsUploadDialogOpen(false)}
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          onClick={handleBulkUpload}
-                          disabled={!selectedFile || isUploading}
-                        >
+                        <Button type="button" variant="outline" onClick={() => setIsUploadDialogOpen(false)}>Cancel</Button>
+                        <Button onClick={handleBulkUpload} disabled={!selectedFile || isUploading}>
                           {isUploading ? 'Uploading...' : 'Upload'}
                         </Button>
                       </DialogFooter>
                     </DialogContent>
                   </Dialog>
-
-                  <Button variant="default" onClick={() => router.push('/schedules/create')}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Schedule
-                  </Button>
                 </>
               )}
-
-              <Button variant="outline" onClick={handleReset}>
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Reset
-              </Button>
             </div>
-          </CardContent>
-        </Card>
+            <Button variant="outline" size="sm" className="md:hidden shrink-0" onClick={() => setFiltersOpen(true)}>
+              <Filter className="h-4 w-4 mr-2" />
+              Filters {filterCount > 0 ? `(${filterCount})` : ''}
+            </Button>
+          </div>
+        </div>
+
+        {/* Mobile filters dialog */}
+        <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
+          <DialogContent className="sm:max-w-[400px]" onSwipeDown={() => setFiltersOpen(false)}>
+            <DialogHeader><DialogTitle>Filters</DialogTitle></DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium">Session</label>
+                <Select value={selectedSessionId || 'all'} onValueChange={(v) => setSelectedSessionId(v === 'all' ? '' : v)}>
+                  <SelectTrigger className="mt-1.5"><SelectValue placeholder="Session" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Sessions</SelectItem>
+                    {sessions.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Semester</label>
+                <Select value={selectedSemester} onValueChange={setSelectedSemester}>
+                  <SelectTrigger className="mt-1.5"><SelectValue placeholder="Semester" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Semesters</SelectItem>
+                    <SelectItem value={Semester.FIRST}>First Semester</SelectItem>
+                    <SelectItem value={Semester.SECOND}>Second Semester</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Department</label>
+                <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
+                  <SelectTrigger className="mt-1.5"><SelectValue placeholder="All Departments" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Departments</SelectItem>
+                    {departments.map((dept) => (
+                      <SelectItem key={dept.code} value={dept.code}>{dept.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Level</label>
+                <Select value={selectedLevel} onValueChange={setSelectedLevel}>
+                  <SelectTrigger className="mt-1.5"><SelectValue placeholder="All Levels" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Levels</SelectItem>
+                    {levelOptions.map((level) => (
+                      <SelectItem key={level.value} value={level.value}>{level.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {viewMode === 'timetable' && (
+                <div>
+                  <label className="text-sm font-medium">Day</label>
+                  <Select value={selectedDay} onValueChange={setSelectedDay}>
+                    <SelectTrigger className="mt-1.5"><SelectValue placeholder="All Days" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Days</SelectItem>
+                      {dayOptions.filter((d) => [DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY].includes(d.value)).map((day) => (
+                        <SelectItem key={day.value} value={day.value}>{day.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {filterCount > 0 && (
+                <Button variant="outline" className="w-full" onClick={() => { handleReset(); setFiltersOpen(false); }}>
+                  Clear Filters
+                </Button>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Schedule Content */}
         {fetchError ? (
@@ -1213,45 +1372,94 @@ export default function SchedulePage() {
 
             {viewMode === 'list' ? (
               <Card className="rounded-xl border shadow-sm overflow-hidden">
-                <div className="overflow-x-auto">
+                <div className="hidden md:block overflow-x-auto">
                   <table className="w-full">
                     <thead className="bg-white border-b sticky top-0 z-10">
                       <tr className="text-left text-sm text-gray-500">
-                        <th className="p-3">Day</th>
-                        <th className="p-3">Time</th>
+                        <th className="p-3 cursor-pointer" onClick={() => setListSort((p) => ({ key: 'day', dir: p.key === 'day' ? (p.dir === 'asc' ? 'desc' : null) : 'asc' }))}>Day</th>
+                        <th className="p-3 cursor-pointer" onClick={() => setListSort((p) => ({ key: 'time', dir: p.key === 'time' ? (p.dir === 'asc' ? 'desc' : null) : 'asc' }))}>Time</th>
                         <th className="p-3">Course Code</th>
-                        <th className="p-3 hidden md:table-cell">Course Name</th>
-                        <th className="p-3 hidden lg:table-cell">Department</th>
-                        <th className="p-3 hidden lg:table-cell">Level</th>
-                        <th className="p-3 hidden lg:table-cell">Semester</th>
+                        <th className="p-3">Course Name</th>
+                        <th className="p-3">Department</th>
+                        <th className="p-3">Level</th>
+                        <th className="p-3">Semester</th>
                         <th className="p-3">Type</th>
+                        {canMutateSchedules && <th className="p-3 w-[80px]">Actions</th>}
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredSchedules
-                        .sort((a, b) => `${a.dayOfWeek}${a.startTime}`.localeCompare(`${b.dayOfWeek}${b.startTime}`))
+                      {[...filteredSchedules]
+                        .sort((a, b) => {
+                          const dir = listSort.dir === 'desc' ? -1 : 1
+                          if (listSort.key === 'day') {
+                            const cmp = (a.dayOfWeek + a.startTime).localeCompare(b.dayOfWeek + b.startTime)
+                            return (listSort.dir ? cmp * dir : cmp) || a.startTime.localeCompare(b.startTime)
+                          }
+                          const cmp = a.startTime.localeCompare(b.startTime) || a.dayOfWeek.localeCompare(b.dayOfWeek)
+                          return listSort.dir ? cmp * dir : cmp
+                        })
                         .map((s) => (
                           <tr key={s.id} className="border-t hover:bg-gray-50">
                             <td className="p-3 text-sm">{s.dayOfWeek.replace('DAY', '')}</td>
                             <td className="p-3 text-sm">{s.startTime} – {s.endTime}</td>
                             <td className="p-3"><span className="text-xs font-mono text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">{s.course?.code ?? s.courseCode}</span></td>
-                            <td className="p-3 text-sm hidden md:table-cell">{s.course?.name}</td>
-                            <td className="p-3 text-sm hidden lg:table-cell">{s.course?.departmentCode}</td>
-                            <td className="p-3 hidden lg:table-cell"><Badge variant="secondary" className="text-xs">{s.course?.level?.replace('LEVEL_', '')}</Badge></td>
-                            <td className="p-3 text-sm hidden lg:table-cell">{s.semester === Semester.FIRST ? 'First' : 'Second'}</td>
+                            <td className="p-3 text-sm">{s.course?.name}</td>
+                            <td className="p-3 text-sm"><span className="text-xs font-mono">{s.course?.departmentCode ?? '—'}</span></td>
+                            <td className="p-3"><Badge variant="secondary" className="text-xs">{s.course?.level?.replace('LEVEL_', '') ?? '—'}</Badge></td>
+                            <td className="p-3 text-sm">{s.semester === Semester.FIRST ? 'First' : 'Second'}</td>
                             <td className="p-3">
-                              {s.isFixed ? <Badge className="bg-indigo-100 text-indigo-700 text-xs">Fixed</Badge> : s.isManualOverride ? <Badge className="bg-amber-100 text-amber-700 text-xs">Manual</Badge> : <Badge variant="secondary" className="text-xs">Auto</Badge>}
+                              {s.isFixed ? <Badge className="bg-indigo-100 text-indigo-700 text-xs"><Lock className="h-3 w-3 mr-0.5 inline" />Fixed</Badge> : s.isManualOverride ? <Badge className="bg-amber-100 text-amber-700 text-xs">Manual ●</Badge> : <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-600">Auto-generated</Badge>}
                             </td>
+                            {canMutateSchedules && (
+                              <td className="p-3">
+                                <div className="flex gap-1">
+                                  <Button size="icon" variant="ghost" className="h-9 w-9" onClick={() => { setEditSchedule(s); setCreateModalOpen(true); }}><Pencil className="h-4 w-4" /></Button>
+                                  <Button size="icon" variant="ghost" className="h-9 w-9 text-red-600 hover:text-red-700" onClick={() => setDeleteSchedule(s)} disabled={s.isFixed && !isAdmin} title={s.isFixed && !isAdmin ? 'Fixed. Contact admin.' : undefined}><Trash2 className="h-4 w-4" /></Button>
+                                </div>
+                              </td>
+                            )}
                           </tr>
                         ))}
                     </tbody>
                   </table>
                 </div>
+                <div className="md:hidden divide-y">
+                  {[...filteredSchedules]
+                    .sort((a, b) => `${a.dayOfWeek}${a.startTime}`.localeCompare(`${b.dayOfWeek}${b.startTime}`))
+                    .map((s) => (
+                      <div key={s.id} className="p-4">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="font-medium text-sm">{s.dayOfWeek.replace('DAY', '')} · {s.startTime} – {s.endTime}</p>
+                            <p className="text-sm text-gray-600 mt-0.5">
+                              <span className="font-mono text-indigo-600">{s.course?.code ?? s.courseCode}</span> · {s.course?.name ?? '—'}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-0.5">{s.course?.departmentCode ?? '—'} · {s.course?.level?.replace('LEVEL_', '') ?? '—'} Level</p>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            {s.isFixed ? <Badge className="bg-indigo-100 text-indigo-700 text-xs">Fixed</Badge> : s.isManualOverride ? <Badge className="bg-amber-100 text-amber-700 text-xs">Manual ●</Badge> : <Badge variant="secondary" className="text-xs">Auto</Badge>}
+                            {canMutateSchedules && (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button size="icon" variant="ghost" className="h-9 w-9"><MoreVertical className="h-4 w-4" /></Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={() => setDetailSchedule(s)}>View Details</DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => { setEditSchedule(s); setCreateModalOpen(true); }}>Edit Schedule</DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => setDeleteSchedule(s)} disabled={s.isFixed && !isAdmin} className="text-red-600">Delete Schedule</DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                </div>
                 {filteredSchedules.length === 0 && (
                   <div className="p-12 text-center text-gray-500">No schedules this semester</div>
                 )}
               </Card>
-            ) : Object.keys(schedulesByDay).length === 0 ? (
+            ) : filteredSchedules.length === 0 ? (
               <Card className="border-2 border-dashed">
                 <CardContent className="py-16 text-center">
                   <div className="p-4 bg-muted/50 rounded-full w-20 h-20 mx-auto mb-6 flex items-center justify-center">
@@ -1267,83 +1475,26 @@ export default function SchedulePage() {
                 </CardContent>
               </Card>
             ) : (
-              <div className="space-y-6">
-                {dayOptions.map((dayOption) => {
-                  const daySchedules = schedulesByDay[dayOption.value]
-                  if (!daySchedules || daySchedules.length === 0) return null
-
-                  return (
-                    <Card key={dayOption.value} className="border-2 shadow-sm">
-                      <CardHeader className="pb-4 bg-gradient-to-r from-primary/5 to-transparent">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <CardTitle className="text-2xl font-bold">{dayOption.label}</CardTitle>
-                            <CardDescription className="text-base mt-1">
-                              {daySchedules.length} class{daySchedules.length !== 1 ? 'es' : ''} scheduled for this day
-                            </CardDescription>
-                          </div>
-                          <div className="p-3 bg-primary/10 rounded-xl">
-                            <Calendar className="h-6 w-6 text-primary" />
-                          </div>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="pt-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {daySchedules
-                            .sort((a, b) => a.startTime.localeCompare(b.startTime))
-                            .map((schedule) => (
-                              <Card 
-                                key={schedule.id} 
-                                className="border-l-4 border-l-primary hover:shadow-lg transition-all group"
-                              >
-                                <CardHeader className="pb-3">
-                                  <div className="flex items-start justify-between mb-2">
-                                    <div className="flex-1">
-                                      <div className="flex items-center gap-2 mb-2">
-                                        <Badge variant="outline" className="font-mono text-xs">
-                                          {schedule.course?.code}
-                                        </Badge>
-                                        <Badge variant="secondary" className="text-xs">
-                                          {schedule.dayOfWeek}
-                                        </Badge>
-                                      </div>
-                                      <CardTitle className="text-base font-semibold leading-tight">
-                                        {schedule.course?.name}
-                                      </CardTitle>
-                                    </div>
-                                  </div>
-                                </CardHeader>
-                                <CardContent className="space-y-3 pt-3 border-t">
-                                  <div className="flex items-center gap-2 text-sm">
-                                    <div className="p-1.5 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
-                                      <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                                    </div>
-                                    <span className="text-muted-foreground">
-                                      <span className="font-semibold text-foreground">
-                                        {formatTime(schedule.startTime)} - {formatTime(schedule.endTime)}
-                                      </span>
-                                    </span>
-                                  </div>
-
-                                  {schedule.course && (
-                                    <div className="flex items-center gap-2 text-sm">
-                                      <div className="p-1.5 bg-purple-50 dark:bg-purple-950/30 rounded-lg">
-                                        <BookOpen className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                                      </div>
-                                      <span className="text-muted-foreground">
-                                        <span className="font-semibold text-foreground">{schedule.course.credits}</span> Credits
-                                      </span>
-                                    </div>
-                                  )}
-                                </CardContent>
-                              </Card>
-                            ))}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )
-                })}
-              </div>
+              <>
+                <div className="hidden md:block">
+                  <TimetableGrid
+                    schedules={filteredSchedules}
+                    onScheduleClick={setDetailSchedule}
+                    onEmptyCellClick={canMutateSchedules ? (day, startTime) => { setCreateModalPrefill({ dayOfWeek: day, startTime }); setEditSchedule(null); setCreateModalOpen(true); } : undefined}
+                    canMutate={canMutateSchedules}
+                  />
+                </div>
+                <div className="md:hidden">
+                  <MobileTimetable
+                    schedules={filteredSchedules}
+                    selectedDay={mobileSelectedDay}
+                    onDayChange={setMobileSelectedDay}
+                    onScheduleClick={setDetailSchedule}
+                    onEmptySlotClick={canMutateSchedules ? (day, startTime) => { setCreateModalPrefill({ dayOfWeek: day, startTime }); setEditSchedule(null); setCreateModalOpen(true); } : undefined}
+                    canMutate={canMutateSchedules}
+                  />
+                </div>
+              </>
             )}
 
             {/* Pagination */}

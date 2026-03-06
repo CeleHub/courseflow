@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -68,13 +68,17 @@ export default function CreateSchedulePage() {
 
   const courseFromQuery = searchParams.get('course')
   useEffect(() => {
-    if (courseFromQuery && courses.some(c => c.code === courseFromQuery)) {
-      setFormData(prev => ({ ...prev, courseCode: courseFromQuery }))
+    if (courseFromQuery && isAuthenticated && canCreate) {
+      router.replace(`/schedules?create=1&course=${encodeURIComponent(courseFromQuery)}`)
     }
-  }, [courseFromQuery, courses])
+  }, [courseFromQuery, isAuthenticated, canCreate, router])
 
   if (!isAuthenticated || !canCreate) {
     return null
+  }
+
+  if (courseFromQuery) {
+    return <div className="min-h-screen flex items-center justify-center"><div className="animate-pulse text-gray-500">Redirecting...</div></div>
   }
 
   if (fetchError && !loadingData) {
