@@ -104,9 +104,14 @@ export function MobileTimetable({
                     <span className="text-[10px] font-mono text-gray-600">
                       {s.course?.departmentCode ?? s.courseCode?.slice(0, 3) ?? '—'}
                     </span>
-                    <span className="text-[10px] text-gray-500">
-                      {s.isManualOverride && 'Manual'}
-                      {s.isFixed && ' Fixed'}
+                    <span className="flex items-center gap-1 text-[10px] text-gray-500">
+                      {s.isManualOverride && (
+                        <>
+                          <span>Manual</span>
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" title="Manual override" />
+                        </>
+                      )}
+                      {s.isFixed && <span>Fixed</span>}
                     </span>
                   </div>
                   <div className="font-semibold font-mono text-sm">{s.course?.code ?? s.courseCode}</div>

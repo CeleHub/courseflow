@@ -24,6 +24,7 @@ import {
   Pencil,
   Trash2,
   MoreVertical,
+  Lock,
 } from 'lucide-react'
 import { apiClient } from '@/lib/api'
 import { getItemsFromResponse } from '@/lib/utils'
@@ -89,6 +90,9 @@ export default function SchedulePage() {
     { value: DayOfWeek.SATURDAY, label: 'Saturday', shortLabel: 'SAT.' },
     { value: DayOfWeek.SUNDAY, label: 'Sunday', shortLabel: 'SUN.' },
   ]
+
+  const dayLabels: Record<DayOfWeek, string> = Object.fromEntries(dayOptions.map((d) => [d.value, d.label])) as Record<DayOfWeek, string>
+  const deptCodeToName = Object.fromEntries(departments.map((d) => [d.code, d.name]))
 
   const levelOptions = [
     { value: Level.LEVEL_100, label: '100 Level' },
@@ -1315,7 +1319,7 @@ export default function SchedulePage() {
                         })
                         .map((s) => (
                           <tr key={s.id} className="border-t hover:bg-gray-50">
-                            <td className="p-3 text-sm">{s.dayOfWeek.replace('DAY', '')}</td>
+                            <td className="p-3 text-sm">{dayLabels[s.dayOfWeek] ?? s.dayOfWeek}</td>
                             <td className="p-3 text-sm">{s.startTime} – {s.endTime}</td>
                             <td className="p-3"><span className="text-xs font-mono text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">{s.course?.code ?? s.courseCode}</span></td>
                             <td className="p-3 text-sm">{s.course?.name}</td>
@@ -1340,35 +1344,46 @@ export default function SchedulePage() {
                 </div>
                 <div className="md:hidden divide-y">
                   {[...filteredSchedules]
-                    .sort((a, b) => `${a.dayOfWeek}${a.startTime}`.localeCompare(`${b.dayOfWeek}${b.startTime}`))
-                    .map((s) => (
+                    .sort((a, b) => {
+                      const dir = listSort.dir === 'desc' ? -1 : 1
+                      if (listSort.key === 'day') {
+                        const cmp = (a.dayOfWeek + a.startTime).localeCompare(b.dayOfWeek + b.startTime)
+                        return (listSort.dir ? cmp * dir : cmp) || a.startTime.localeCompare(b.startTime)
+                      }
+                      const cmp = a.startTime.localeCompare(b.startTime) || a.dayOfWeek.localeCompare(b.dayOfWeek)
+                      return listSort.dir ? cmp * dir : cmp
+                    })
+                    .map((s) => {
+                      const deptName = (s.course?.departmentCode && deptCodeToName[s.course.departmentCode]) ?? s.course?.departmentCode ?? '—'
+                      const levelLabel = s.course?.level?.replace('LEVEL_', '') ?? '—'
+                      return (
                       <div key={s.id} className="p-4">
                         <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <p className="font-medium text-sm">{s.dayOfWeek.replace('DAY', '')} · {s.startTime} – {s.endTime}</p>
-                            <p className="text-sm text-gray-600 mt-0.5">
-                              <span className="font-mono text-indigo-600">{s.course?.code ?? s.courseCode}</span> · {s.course?.name ?? '—'}
-                            </p>
-                            <p className="text-xs text-gray-500 mt-0.5">{s.course?.departmentCode ?? '—'} · {s.course?.level?.replace('LEVEL_', '') ?? '—'} Level</p>
-                          </div>
-                          <div className="flex items-center gap-1 shrink-0">
-                            {s.isFixed ? <Badge className="bg-indigo-100 text-indigo-700 text-xs">Fixed</Badge> : s.isManualOverride ? <Badge className="bg-amber-100 text-amber-700 text-xs">Manual ●</Badge> : <Badge variant="secondary" className="text-xs">Auto</Badge>}
-                            {canMutateSchedules && (
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button size="icon" variant="ghost" className="h-9 w-9"><MoreVertical className="h-4 w-4" /></Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem onClick={() => setDetailSchedule(s)}>View Details</DropdownMenuItem>
+                          <p className="font-medium text-sm">{dayLabels[s.dayOfWeek] ?? s.dayOfWeek} · {s.startTime} – {s.endTime}</p>
+                          {s.isFixed ? <Badge className="bg-indigo-100 text-indigo-700 text-xs shrink-0"><Lock className="h-3 w-3 mr-0.5 inline" />Fixed</Badge> : s.isManualOverride ? <Badge className="bg-amber-100 text-amber-700 text-xs shrink-0">Manual ●</Badge> : <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-600 shrink-0">Auto-generated</Badge>}
+                        </div>
+                        <p className="text-sm text-gray-600 mt-0.5">
+                          <span className="font-mono text-indigo-600">{s.course?.code ?? s.courseCode}</span> · {s.course?.name ?? '—'}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-0.5">{deptName} · {levelLabel !== '—' ? `${levelLabel} Level` : '—'}</p>
+                        <div className="border-t mt-3 pt-3 flex justify-end">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button size="icon" variant="ghost" className="h-9 w-9"><MoreVertical className="h-4 w-4" /></Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => setDetailSchedule(s)}>View Details</DropdownMenuItem>
+                              {canMutateSchedules && (
+                                <>
                                   <DropdownMenuItem onClick={() => { setEditSchedule(s); setCreateModalOpen(true); }}>Edit Schedule</DropdownMenuItem>
                                   <DropdownMenuItem onClick={() => setDeleteSchedule(s)} disabled={s.isFixed && !isAdmin} className="text-red-600">Delete Schedule</DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            )}
-                          </div>
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       </div>
-                    ))}
+                    )}))}
                 </div>
                 {filteredSchedules.length === 0 && (
                   <div className="p-12 text-center text-gray-500">No schedules this semester</div>
