@@ -454,10 +454,14 @@ export default function ExamsPage() {
               return (
                 <div key={exam.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
                   <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="text-sm font-medium">{formatDate(exam.date)}  {exam.startTime}–{exam.endTime}</p>
-                      {cbt && <Badge className="bg-indigo-100 text-indigo-700 text-xs mt-1">CBT</Badge>}
-                    </div>
+                    <p className="text-sm font-medium">{formatDate(exam.date)}  {exam.startTime}–{exam.endTime}</p>
+                    {cbt && <Badge className="bg-indigo-100 text-indigo-700 text-xs shrink-0">CBT</Badge>}
+                  </div>
+                  <p className="text-sm font-semibold mt-2">{exam.courseCode} · {course?.name ?? ''}</p>
+                  <p className="text-sm text-gray-500">{VENUE_LABELS[exam.venue] ?? exam.venue}</p>
+                  <p className="text-xs text-gray-500">{exam.studentCount} students · {exam.targetCollege ?? '—'}</p>
+                  <div className="border-t mt-3 pt-3 flex items-center justify-between gap-2">
+                    <p className="text-xs text-gray-500 truncate flex-1 min-w-0">{exam.invigilators ?? '—'}</p>
                     {isAdmin && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -470,10 +474,6 @@ export default function ExamsPage() {
                       </DropdownMenu>
                     )}
                   </div>
-                  <p className="text-sm font-semibold mt-2">{exam.courseCode} · {course?.name ?? ''}</p>
-                  <p className="text-sm text-gray-500">{VENUE_LABELS[exam.venue] ?? exam.venue}</p>
-                  <p className="text-xs text-gray-500">{exam.studentCount} students · {exam.targetCollege ?? '—'}</p>
-                  {exam.invigilators && <p className="text-xs text-gray-500 mt-1 truncate">{exam.invigilators}</p>}
                 </div>
               )
             })}
