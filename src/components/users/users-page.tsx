@@ -326,7 +326,7 @@ export function UsersPage({ role }: UsersPageProps) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">{heading}</h1>
         {isAdmin && (
-          <Button size="sm" onClick={openCreate}>
+          <Button size="sm" onClick={openCreate} className="bg-indigo-600 hover:bg-indigo-700">
             <Plus className="h-4 w-4 mr-2" />
             {addLabel}
           </Button>
@@ -385,7 +385,7 @@ export function UsersPage({ role }: UsersPageProps) {
           <h3 className="text-base font-semibold text-gray-700">No users found</h3>
           <p className="text-sm text-gray-400 mt-2">{searchTerm ? 'Try adjusting your search' : 'No users have been registered yet.'}</p>
           {isAdmin && (
-            <Button className="mt-4" onClick={openCreate}>
+            <Button className="mt-4 bg-indigo-600 hover:bg-indigo-700" onClick={openCreate}>
               <Plus className="h-4 w-4 mr-2" />
               {addLabel}
             </Button>
@@ -454,7 +454,7 @@ export function UsersPage({ role }: UsersPageProps) {
               <div key={u.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-3">
-                    <div className={`h-10 w-10 rounded-full flex items-center justify-center text-white text-sm font-medium shrink-0 ${getAvatarColor(u.name ?? u.email)}`}>
+                    <div className={`h-8 w-8 rounded-full flex items-center justify-center text-white text-xs font-medium shrink-0 ${getAvatarColor(u.name ?? u.email)}`}>
                       {getInitials(u.name, u.email)}
                     </div>
                     <div>
@@ -467,6 +467,9 @@ export function UsersPage({ role }: UsersPageProps) {
                       <p className="text-xs text-gray-500">{u.department?.name ?? u.departmentCode ?? '—'} · {u.isActive ? 'Active' : 'Inactive'}</p>
                     </div>
                   </div>
+                </div>
+                <div className="border-t mt-3 pt-3 flex items-center justify-between gap-2">
+                  <p className="text-xs text-gray-500">Last login: {formatLastLogin(u.lastLoginAt)}</p>
                   {isAdmin && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -480,7 +483,6 @@ export function UsersPage({ role }: UsersPageProps) {
                     </DropdownMenu>
                   )}
                 </div>
-                <p className="text-xs text-gray-500 mt-2">Last login: {formatLastLogin(u.lastLoginAt)}</p>
               </div>
             ))}
           </div>
