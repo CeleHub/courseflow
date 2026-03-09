@@ -401,10 +401,37 @@ export function UsersPage({ role }: UsersPageProps) {
           <ErrorState title={fetchError} onRetry={() => { setFetchError(null); fetchData(); }} />
         </div>
       ) : loading ? (
-        <div className="rounded-xl border bg-white p-4 space-y-3">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="h-14 bg-gray-100 animate-pulse rounded" />
-          ))}
+        <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-white border-b">
+                <tr className="text-left text-sm text-gray-500">
+                  <th className="p-3">Avatar+Name</th>
+                  <th className="p-3">Matric/Staff No.</th>
+                  <th className="p-3">Email</th>
+                  <th className="p-3">Department</th>
+                  <th className="p-3">Role</th>
+                  <th className="p-3">Last Login</th>
+                  <th className="p-3">Status</th>
+                  {isAdmin && <th className="p-3 text-right">Actions</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+                  <tr key={i} className="border-t">
+                    <td className="p-3"><div className="flex items-center gap-3"><div className="h-8 w-8 rounded-full bg-gray-200 animate-pulse shrink-0" /><div className="h-6 bg-gray-200 animate-pulse rounded w-24" /></div></td>
+                    <td className="p-3"><div className="h-6 bg-gray-200 animate-pulse rounded w-20 font-mono" /></td>
+                    <td className="p-3"><div className="h-6 bg-gray-200 animate-pulse rounded w-36" /></td>
+                    <td className="p-3"><div className="h-6 bg-gray-200 animate-pulse rounded w-28" /></td>
+                    <td className="p-3"><div className="h-6 bg-gray-200 animate-pulse rounded w-16" /></td>
+                    <td className="p-3"><div className="h-6 bg-gray-200 animate-pulse rounded w-20" /></td>
+                    <td className="p-3"><div className="h-6 bg-gray-200 animate-pulse rounded w-14" /></td>
+                    {isAdmin && <td className="p-3 text-right"><div className="h-8 bg-gray-200 animate-pulse rounded w-16 ml-auto" /></td>}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : filteredUsers.length === 0 ? (
         <div className="rounded-xl border border-gray-200 p-12 text-center">

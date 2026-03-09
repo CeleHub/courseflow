@@ -256,8 +256,17 @@ export default function AcademicSessionsPage() {
         </div>
       ) : loading ? (
         <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-24 rounded-xl border bg-white animate-pulse" />
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="flex flex-col md:flex-row md:items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-6 py-5 shadow-sm animate-pulse">
+              <div className="space-y-2 flex-1">
+                <div className="flex items-center gap-2">
+                  <div className="h-6 bg-gray-200 rounded w-16" />
+                  <div className="h-7 bg-gray-200 rounded w-40" />
+                </div>
+                <div className="h-4 bg-gray-200 rounded w-48" />
+              </div>
+              <div className="h-9 bg-gray-200 rounded w-24 shrink-0" />
+            </div>
           ))}
         </div>
       ) : sessions.length === 0 ? (

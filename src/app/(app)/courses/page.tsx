@@ -401,11 +401,38 @@ export default function CoursesPage() {
           <ErrorState title={fetchError} onRetry={() => { setFetchError(null); fetchCourses(); }} />
         </div>
       ) : loading ? (
-        <div className="rounded-xl border bg-white overflow-hidden">
-          <div className="p-4 space-y-3">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div key={i} className="h-12 bg-gray-100 animate-pulse rounded" />
-            ))}
+        <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-white border-b">
+                <tr className="text-left text-sm text-gray-500">
+                  <th className="p-3 w-[100px]">Code</th>
+                  <th className="p-3">Name</th>
+                  <th className="p-3 w-[100px]">Level</th>
+                  <th className="p-3 w-[150px] hidden lg:table-cell">Semester</th>
+                  <th className="p-3 w-[70px] hidden lg:table-cell text-center">Credits</th>
+                  <th className="p-3 w-[90px]">Department</th>
+                  <th className="p-3 w-[160px]">Lecturer</th>
+                  <th className="p-3 w-[80px] hidden lg:table-cell">Status</th>
+                  <th className="p-3 w-[80px] text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+                  <tr key={i} className="border-t">
+                    <td className="p-3"><div className="h-6 bg-gray-200 animate-pulse rounded w-[80px]" /></td>
+                    <td className="p-3"><div className="h-6 bg-gray-200 animate-pulse rounded w-3/4" /></td>
+                    <td className="p-3"><div className="h-6 bg-gray-200 animate-pulse rounded w-[70px]" /></td>
+                    <td className="p-3 hidden lg:table-cell"><div className="h-6 bg-gray-200 animate-pulse rounded w-[100px]" /></td>
+                    <td className="p-3 hidden lg:table-cell"><div className="h-6 bg-gray-200 animate-pulse rounded w-8 mx-auto" /></td>
+                    <td className="p-3"><div className="h-6 bg-gray-200 animate-pulse rounded w-[60px]" /></td>
+                    <td className="p-3"><div className="h-6 bg-gray-200 animate-pulse rounded w-[120px]" /></td>
+                    <td className="p-3 hidden lg:table-cell"><div className="h-6 bg-gray-200 animate-pulse rounded w-[60px]" /></td>
+                    <td className="p-3 text-right"><div className="h-8 bg-gray-200 animate-pulse rounded w-16 ml-auto" /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       ) : courses.length === 0 ? (

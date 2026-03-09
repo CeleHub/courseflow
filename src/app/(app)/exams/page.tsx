@@ -366,10 +366,39 @@ export default function ExamsPage() {
           <ErrorState title={fetchError} onRetry={() => { setFetchError(null); fetchData(); }} />
         </div>
       ) : loading ? (
-        <div className="rounded-xl border bg-white p-4 space-y-3">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="h-16 bg-gray-100 animate-pulse rounded" />
-          ))}
+        <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-white border-b">
+                <tr className="text-left text-sm text-gray-500">
+                  <th className="p-3">Date</th>
+                  <th className="p-3">Time</th>
+                  <th className="p-3">Course</th>
+                  <th className="p-3">Level</th>
+                  <th className="p-3">Venue</th>
+                  <th className="p-3">Students</th>
+                  <th className="p-3">College</th>
+                  <th className="p-3">Invigilators</th>
+                  {isAdmin && <th className="p-3 text-right">Actions</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+                  <tr key={i} className="border-t">
+                    <td className="p-3"><div className="h-6 bg-gray-200 animate-pulse rounded w-[90px]" /></td>
+                    <td className="p-3"><div className="h-6 bg-gray-200 animate-pulse rounded w-[80px]" /></td>
+                    <td className="p-3"><div className="h-6 bg-gray-200 animate-pulse rounded w-[140px]" /></td>
+                    <td className="p-3"><div className="h-6 bg-gray-200 animate-pulse rounded w-[60px]" /></td>
+                    <td className="p-3"><div className="h-6 bg-gray-200 animate-pulse rounded w-[70px]" /></td>
+                    <td className="p-3"><div className="h-6 bg-gray-200 animate-pulse rounded w-8" /></td>
+                    <td className="p-3"><div className="h-6 bg-gray-200 animate-pulse rounded w-[60px]" /></td>
+                    <td className="p-3"><div className="h-6 bg-gray-200 animate-pulse rounded w-[100px]" /></td>
+                    {isAdmin && <td className="p-3 text-right"><div className="h-8 bg-gray-200 animate-pulse rounded w-16 ml-auto" /></td>}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : filteredExams.length === 0 ? (
         <div className="rounded-xl border border-gray-200 p-12 text-center">

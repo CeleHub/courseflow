@@ -204,9 +204,18 @@ export default function ComplaintsPage() {
             <ErrorState title={fetchError} onRetry={() => { setFetchError(null); fetchComplaints(); }} />
           </div>
         ) : loading ? (
-          <div className="rounded-xl border bg-white p-4 space-y-3">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-24 bg-gray-100 animate-pulse rounded" />
+          <div className="space-y-3">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="rounded-xl border border-gray-200 bg-white p-4 animate-pulse">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="space-y-2 flex-1">
+                    <div className="h-5 bg-gray-200 rounded w-2/3" />
+                    <div className="h-4 bg-gray-200 rounded w-1/2" />
+                    <div className="h-4 bg-gray-200 rounded w-full" />
+                  </div>
+                  <div className="h-6 bg-gray-200 rounded w-20 shrink-0" />
+                </div>
+              </div>
             ))}
           </div>
         ) : complaints.length === 0 ? (
@@ -368,10 +377,35 @@ export default function ComplaintsPage() {
           <ErrorState title={fetchError} onRetry={() => { setFetchError(null); fetchComplaints(); }} />
         </div>
       ) : loading ? (
-        <div className="rounded-xl border bg-white p-4 space-y-3">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="h-14 bg-gray-100 animate-pulse rounded" />
-          ))}
+        <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-white border-b">
+                <tr className="text-left text-sm text-gray-500">
+                  <th className="p-3">#</th>
+                  <th className="p-3">Name</th>
+                  <th className="p-3">Department</th>
+                  <th className="p-3">Subject</th>
+                  <th className="p-3">Status</th>
+                  <th className="p-3">Created</th>
+                  <th className="p-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+                  <tr key={i} className="border-t">
+                    <td className="p-3"><div className="h-6 bg-gray-200 animate-pulse rounded w-6" /></td>
+                    <td className="p-3"><div className="h-6 bg-gray-200 animate-pulse rounded w-28" /></td>
+                    <td className="p-3"><div className="h-6 bg-gray-200 animate-pulse rounded w-24" /></td>
+                    <td className="p-3"><div className="h-6 bg-gray-200 animate-pulse rounded w-40" /></td>
+                    <td className="p-3"><div className="h-6 bg-gray-200 animate-pulse rounded w-20" /></td>
+                    <td className="p-3"><div className="h-6 bg-gray-200 animate-pulse rounded w-24" /></td>
+                    <td className="p-3 text-right"><div className="h-8 bg-gray-200 animate-pulse rounded w-16 ml-auto" /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : sortedComplaints.length === 0 ? (
         <div className="rounded-xl border border-gray-200 p-12 text-center">

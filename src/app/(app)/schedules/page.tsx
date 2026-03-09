@@ -1244,20 +1244,47 @@ export default function SchedulePage() {
             <ErrorState title={fetchError} onRetry={() => { setFetchError(null); fetchSchedules(); }} />
           </div>
         ) : loading ? (
-          <div className="space-y-6">
-            {[...Array(3)].map((_, index) => (
-              <Card key={index} className="animate-pulse">
-                <CardHeader>
-                  <div className="h-5 bg-gray-200 rounded w-1/4"></div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {[...Array(3)].map((_, i) => (
-                      <div key={i} className="h-16 bg-gray-200 rounded"></div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+          <div
+            className="grid gap-px bg-gray-200 rounded-xl overflow-hidden border border-gray-200"
+            style={{
+              gridTemplateColumns: '64px repeat(5, 1fr)',
+              gridTemplateRows: '40px repeat(10, 60px)',
+            }}
+          >
+            <div className="bg-gray-100" style={{ gridColumn: 1, gridRow: 1 }} />
+            {[2, 3, 4, 5, 6].map((c) => (
+              <div key={`h-${c}`} className="bg-gray-50" style={{ gridColumn: c, gridRow: 1 }} />
+            ))}
+            {[2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((r) => (
+              <div key={`time-${r}`} className="bg-gray-50" style={{ gridColumn: 1, gridRow: r }} />
+            ))}
+            {[2, 3, 4, 5, 6].map((c) =>
+              [2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((r) => (
+                <div key={`${c}-${r}`} className="bg-gray-50" style={{ gridColumn: c, gridRow: r }} />
+              ))
+            ).flat()}
+            {/* Scattered skeleton blocks — §18.1 */}
+            {[
+              { col: 2, row: 2, span: 2, w: '85%' },
+              { col: 3, row: 4, span: 2, w: '70%' },
+              { col: 2, row: 6, span: 2, w: '90%' },
+              { col: 4, row: 3, span: 2, w: '75%' },
+              { col: 5, row: 5, span: 2, w: '65%' },
+              { col: 2, row: 8, span: 2, w: '80%' },
+              { col: 4, row: 7, span: 2, w: '60%' },
+              { col: 6, row: 2, span: 2, w: '70%' },
+              { col: 3, row: 9, span: 2, w: '85%' },
+            ].map((b, i) => (
+              <div
+                key={i}
+                className="bg-gray-200 animate-pulse rounded-lg"
+                style={{
+                  gridColumn: b.col,
+                  gridRow: `${b.row} / span ${b.span}`,
+                  width: b.w,
+                  minHeight: 58,
+                }}
+              />
             ))}
           </div>
         ) : (

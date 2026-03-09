@@ -248,10 +248,37 @@ export default function VerificationCodesPage() {
           <ErrorState title={fetchError} onRetry={() => { setFetchError(null); fetchCodes(); }} />
         </div>
       ) : loading ? (
-        <div className="rounded-xl border bg-white p-4 space-y-3">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="h-14 bg-gray-100 animate-pulse rounded" />
-          ))}
+        <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-white border-b">
+                <tr className="text-left text-sm text-gray-500">
+                  <th className="p-3">Code</th>
+                  <th className="p-3">Role</th>
+                  <th className="p-3">Description</th>
+                  <th className="p-3">Usage</th>
+                  <th className="p-3">Expires</th>
+                  <th className="p-3">Status</th>
+                  <th className="p-3">Created By</th>
+                  <th className="p-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+                  <tr key={i} className="border-t">
+                    <td className="p-3"><div className="h-6 bg-gray-200 animate-pulse rounded w-24 font-mono" /></td>
+                    <td className="p-3"><div className="h-6 bg-gray-200 animate-pulse rounded w-16" /></td>
+                    <td className="p-3"><div className="h-6 bg-gray-200 animate-pulse rounded w-32" /></td>
+                    <td className="p-3"><div className="h-6 bg-gray-200 animate-pulse rounded w-20" /></td>
+                    <td className="p-3"><div className="h-6 bg-gray-200 animate-pulse rounded w-24" /></td>
+                    <td className="p-3"><div className="h-6 bg-gray-200 animate-pulse rounded w-14" /></td>
+                    <td className="p-3"><div className="h-6 bg-gray-200 animate-pulse rounded w-24" /></td>
+                    <td className="p-3 text-right"><div className="h-8 bg-gray-200 animate-pulse rounded w-16 ml-auto" /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : codes.length === 0 ? (
         <div className="rounded-xl border border-gray-200 p-12 text-center">
