@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { apiClient } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { Lock } from "lucide-react";
 
 const AVATAR_COLORS = ["bg-indigo-500", "bg-violet-500", "bg-blue-500", "bg-emerald-500"] as const;
 
@@ -27,6 +28,7 @@ export default function ProfilePage() {
   const [name, setName] = useState(user?.name ?? "");
   const [phone, setPhone] = useState(user?.phone ?? "");
   const [saving, setSaving] = useState(false);
+  const [passwordResetSent, setPasswordResetSent] = useState(false);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,7 +52,7 @@ export default function ProfilePage() {
     if (!user?.email) return;
     try {
       await apiClient.forgotPassword(user.email);
-      toast({ title: "Reset link sent", description: `A password reset link has been sent to ${user.email}` });
+      setPasswordResetSent(true);
     } catch (err) {
       toast({ title: "Error", description: "Failed to send reset link", variant: "destructive" });
     }
@@ -59,29 +61,27 @@ export default function ProfilePage() {
   if (!user) return null;
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="max-w-[640px] mx-auto p-6 space-y-6">
       <h1 className="text-2xl font-bold">Profile</h1>
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-4">
-            <div className={`w-16 h-16 rounded-full flex items-center justify-center text-white text-xl font-semibold ${AVATAR_COLORS[0]}`}>
-              {getInitials(user.name, user.email)}
-            </div>
-            <div>
-              <CardTitle className="text-xl">{user.name || user.email}</CardTitle>
-              <Badge variant="secondary" className="mt-1">{user.role}</Badge>
-              <p className="text-sm text-gray-500 mt-1">{user.email}</p>
-            </div>
+      {/* Section 1 — Identity card */}
+      <Card className="rounded-xl border p-6">
+        <div className="flex flex-col items-center text-center">
+          <div className={`w-16 h-16 rounded-full flex items-center justify-center text-white text-xl font-semibold ${AVATAR_COLORS[0]}`}>
+            {getInitials(user.name, user.email)}
           </div>
-        </CardHeader>
+          <p className="text-[22px] font-bold mt-4">{user.name || user.email}</p>
+          <Badge variant="secondary" className="mt-2">{user.role}</Badge>
+          <p className="text-sm text-gray-500 mt-2">{user.email}</p>
+        </div>
       </Card>
 
-      <Card>
-        <CardHeader>
+      {/* Section 2 — Personal Information */}
+      <Card className="rounded-xl border mt-4 p-6">
+        <CardHeader className="p-0 pb-4">
           <CardTitle>Personal Information</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           <form onSubmit={handleSave} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="name">Name</Label>
@@ -89,35 +89,50 @@ export default function ProfilePage() {
             </div>
             <div className="space-y-2">
               <Label>Email</Label>
-              <p className="text-sm text-gray-500">Email cannot be changed here.</p>
-              <Input value={user.email} disabled className="bg-gray-50" />
+              <div className="flex items-center gap-2" title="Email cannot be changed here.">
+                <Lock className="h-4 w-4 text-gray-400 shrink-0" />
+                <span className="text-sm text-gray-500">{user.email}</span>
+              </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="phone">Phone</Label>
               <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
             </div>
-            <Button type="submit" disabled={saving}>Save Changes</Button>
+            <div className="flex justify-end">
+              <Button type="submit" disabled={saving} className="h-10 bg-indigo-600 hover:bg-indigo-700 text-white">
+                Save Changes
+              </Button>
+            </div>
           </form>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
+      {/* Section 3 — Password Reset */}
+      <Card className="rounded-xl border mt-4 p-6">
+        <CardHeader className="p-0 pb-4">
           <CardTitle>Change Password</CardTitle>
-          <p className="text-sm text-gray-500">We&apos;ll send a reset link to your email address.</p>
+          <p className="text-sm text-gray-500 mt-1">We&apos;ll send a reset link to your email address.</p>
         </CardHeader>
-        <CardContent>
-          <Button variant="outline" onClick={handlePasswordReset}>Send Reset Link</Button>
+        <CardContent className="p-0">
+          {passwordResetSent ? (
+            <p className="text-sm text-green-600">A password reset link has been sent to {user.email}.</p>
+          ) : (
+            <Button variant="outline" onClick={handlePasswordReset} className="w-full md:w-auto">
+              Send Reset Link
+            </Button>
+          )}
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
+      {/* Section 4 — Account Details */}
+      <Card className="rounded-xl border mt-4 p-6">
+        <CardHeader className="p-0 pb-4">
           <CardTitle>Account Details</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2 text-sm">
+        <CardContent className="p-0 space-y-2 text-sm">
           <p><span className="text-gray-500">Department:</span> {user.departmentCode || "—"}</p>
           <p><span className="text-gray-500">Matric/Staff No:</span> {user.matricNO}</p>
+          <p><span className="text-gray-500">Account created:</span> {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : "—"}</p>
           <p><span className="text-gray-500">Last login:</span> {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString() : "Never"}</p>
         </CardContent>
       </Card>
