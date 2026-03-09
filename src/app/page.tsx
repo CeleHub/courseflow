@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { ReportPageLoadOnMount } from '@/components/page-load-reporter'
 import { Navigation } from '@/components/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -61,6 +62,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50 dark:from-slate-950 dark:via-blue-950/20 dark:to-slate-950">
+      <ReportPageLoadOnMount />
       <Navigation />
 
       {/* Hero Section */}

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePageLoadReporter } from "@/contexts/PageLoadContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,6 +32,7 @@ export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [deptLoading, setDeptLoading] = useState(true);
+  usePageLoadReporter(deptLoading);
   const [deptError, setDeptError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
 

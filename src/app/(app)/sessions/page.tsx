@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
+import { usePageLoadReporter } from '@/contexts/PageLoadContext'
 import { apiClient } from '@/lib/api'
 import {
   AcademicSession,
@@ -50,6 +51,7 @@ export default function AcademicSessionsPage() {
   const [activeSession, setActiveSession] = useState<AcademicSession | null>(null)
   const [sessionStats, setSessionStats] = useState<Record<string, SessionStatistics>>({})
   const [loading, setLoading] = useState(true)
+  usePageLoadReporter(loading)
   const [creating, setCreating] = useState(false)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [editSession, setEditSession] = useState<AcademicSession | null>(null)

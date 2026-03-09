@@ -34,6 +34,7 @@ import {
   DayOfWeek,
 } from "@/types";
 import { useToast } from "@/hooks/use-toast";
+import { usePageLoadReporter } from "@/contexts/PageLoadContext";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GenerateScheduleModal } from "@/components/dashboard/generate-schedule-modal";
 import { ErrorState } from "@/components/state/error-state";
@@ -176,6 +177,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [retryTrigger, setRetryTrigger] = useState(0);
+  usePageLoadReporter(loading);
 
   // ADMIN
   const [deptStats, setDeptStats] = useState<DepartmentStatistics | null>(null);

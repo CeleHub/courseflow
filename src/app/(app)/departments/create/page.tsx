@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { useAuth } from '@/contexts/AuthContext'
 import { HodCombobox } from '@/components/departments/hod-combobox'
+import { usePageLoadReporter } from '@/contexts/PageLoadContext'
 import { useToast } from '@/hooks/use-toast'
 import { Building2, ArrowLeft, Loader2 } from 'lucide-react'
 import { ErrorState } from '@/components/state/error-state'
@@ -28,6 +29,7 @@ export default function CreateDepartmentPage() {
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
   const [loadingData, setLoadingData] = useState(false)
+  usePageLoadReporter(loadingData)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     name: '',

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
+import { usePageLoadReporter } from '@/contexts/PageLoadContext'
 import { apiClient } from '@/lib/api'
 import { getItemsFromResponse } from '@/lib/utils'
 import { VerificationCode, Role, CreateVerificationCodeData } from '@/types'
@@ -55,6 +56,7 @@ export default function VerificationCodesPage() {
 
   const [codes, setCodes] = useState<VerificationCode[]>([])
   const [loading, setLoading] = useState(true)
+  usePageLoadReporter(loading)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingCode, setEditingCode] = useState<VerificationCode | null>(null)
   const [deleteCode, setDeleteCode] = useState<VerificationCode | null>(null)

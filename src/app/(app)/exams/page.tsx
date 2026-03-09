@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
+import { usePageLoadReporter } from '@/contexts/PageLoadContext'
 import { apiClient } from '@/lib/api'
 import { getItemsFromResponse } from '@/lib/utils'
 import {
@@ -115,6 +116,7 @@ export default function ExamsPage() {
   const [courses, setCourses] = useState<Course[]>([])
   const [sessions, setSessions] = useState<AcademicSession[]>([])
   const [loading, setLoading] = useState(true)
+  usePageLoadReporter(loading)
   const [searchTerm, setSearchTerm] = useState('')
   const [sessionId, setSessionId] = useState<string>('')
   const [semester, setSemester] = useState<string>('all')

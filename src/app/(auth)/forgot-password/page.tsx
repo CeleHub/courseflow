@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { usePageLoadReporter } from "@/contexts/PageLoadContext";
 import { apiClient } from "@/lib/api";
 import { CheckCircle, Loader2 } from "lucide-react";
 
@@ -12,6 +13,7 @@ export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  usePageLoadReporter(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

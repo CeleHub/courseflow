@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useAuth } from '@/contexts/AuthContext'
+import { usePageLoadReporter } from '@/contexts/PageLoadContext'
 import { useToast } from '@/hooks/use-toast'
 import { Calendar, ArrowLeft, Loader2 } from 'lucide-react'
 import { ErrorState } from '@/components/state/error-state'
@@ -22,6 +23,7 @@ export default function CreateSchedulePage() {
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
   const [loadingData, setLoadingData] = useState(true)
+  usePageLoadReporter(loadingData)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [courses, setCourses] = useState<Course[]>([])
   const [formData, setFormData] = useState({

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePageLoadReporter } from "@/contexts/PageLoadContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +26,7 @@ function getInitials(name: string | null, email: string): string {
 export default function ProfilePage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  usePageLoadReporter(false);
   const [name, setName] = useState(user?.name ?? "");
   const [phone, setPhone] = useState(user?.phone ?? "");
   const [saving, setSaving] = useState(false);

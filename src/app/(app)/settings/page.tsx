@@ -1,8 +1,10 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { usePageLoadReporter } from "@/contexts/PageLoadContext";
 
 export default function SettingsPage() {
+  usePageLoadReporter(false);
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <h1 className="text-2xl font-bold">Settings</h1>

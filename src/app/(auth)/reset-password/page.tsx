@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { usePageLoadReporter } from "@/contexts/PageLoadContext";
 import { apiClient } from "@/lib/api";
 import { CheckCircle, Eye, EyeOff, Loader2 } from "lucide-react";
 
@@ -13,6 +14,7 @@ function ResetPasswordContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
+  usePageLoadReporter(false);
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");

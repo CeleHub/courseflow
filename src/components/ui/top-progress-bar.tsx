@@ -2,14 +2,18 @@
 
 import { useEffect, useState, useRef } from "react";
 import { usePathname } from "next/navigation";
+import { usePageLoad } from "@/contexts/PageLoadContext";
 
 /**
  * Spec 18.3: Page Transition Progress Bar
  * Slim 3px bar at top of viewport, above topbar, z-index 100.
  * Indigo. 0% → ~70% quickly → 100% when page loads → fades out.
  */
+const FALLBACK_MS = 2000; // Max wait if page never reports loaded
+
 export function TopProgressBar() {
   const pathname = usePathname();
+  const { pageLoaded } = usePageLoad() ?? { pageLoaded: false };
   const [width, setWidth] = useState(0);
   const [visible, setVisible] = useState(false);
   const [fading, setFading] = useState(false);
@@ -31,22 +35,33 @@ export function TopProgressBar() {
       setWidth(0);
       setVisible(true);
 
-      // 0% → 70% quickly (~250ms)
+      // 0% → 70% quickly (~200ms)
       const t1 = setTimeout(() => setWidth(70), 50);
-      timeoutRef.current = t1;
 
-      // 70% → 100% when "page data loaded" (~400ms from start)
+      // Fallback: complete to 100% if page never reports (e.g. auth pages, no reporter)
       const t2 = setTimeout(() => {
-        setWidth(100);
+        setWidth((w) => (w < 100 ? 100 : w));
         timeoutRef.current = null;
-      }, 450);
+      }, FALLBACK_MS);
 
+      timeoutRef.current = t2;
       return () => {
         clearTimeout(t1);
         clearTimeout(t2);
       };
     }
   }, [pathname]);
+
+  // Complete to 100% when page reports loaded (spec: "when the new page's data finishes loading")
+  useEffect(() => {
+    if (pageLoaded && visible && width < 100) {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+      setWidth(100);
+    }
+  }, [pageLoaded, visible, width]);
 
   useEffect(() => {
     if (width === 100 && visible && !fading) {

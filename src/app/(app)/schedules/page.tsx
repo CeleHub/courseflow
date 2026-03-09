@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useAuth } from '@/contexts/AuthContext'
+import { usePageLoadReporter } from '@/contexts/PageLoadContext'
 import { useToast } from '@/hooks/use-toast'
 import {
   Calendar,
@@ -72,6 +73,7 @@ export default function SchedulePage() {
   const [listSort, setListSort] = useState<{ key: 'day' | 'time'; dir: 'asc' | 'desc' | null }>({ key: 'day', dir: 'asc' })
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [loading, setLoading] = useState(true)
+  usePageLoadReporter(loading)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all')

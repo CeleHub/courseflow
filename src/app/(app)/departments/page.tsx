@@ -50,6 +50,7 @@ import {
   X,
   Loader2,
 } from 'lucide-react'
+import { usePageLoadReporter } from '@/contexts/PageLoadContext'
 import { apiClient } from '@/lib/api'
 import { getItemsFromResponse } from '@/lib/utils'
 import { Department, College, BulkOperationResult } from '@/types'
@@ -74,6 +75,7 @@ export default function DepartmentsPage() {
 
   const [departments, setDepartments] = useState<Department[]>([])
   const [loading, setLoading] = useState(true)
+  usePageLoadReporter(loading)
   const [searchTerm, setSearchTerm] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [hasCourses, setHasCourses] = useState(false)

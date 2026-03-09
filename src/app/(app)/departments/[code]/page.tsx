@@ -52,6 +52,7 @@ import { apiClient } from '@/lib/api'
 import { getItemsFromResponse } from '@/lib/utils'
 import { AcademicSession, Course, Department, Level, College, Semester } from '@/types'
 import { useAuth } from '@/contexts/AuthContext'
+import { usePageLoadReporter } from '@/contexts/PageLoadContext'
 import { useToast } from '@/hooks/use-toast'
 import { ErrorState } from '@/components/state/error-state'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -84,6 +85,7 @@ export default function DepartmentDetailsPage() {
   const [department, setDepartment] = useState<Department | null>(null)
   const [courses, setCourses] = useState<Course[]>([])
   const [loading, setLoading] = useState(true)
+  usePageLoadReporter(loading)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [editOpen, setEditOpen] = useState(false)
   const [editForm, setEditForm] = useState({ name: '', code: '', description: '', college: College.CBAS, hodId: '' })

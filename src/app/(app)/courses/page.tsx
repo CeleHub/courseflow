@@ -25,6 +25,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePageLoadReporter } from "@/contexts/PageLoadContext";
 import { useToast } from "@/hooks/use-toast";
 import {
   BookOpen,
@@ -72,6 +73,7 @@ export default function CoursesPage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
+  usePageLoadReporter(loading);
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [departmentCode, setDepartmentCode] = useState<string>("all");

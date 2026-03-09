@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
+import { usePageLoadReporter } from '@/contexts/PageLoadContext'
 import { apiClient } from '@/lib/api'
 import { getItemsFromResponse } from '@/lib/utils'
 import {
@@ -105,6 +106,7 @@ export function UsersPage({ role }: UsersPageProps) {
   const [users, setUsers] = useState<UserType[]>([])
   const [departments, setDepartments] = useState<Department[]>([])
   const [loading, setLoading] = useState(true)
+  usePageLoadReporter(loading)
   const [searchTerm, setSearchTerm] = useState('')
   const [departmentCode, setDepartmentCode] = useState<string>('')
   const [showInactive, setShowInactive] = useState(false)

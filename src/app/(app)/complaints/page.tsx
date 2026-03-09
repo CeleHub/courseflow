@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
+import { usePageLoadReporter } from '@/contexts/PageLoadContext'
 import { apiClient } from '@/lib/api'
 import { getItemsFromResponse } from '@/lib/utils'
 import { Complaint, ComplaintStatus } from '@/types'
@@ -59,6 +60,7 @@ export default function ComplaintsPage() {
 
   const [complaints, setComplaints] = useState<Complaint[]>([])
   const [loading, setLoading] = useState(true)
+  usePageLoadReporter(loading)
   const [activeTab, setActiveTab] = useState<'all' | ComplaintStatus>('all')
   const [searchTerm, setSearchTerm] = useState('')
   const [orderBy, setOrderBy] = useState<'newest' | 'oldest'>('newest')

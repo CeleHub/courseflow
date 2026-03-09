@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePageLoadReporter } from "@/contexts/PageLoadContext";
 import { useToast } from "@/hooks/use-toast";
 import { BookOpen, ArrowLeft, Loader2 } from "lucide-react";
 import { ErrorState } from "@/components/state/error-state";
@@ -30,6 +31,7 @@ export default function EditCoursePage() {
   const { isAdmin, isHod, user } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
+  usePageLoadReporter(loading);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [course, setCourse] = useState<Course | null>(null);

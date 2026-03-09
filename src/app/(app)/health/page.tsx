@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePageLoadReporter } from "@/contexts/PageLoadContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { apiClient } from "@/lib/api";
@@ -11,6 +12,7 @@ import { ErrorState } from "@/components/state/error-state";
 export default function HealthPage() {
   const { isAdmin } = useAuth();
   const [loading, setLoading] = useState(true);
+  usePageLoadReporter(loading);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [simple, setSimple] = useState<any>(null);
   const [db, setDb] = useState<any>(null);
