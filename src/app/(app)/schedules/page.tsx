@@ -36,6 +36,7 @@ import { ScheduleDetailSheet } from '@/components/schedules/schedule-detail-shee
 import { CreateScheduleModal } from '@/components/schedules/create-schedule-modal'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { ErrorState } from '@/components/state/error-state'
+import { Pagination } from '@/components/ui/pagination'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -80,6 +81,8 @@ export default function SchedulePage() {
   const [selectedSessionId, setSelectedSessionId] = useState<string>('')
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
+  const [total, setTotal] = useState(0)
+  const [limit, setLimit] = useState(25)
 
   const dayOptions = [
     { value: DayOfWeek.MONDAY, label: 'Monday', shortLabel: 'MON.' },
@@ -139,7 +142,7 @@ export default function SchedulePage() {
       setFetchError(null)
       const params: any = {
         page: currentPage,
-        limit: 20,
+        limit,
       }
 
       if (selectedDepartment && selectedDepartment !== 'all') params.departmentCode = selectedDepartment
@@ -153,6 +156,7 @@ export default function SchedulePage() {
       if (result) {
         setSchedules(result.items)
         setTotalPages(result.totalPages)
+        setTotal(result.total)
       }
     } catch (error) {
       console.error('Failed to fetch schedules:', error)
@@ -160,7 +164,7 @@ export default function SchedulePage() {
     } finally {
       setLoading(false)
     }
-  }, [currentPage, selectedDepartment, selectedLevel, selectedDay, selectedSemester, selectedSessionId])
+  }, [currentPage, limit, selectedDepartment, selectedLevel, selectedDay, selectedSemester, selectedSessionId])
 
   useEffect(() => {
     fetchSchedules()
@@ -1214,6 +1218,17 @@ export default function SchedulePage() {
                   </Select>
                 </div>
               )}
+              <div>
+                <label className="text-sm font-medium">Per page</label>
+                <Select value={String(limit)} onValueChange={(v) => { setLimit(Number(v)); setCurrentPage(1); setFiltersOpen(false); }}>
+                  <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="25">25</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               {filterCount > 0 && (
                 <Button variant="outline" className="w-full" onClick={() => { handleReset(); setFiltersOpen(false); }}>
                   Clear Filters
@@ -1319,7 +1334,7 @@ export default function SchedulePage() {
                             <td className="p-3 text-sm">{s.startTime} – {s.endTime}</td>
                             <td className="p-3"><span className="text-xs font-mono text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">{s.course?.code ?? s.courseCode}</span></td>
                             <td className="p-3 text-sm">{s.course?.name}</td>
-                            <td className="p-3 text-sm"><span className="text-xs font-mono">{s.course?.departmentCode ?? '—'}</span></td>
+                            <td className="p-3"><span className="text-xs font-mono bg-gray-100 text-gray-700 px-2 py-0.5 rounded">{s.course?.departmentCode ?? '—'}</span></td>
                             <td className="p-3"><Badge variant="secondary" className="text-xs">{s.course?.level?.replace('LEVEL_', '') ?? '—'}</Badge></td>
                             <td className="p-3 text-sm">{s.semester === Semester.FIRST ? 'First' : 'Second'}</td>
                             <td className="p-3">
@@ -1432,41 +1447,17 @@ export default function SchedulePage() {
               </>
             )}
 
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="flex justify-center gap-2 mt-8">
-                <Button
-                  variant="outline"
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                  disabled={currentPage === 1}
-                >
-                  Previous
-                </Button>
-
-                <div className="flex items-center gap-2">
-                  {[...Array(Math.min(5, totalPages))].map((_, index) => {
-                    const page = index + 1
-                    return (
-                      <Button
-                        key={page}
-                        variant={currentPage === page ? "default" : "outline"}
-                        onClick={() => setCurrentPage(page)}
-                        className="w-10"
-                      >
-                        {page}
-                      </Button>
-                    )
-                  })}
-                </div>
-
-                <Button
-                  variant="outline"
-                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage === totalPages}
-                >
-                  Next
-                </Button>
-              </div>
+            {/* Pagination — §17 */}
+            {total > 0 && (
+              <Pagination
+                page={currentPage}
+                totalPages={Math.max(1, totalPages)}
+                total={total}
+                limit={limit}
+                onPageChange={setCurrentPage}
+                onLimitChange={(v) => { setLimit(v); setCurrentPage(1); }}
+                resultsLabel="schedules"
+              />
             )}
           </>
         )}

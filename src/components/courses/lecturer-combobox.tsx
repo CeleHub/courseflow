@@ -65,7 +65,8 @@ export function LecturerCombobox({
     if (open || (value && options.length === 0)) {
       fetchCandidates()
     }
-  }, [open, value, departmentCode, fetchCandidates])
+    // options.length intentionally omitted: including it would refetch when options populate
+  }, [open, value, departmentCode, fetchCandidates]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const q = query.trim().toLowerCase()
   const filtered =

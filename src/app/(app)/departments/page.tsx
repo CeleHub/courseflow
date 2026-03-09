@@ -57,6 +57,7 @@ import { Label } from '@/components/ui/label'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { ErrorState } from '@/components/state/error-state'
 import { HodCombobox } from '@/components/departments/hod-combobox'
+import { Pagination } from '@/components/ui/pagination'
 
 function getInitials(name: string | null | undefined): string {
   if (!name?.trim()) return '?'
@@ -289,16 +290,6 @@ export default function DepartmentsPage() {
             >
               Without Courses
             </Button>
-            <Select value={String(limit)} onValueChange={(v) => { setLimit(Number(v)); setPage(1); }}>
-              <SelectTrigger className="w-20 h-9">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="10">10</SelectItem>
-                <SelectItem value="25">25</SelectItem>
-                <SelectItem value="50">50</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
           <Button
             variant="outline"
@@ -519,16 +510,16 @@ export default function DepartmentsPage() {
         </SheetContent>
       </Sheet>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t">
-          <p className="text-sm text-gray-500">Showing {(page - 1) * limit + 1}–{Math.min(page * limit, total)} of {total} results</p>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>Previous</Button>
-            <span className="text-sm text-gray-500">Page {page} of {totalPages}</span>
-            <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>Next</Button>
-          </div>
-        </div>
+      {/* Pagination — §17 */}
+      {total > 0 && (
+        <Pagination
+          page={page}
+          totalPages={Math.max(1, totalPages)}
+          total={total}
+          limit={limit}
+          onPageChange={setPage}
+          onLimitChange={(v) => { setLimit(v); setPage(1); }}
+        />
       )}
 
       {/* Upload modal — desktop 480px, mobile bottom sheet */}
