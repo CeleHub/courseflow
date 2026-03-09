@@ -267,7 +267,7 @@ export default function DepartmentDetailsPage() {
             Departments
           </Link>
         </Button>
-        <ErrorState title={fetchError} onRetry={fetchDetails} />
+        <ErrorState entity="department details" onRetry={fetchDetails} />
       </div>
     )
   }

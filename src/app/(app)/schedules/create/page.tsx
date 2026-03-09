@@ -121,7 +121,7 @@ export default function CreateSchedulePage() {
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back
         </Button>
-        <ErrorState title={fetchError} onRetry={fetchCourses} />
+        <ErrorState entity="courses" onRetry={fetchCourses} />
       </div>
     )
   }

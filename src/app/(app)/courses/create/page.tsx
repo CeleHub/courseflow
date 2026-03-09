@@ -139,7 +139,7 @@ export default function CreateCoursePage() {
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back
         </Button>
-        <ErrorState title={fetchError} onRetry={fetchData} />
+        <ErrorState entity="departments" onRetry={fetchData} />
       </div>
     );
   }

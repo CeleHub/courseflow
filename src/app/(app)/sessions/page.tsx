@@ -269,7 +269,7 @@ export default function AcademicSessionsPage() {
       {/* Sessions list - 5.2 */}
       {fetchError ? (
         <div className="rounded-xl border border-gray-200 bg-white p-6">
-          <ErrorState title={fetchError} onRetry={() => { setFetchError(null); fetchSessions(); }} />
+          <ErrorState entity="academic sessions" onRetry={() => { setFetchError(null); fetchSessions(); }} />
         </div>
       ) : loading ? (
         <div className="space-y-3">

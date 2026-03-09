@@ -403,7 +403,7 @@ export default function ExamsPage() {
       {/* 9.2 Exam Table */}
       {fetchError ? (
         <div className="rounded-xl border border-gray-200 bg-white p-6">
-          <ErrorState title={fetchError} onRetry={() => { setFetchError(null); fetchData(); }} />
+          <ErrorState entity="exams" onRetry={() => { setFetchError(null); fetchData(); }} />
         </div>
       ) : loading ? (
         <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">

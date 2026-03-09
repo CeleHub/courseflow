@@ -240,7 +240,7 @@ export default function ComplaintsPage() {
 
         {fetchError ? (
           <div className="rounded-xl border border-gray-200 bg-white p-6">
-            <ErrorState title={fetchError} onRetry={() => { setFetchError(null); fetchComplaints(); }} />
+            <ErrorState entity="complaints" onRetry={() => { setFetchError(null); fetchComplaints(); }} />
           </div>
         ) : loading ? (
           <div className="space-y-3">
@@ -454,7 +454,7 @@ export default function ComplaintsPage() {
       {/* 11.3 Complaints table */}
       {fetchError ? (
         <div className="rounded-xl border border-gray-200 bg-white p-6">
-          <ErrorState title={fetchError} onRetry={() => { setFetchError(null); fetchComplaints(); }} />
+          <ErrorState entity="complaints" onRetry={() => { setFetchError(null); fetchComplaints(); }} />
         </div>
       ) : loading ? (
         <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">

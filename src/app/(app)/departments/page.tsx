@@ -378,7 +378,7 @@ export default function DepartmentsPage() {
       {/* 6.3 Departments grid */}
       {fetchError ? (
         <div className="rounded-xl border border-gray-200 bg-white p-6">
-          <ErrorState title={fetchError} onRetry={() => { setFetchError(null); fetchDepartments(); }} />
+          <ErrorState entity="departments" onRetry={() => { setFetchError(null); fetchDepartments(); }} />
         </div>
       ) : loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-4">

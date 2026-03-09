@@ -135,7 +135,7 @@ export default function EditCoursePage() {
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back
         </Button>
-        <ErrorState title={fetchError} onRetry={fetchData} />
+        <ErrorState entity="course" onRetry={fetchData} />
       </div>
     );
   }

@@ -266,7 +266,7 @@ export default function VerificationCodesPage() {
       {/* 12.2 Table */}
       {fetchError ? (
         <div className="rounded-xl border border-gray-200 bg-white p-6">
-          <ErrorState title={fetchError} onRetry={() => { setFetchError(null); fetchCodes(); }} />
+          <ErrorState entity="verification codes" onRetry={() => { setFetchError(null); fetchCodes(); }} />
         </div>
       ) : loading ? (
         <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">

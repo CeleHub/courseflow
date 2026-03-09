@@ -407,7 +407,7 @@ export default function CoursesPage() {
       {/* 7.3 Courses table / card list */}
       {fetchError ? (
         <div className="rounded-xl border border-gray-200 bg-white p-6">
-          <ErrorState title={fetchError} onRetry={() => { setFetchError(null); fetchCourses(); }} />
+          <ErrorState entity="courses" onRetry={() => { setFetchError(null); fetchCourses(); }} />
         </div>
       ) : loading ? (
         <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">

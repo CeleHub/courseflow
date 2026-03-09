@@ -301,7 +301,7 @@ export default function DashboardPage() {
       <div>
         <h1 className="text-2xl font-semibold">Dashboard</h1>
         <div className="mt-6 rounded-xl border border-gray-200 bg-white p-6">
-          <ErrorState title={error} onRetry={() => { setError(null); setRetryTrigger(t => t + 1); }} />
+          <ErrorState entity="dashboard" onRetry={() => { setError(null); setRetryTrigger(t => t + 1); }} />
         </div>
       </div>
     );

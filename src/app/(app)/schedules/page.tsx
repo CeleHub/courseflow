@@ -1249,7 +1249,7 @@ export default function SchedulePage() {
         {/* Schedule Content */}
         {fetchError ? (
           <div className="rounded-xl border border-gray-200 bg-white p-6">
-            <ErrorState title={fetchError} onRetry={() => { setFetchError(null); fetchSchedules(); }} />
+            <ErrorState entity="schedules" onRetry={() => { setFetchError(null); fetchSchedules(); }} />
           </div>
         ) : loading ? (
           <div
