@@ -1426,13 +1426,22 @@ export default function SchedulePage() {
                 {filteredSchedules.length === 0 && (
                   <div className="p-12 text-center">
                     <Clock className="h-16 w-16 mx-auto text-gray-300 mb-4" />
-                    <h3 className="text-base font-semibold text-gray-700">No schedules this semester</h3>
-                    <p className="text-sm text-gray-400 mt-2">Generate schedules or add them manually.</p>
-                    {canMutateSchedules && (
-                      <Button className="mt-5" onClick={() => setGenerateModalOpen(true)}>
-                        <RefreshCw className="h-4 w-4 mr-2" />
-                        Generate Schedules
-                      </Button>
+                    {schedules.length === 0 ? (
+                      <>
+                        <h3 className="text-base font-semibold text-gray-700">No schedules this semester</h3>
+                        <p className="text-sm text-gray-400 mt-2">Generate schedules or add them manually.</p>
+                        {canMutateSchedules && (
+                          <Button className="mt-5" onClick={() => setGenerateModalOpen(true)}>
+                            <RefreshCw className="h-4 w-4 mr-2" />
+                            Generate Schedules
+                          </Button>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <h3 className="text-base font-semibold text-gray-700">No schedules found</h3>
+                        <p className="text-sm text-gray-400 mt-2">Try adjusting your search or filters.</p>
+                      </>
                     )}
                   </div>
                 )}
@@ -1441,13 +1450,22 @@ export default function SchedulePage() {
               <Card className="border-2 border-dashed">
                 <CardContent className="py-16 text-center">
                   <Clock className="h-16 w-16 mx-auto text-gray-300 mb-4" />
-                  <h3 className="text-base font-semibold text-gray-700">No schedules this semester</h3>
-                  <p className="text-sm text-gray-400 mt-2">Generate schedules or add them manually.</p>
-                  {canMutateSchedules && (
-                    <Button className="mt-5" onClick={() => setGenerateModalOpen(true)}>
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                      Generate Schedules
-                    </Button>
+                  {schedules.length === 0 ? (
+                    <>
+                      <h3 className="text-base font-semibold text-gray-700">No schedules this semester</h3>
+                      <p className="text-sm text-gray-400 mt-2">Generate schedules or add them manually.</p>
+                      {canMutateSchedules && (
+                        <Button className="mt-5" onClick={() => setGenerateModalOpen(true)}>
+                          <RefreshCw className="h-4 w-4 mr-2" />
+                          Generate Schedules
+                        </Button>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <h3 className="text-base font-semibold text-gray-700">No schedules found</h3>
+                      <p className="text-sm text-gray-400 mt-2">Try adjusting your search or filters.</p>
+                    </>
                   )}
                 </CardContent>
               </Card>
