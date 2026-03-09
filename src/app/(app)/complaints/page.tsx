@@ -30,7 +30,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { MessageCircle, MoreVertical, Eye, Plus, Search } from 'lucide-react'
+import { MessageSquare, MessageSquareWarning, MoreVertical, Eye, Plus, Search } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { ErrorState } from '@/components/state/error-state'
 
@@ -211,11 +211,12 @@ export default function ComplaintsPage() {
           </div>
         ) : complaints.length === 0 ? (
           <div className="rounded-xl border border-gray-200 p-12 text-center">
-            <MessageCircle className="h-16 w-16 mx-auto text-gray-300 mb-4" />
-            <h3 className="text-base font-semibold text-gray-700">You haven&apos;t submitted any complaints.</h3>
-            <Button className="mt-4" onClick={() => setIsSubmitOpen(true)}>
+            <MessageSquare className="h-16 w-16 mx-auto text-gray-300 mb-4" />
+            <h3 className="text-base font-semibold text-gray-700">No complaints submitted</h3>
+            <p className="text-sm text-gray-400 mt-2">Submit a complaint if you need assistance.</p>
+            <Button className="mt-5" onClick={() => setIsSubmitOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
-              Submit Complaint
+              + Submit Complaint
             </Button>
           </div>
         ) : (
@@ -374,8 +375,23 @@ export default function ComplaintsPage() {
         </div>
       ) : sortedComplaints.length === 0 ? (
         <div className="rounded-xl border border-gray-200 p-12 text-center">
-          <MessageCircle className="h-16 w-16 mx-auto text-gray-300 mb-4" />
-          <h3 className="text-base font-semibold text-gray-700">No complaints</h3>
+          {isManager ? (
+            <>
+              <MessageSquareWarning className="h-16 w-16 mx-auto text-gray-300 mb-4" />
+              <h3 className="text-base font-semibold text-gray-700">No complaints</h3>
+              <p className="text-sm text-gray-400 mt-2">No complaints match the current filter.</p>
+            </>
+          ) : (
+            <>
+              <MessageSquare className="h-16 w-16 mx-auto text-gray-300 mb-4" />
+              <h3 className="text-base font-semibold text-gray-700">No complaints submitted</h3>
+              <p className="text-sm text-gray-400 mt-2">Submit a complaint if you need assistance.</p>
+              <Button className="mt-5" onClick={() => setIsSubmitOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                + Submit Complaint
+              </Button>
+            </>
+          )}
         </div>
       ) : (
         <>

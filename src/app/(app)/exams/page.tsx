@@ -377,9 +377,9 @@ export default function ExamsPage() {
           <h3 className="text-base font-semibold text-gray-700">No exams scheduled</h3>
           <p className="text-sm text-gray-400 mt-2">Schedule exams for the active session.</p>
           {isAdmin && (
-            <Button className="mt-4 bg-indigo-600 hover:bg-indigo-700" onClick={() => setIsCreateOpen(true)}>
+            <Button className="mt-5 bg-indigo-600 hover:bg-indigo-700" onClick={() => setIsCreateOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
-              Schedule Exam
+              + Schedule Exam
             </Button>
           )}
         </div>

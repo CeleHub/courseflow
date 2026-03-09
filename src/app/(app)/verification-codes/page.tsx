@@ -37,7 +37,7 @@ import {
   Pencil,
   Plus,
   Power,
-  Shield,
+  KeyRound,
   Trash2,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
@@ -222,7 +222,7 @@ export default function VerificationCodesPage() {
   if (!isAdmin) {
     return (
       <div className="text-center py-16">
-        <Shield className="h-16 w-16 mx-auto text-gray-300 mb-4" />
+        <KeyRound className="h-16 w-16 mx-auto text-gray-300 mb-4" />
         <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
         <p className="text-gray-500">Admin privileges required.</p>
       </div>
@@ -255,11 +255,12 @@ export default function VerificationCodesPage() {
         </div>
       ) : codes.length === 0 ? (
         <div className="rounded-xl border border-gray-200 p-12 text-center">
-          <Shield className="h-16 w-16 mx-auto text-gray-300 mb-4" />
+          <KeyRound className="h-16 w-16 mx-auto text-gray-300 mb-4" />
           <h3 className="text-base font-semibold text-gray-700">No verification codes</h3>
-          <Button className="mt-4" onClick={openCreate}>
+          <p className="text-sm text-gray-400 mt-2">Create codes to allow staff registration.</p>
+          <Button className="mt-5" onClick={openCreate}>
             <Plus className="h-4 w-4 mr-2" />
-            New Code
+            + New Code
           </Button>
         </div>
       ) : (

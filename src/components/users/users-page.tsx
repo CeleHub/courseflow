@@ -410,13 +410,7 @@ export function UsersPage({ role }: UsersPageProps) {
         <div className="rounded-xl border border-gray-200 p-12 text-center">
           <Users className="h-16 w-16 mx-auto text-gray-300 mb-4" />
           <h3 className="text-base font-semibold text-gray-700">No users found</h3>
-          <p className="text-sm text-gray-400 mt-2">{searchTerm ? 'Try adjusting your search' : 'No users have been registered yet.'}</p>
-          {isAdmin && (
-            <Button className="mt-4 bg-indigo-600 hover:bg-indigo-700" onClick={openCreate}>
-              <Plus className="h-4 w-4 mr-2" />
-              {addLabel}
-            </Button>
-          )}
+          <p className="text-sm text-gray-400 mt-2">Try adjusting your filters.</p>
         </div>
       ) : (
         <>
