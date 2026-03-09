@@ -349,7 +349,7 @@ export default function VerificationCodesPage() {
                   <span>·</span>
                   <span>Expires: {formatExpiry(c.expiresAt)}</span>
                 </div>
-                <div className="flex items-center justify-between mt-3">
+                <div className="border-t mt-3 pt-3 flex items-center justify-between">
                   <Badge className={c.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}>{c.isActive ? 'Active' : 'Inactive'}</Badge>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
