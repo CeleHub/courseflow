@@ -1,8 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, useRef } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { usePageLoadReporter } from '@/contexts/PageLoadContext'
+import { RefetchIndicator } from '@/components/ui/refetch-indicator'
 import { apiClient } from '@/lib/api'
 import {
   AcademicSession,
@@ -51,6 +52,8 @@ export default function AcademicSessionsPage() {
   const [activeSession, setActiveSession] = useState<AcademicSession | null>(null)
   const [sessionStats, setSessionStats] = useState<Record<string, SessionStatistics>>({})
   const [loading, setLoading] = useState(true)
+  const [refetching, setRefetching] = useState(false)
+  const hasFetchedRef = useRef(false)
   usePageLoadReporter(loading)
   const [creating, setCreating] = useState(false)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
@@ -75,7 +78,8 @@ export default function AcademicSessionsPage() {
 
   const fetchSessions = useCallback(async () => {
     try {
-      setLoading(true)
+      if (!hasFetchedRef.current) setLoading(true)
+      else setRefetching(true)
       setFetchError(null)
       const [listRes, activeRes] = await Promise.all([
         apiClient.getAcademicSessions({ page: 1, limit: 50 }),
@@ -111,6 +115,8 @@ export default function AcademicSessionsPage() {
       toast({ title: 'Failed to load academic sessions', variant: 'destructive' })
     } finally {
       setLoading(false)
+      setRefetching(false)
+      hasFetchedRef.current = true
     }
   }, [toast])
 
@@ -272,7 +278,8 @@ export default function AcademicSessionsPage() {
           ))}
         </div>
       ) : sessions.length === 0 ? (
-        <div className="rounded-xl border border-gray-200 p-8 text-center">
+        <div className="relative rounded-xl border border-gray-200 p-8 text-center">
+          {refetching && <RefetchIndicator />}
           <CalendarDays className="h-12 w-12 mx-auto text-gray-400 mb-4" />
           <p className="text-gray-500">No academic sessions have been created yet.</p>
           <Button className="mt-4" onClick={() => setIsCreateDialogOpen(true)}>
@@ -281,7 +288,8 @@ export default function AcademicSessionsPage() {
           </Button>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="relative space-y-3">
+          {refetching && <RefetchIndicator />}
           {sessions.map((session) => {
             const isActive = activeSession?.id === session.id || session.isActive
             const stats = sessionStats[session.id]

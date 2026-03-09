@@ -1,8 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, useRef } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { usePageLoadReporter } from '@/contexts/PageLoadContext'
+import { RefetchIndicator } from '@/components/ui/refetch-indicator'
 import { apiClient } from '@/lib/api'
 import { getItemsFromResponse } from '@/lib/utils'
 import { VerificationCode, Role, CreateVerificationCodeData } from '@/types'
@@ -56,6 +57,8 @@ export default function VerificationCodesPage() {
 
   const [codes, setCodes] = useState<VerificationCode[]>([])
   const [loading, setLoading] = useState(true)
+  const [refetching, setRefetching] = useState(false)
+  const hasFetchedRef = useRef(false)
   usePageLoadReporter(loading)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingCode, setEditingCode] = useState<VerificationCode | null>(null)
@@ -75,7 +78,8 @@ export default function VerificationCodesPage() {
 
   const fetchCodes = useCallback(async () => {
     try {
-      setLoading(true)
+      if (!hasFetchedRef.current) setLoading(true)
+      else setRefetching(true)
       setFetchError(null)
       const res = await apiClient.getVerificationCodes()
       const parsed = getItemsFromResponse<VerificationCode>(res)
@@ -86,6 +90,8 @@ export default function VerificationCodesPage() {
       toast({ title: 'Failed to load verification codes', variant: 'destructive' })
     } finally {
       setLoading(false)
+      setRefetching(false)
+      hasFetchedRef.current = true
     }
   }, [toast])
 
@@ -283,7 +289,8 @@ export default function VerificationCodesPage() {
           </div>
         </div>
       ) : codes.length === 0 ? (
-        <div className="rounded-xl border border-gray-200 p-12 text-center">
+        <div className="relative rounded-xl border border-gray-200 p-12 text-center">
+          {refetching && <RefetchIndicator />}
           <KeyRound className="h-16 w-16 mx-auto text-gray-300 mb-4" />
           <h3 className="text-base font-semibold text-gray-700">No verification codes</h3>
           <p className="text-sm text-gray-400 mt-2">Create codes to allow staff registration.</p>
@@ -293,7 +300,8 @@ export default function VerificationCodesPage() {
           </Button>
         </div>
       ) : (
-        <>
+        <div className="relative">
+          {refetching && <RefetchIndicator />}
           <div className="hidden md:block rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -395,7 +403,7 @@ export default function VerificationCodesPage() {
               </div>
             ))}
           </div>
-        </>
+        </div>
       )}
 
       {/* 12.3 Create/Edit Modal */}

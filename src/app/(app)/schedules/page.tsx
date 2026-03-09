@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useAuth } from '@/contexts/AuthContext'
 import { usePageLoadReporter } from '@/contexts/PageLoadContext'
+import { RefetchIndicator } from '@/components/ui/refetch-indicator'
 import { useToast } from '@/hooks/use-toast'
 import {
   Calendar,
@@ -73,6 +74,8 @@ export default function SchedulePage() {
   const [listSort, setListSort] = useState<{ key: 'day' | 'time'; dir: 'asc' | 'desc' | null }>({ key: 'day', dir: 'asc' })
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [refetching, setRefetching] = useState(false)
+  const hasFetchedRef = useRef(false)
   usePageLoadReporter(loading)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
@@ -140,7 +143,8 @@ export default function SchedulePage() {
 
   const fetchSchedules = useCallback(async () => {
     try {
-      setLoading(true)
+      if (!hasFetchedRef.current) setLoading(true)
+      else setRefetching(true)
       setFetchError(null)
       const params: any = {
         page: currentPage,
@@ -165,6 +169,8 @@ export default function SchedulePage() {
       setFetchError('Failed to load schedules')
     } finally {
       setLoading(false)
+      setRefetching(false)
+      hasFetchedRef.current = true
     }
   }, [currentPage, limit, selectedDepartment, selectedLevel, selectedDay, selectedSemester, selectedSessionId])
 
@@ -1290,7 +1296,8 @@ export default function SchedulePage() {
             ))}
           </div>
         ) : (
-          <>
+          <div className="relative">
+            {refetching && <RefetchIndicator />}
             <div className="mb-4 flex items-center justify-between">
               <p className="text-sm text-muted-foreground">
                 Showing {filteredSchedules.length} of {schedules.length} schedules
@@ -1506,7 +1513,7 @@ export default function SchedulePage() {
                 resultsLabel="schedules"
               />
             )}
-          </>
+          </div>
         )}
       </div>
     </div>

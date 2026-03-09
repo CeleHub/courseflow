@@ -1,8 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, useRef } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { usePageLoadReporter } from '@/contexts/PageLoadContext'
+import { RefetchIndicator } from '@/components/ui/refetch-indicator'
 import { apiClient } from '@/lib/api'
 import { getItemsFromResponse } from '@/lib/utils'
 import { Complaint, ComplaintStatus } from '@/types'
@@ -60,6 +61,8 @@ export default function ComplaintsPage() {
 
   const [complaints, setComplaints] = useState<Complaint[]>([])
   const [loading, setLoading] = useState(true)
+  const [refetching, setRefetching] = useState(false)
+  const hasFetchedRef = useRef(false)
   usePageLoadReporter(loading)
   const [activeTab, setActiveTab] = useState<'all' | ComplaintStatus>('all')
   const [searchTerm, setSearchTerm] = useState('')
@@ -80,7 +83,8 @@ export default function ComplaintsPage() {
 
   const fetchComplaints = useCallback(async () => {
     try {
-      setLoading(true)
+      if (!hasFetchedRef.current) setLoading(true)
+      else setRefetching(true)
       setFetchError(null)
       if (isManager) {
         let res
@@ -110,6 +114,8 @@ export default function ComplaintsPage() {
       toast({ title: 'Failed to load complaints', variant: 'destructive' })
     } finally {
       setLoading(false)
+      setRefetching(false)
+      hasFetchedRef.current = true
     }
   }, [isManager, orderBy, activeTab, toast])
 
@@ -221,7 +227,8 @@ export default function ComplaintsPage() {
             ))}
           </div>
         ) : complaints.length === 0 ? (
-          <div className="rounded-xl border border-gray-200 p-12 text-center">
+          <div className="relative rounded-xl border border-gray-200 p-12 text-center">
+            {refetching && <RefetchIndicator />}
             <MessageSquare className="h-16 w-16 mx-auto text-gray-300 mb-4" />
             <h3 className="text-base font-semibold text-gray-700">No complaints submitted</h3>
             <p className="text-sm text-gray-400 mt-2">Submit a complaint if you need assistance.</p>
@@ -231,7 +238,8 @@ export default function ComplaintsPage() {
             </Button>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="relative space-y-3">
+            {refetching && <RefetchIndicator />}
             {complaints.map((c) => (
               <div
                 key={c.id}
@@ -410,7 +418,8 @@ export default function ComplaintsPage() {
           </div>
         </div>
       ) : sortedComplaints.length === 0 ? (
-        <div className="rounded-xl border border-gray-200 p-12 text-center">
+        <div className="relative rounded-xl border border-gray-200 p-12 text-center">
+          {refetching && <RefetchIndicator />}
           {isManager ? (
             <>
               <MessageSquareWarning className="h-16 w-16 mx-auto text-gray-300 mb-4" />
@@ -430,7 +439,8 @@ export default function ComplaintsPage() {
           )}
         </div>
       ) : (
-        <>
+        <div className="relative">
+          {refetching && <RefetchIndicator />}
           <div className="hidden md:block rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -507,7 +517,7 @@ export default function ComplaintsPage() {
               </div>
             ))}
           </div>
-        </>
+        </div>
       )}
 
       {/* 11.4 Complaint Detail Modal */}

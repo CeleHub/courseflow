@@ -1,8 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, useRef } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { usePageLoadReporter } from '@/contexts/PageLoadContext'
+import { RefetchIndicator } from '@/components/ui/refetch-indicator'
 import { apiClient } from '@/lib/api'
 import { getItemsFromResponse } from '@/lib/utils'
 import {
@@ -106,6 +107,8 @@ export function UsersPage({ role }: UsersPageProps) {
   const [users, setUsers] = useState<UserType[]>([])
   const [departments, setDepartments] = useState<Department[]>([])
   const [loading, setLoading] = useState(true)
+  const [refetching, setRefetching] = useState(false)
+  const hasFetchedRef = useRef(false)
   usePageLoadReporter(loading)
   const [searchTerm, setSearchTerm] = useState('')
   const [departmentCode, setDepartmentCode] = useState<string>('')
@@ -131,7 +134,8 @@ export function UsersPage({ role }: UsersPageProps) {
   const fetchData = useCallback(async () => {
     if (!isAdmin && !isHod) return
     try {
-      setLoading(true)
+      if (!hasFetchedRef.current) setLoading(true)
+      else setRefetching(true)
       setFetchError(null)
       const baseParams: Record<string, unknown> = {
         page: 1,
@@ -171,6 +175,8 @@ export function UsersPage({ role }: UsersPageProps) {
       toast({ title: 'Failed to load users', variant: 'destructive' })
     } finally {
       setLoading(false)
+      setRefetching(false)
+      hasFetchedRef.current = true
     }
   }, [isAdmin, isHod, user?.departmentCode, departmentCode, showInactive, isLecturers, toast])
 
@@ -436,13 +442,15 @@ export function UsersPage({ role }: UsersPageProps) {
           </div>
         </div>
       ) : filteredUsers.length === 0 ? (
-        <div className="rounded-xl border border-gray-200 p-12 text-center">
+        <div className="relative rounded-xl border border-gray-200 p-12 text-center">
+          {refetching && <RefetchIndicator />}
           <Users className="h-16 w-16 mx-auto text-gray-300 mb-4" />
           <h3 className="text-base font-semibold text-gray-700">No users found</h3>
           <p className="text-sm text-gray-400 mt-2">Try adjusting your filters.</p>
         </div>
       ) : (
-        <>
+        <div className="relative">
+          {refetching && <RefetchIndicator />}
           {/* Desktop table */}
           <div className="hidden md:block rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
@@ -536,7 +544,7 @@ export function UsersPage({ role }: UsersPageProps) {
               </div>
             ))}
           </div>
-        </>
+        </div>
       )}
 
       {/* 10.3 Add/Edit Modal */}

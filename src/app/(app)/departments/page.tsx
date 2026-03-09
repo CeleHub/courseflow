@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -51,6 +51,7 @@ import {
   Loader2,
 } from 'lucide-react'
 import { usePageLoadReporter } from '@/contexts/PageLoadContext'
+import { RefetchIndicator } from '@/components/ui/refetch-indicator'
 import { apiClient } from '@/lib/api'
 import { getItemsFromResponse } from '@/lib/utils'
 import { Department, College, BulkOperationResult } from '@/types'
@@ -75,6 +76,8 @@ export default function DepartmentsPage() {
 
   const [departments, setDepartments] = useState<Department[]>([])
   const [loading, setLoading] = useState(true)
+  const [refetching, setRefetching] = useState(false)
+  const hasFetchedRef = useRef(false)
   usePageLoadReporter(loading)
   const [searchTerm, setSearchTerm] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -121,7 +124,8 @@ export default function DepartmentsPage() {
 
   const fetchDepartments = useCallback(async () => {
     try {
-      setLoading(true)
+      if (!hasFetchedRef.current) setLoading(true)
+      else setRefetching(true)
       setFetchError(null)
       const params: Record<string, string | number | boolean> = {
         page,
@@ -142,6 +146,8 @@ export default function DepartmentsPage() {
       toast({ title: 'Failed to load departments', variant: 'destructive' })
     } finally {
       setLoading(false)
+      setRefetching(false)
+      hasFetchedRef.current = true
     }
   }, [page, limit, debouncedSearch, hasCourses, withoutCourses, toast])
 
@@ -358,7 +364,8 @@ export default function DepartmentsPage() {
           ))}
         </div>
       ) : departments.length === 0 ? (
-        <div className="rounded-xl border border-gray-200 p-12 text-center">
+        <div className="relative rounded-xl border border-gray-200 p-12 text-center">
+          {refetching && <RefetchIndicator />}
           <Building2 className="h-16 w-16 mx-auto text-gray-300 mb-4" />
           <h3 className="text-base font-semibold text-gray-700">No departments yet</h3>
           <p className="text-sm text-gray-400 mt-2">Add your first department to get started.</p>
@@ -370,7 +377,8 @@ export default function DepartmentsPage() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-4">
+        <div className="relative grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-4">
+          {refetching && <RefetchIndicator />}
           {departments.map((dept) => (
             <div
               key={dept.id}

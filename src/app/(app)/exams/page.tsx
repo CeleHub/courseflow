@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { usePageLoadReporter } from '@/contexts/PageLoadContext'
+import { RefetchIndicator } from '@/components/ui/refetch-indicator'
 import { apiClient } from '@/lib/api'
 import { getItemsFromResponse } from '@/lib/utils'
 import {
@@ -116,6 +117,8 @@ export default function ExamsPage() {
   const [courses, setCourses] = useState<Course[]>([])
   const [sessions, setSessions] = useState<AcademicSession[]>([])
   const [loading, setLoading] = useState(true)
+  const [refetching, setRefetching] = useState(false)
+  const hasFetchedRef = useRef(false)
   usePageLoadReporter(loading)
   const [searchTerm, setSearchTerm] = useState('')
   const [sessionId, setSessionId] = useState<string>('')
@@ -155,7 +158,8 @@ export default function ExamsPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      setLoading(true)
+      if (!hasFetchedRef.current) setLoading(true)
+      else setRefetching(true)
       setFetchError(null)
       const params: Record<string, unknown> = { page: 1, limit: 100 }
       if (sessionId) params.sessionId = sessionId
@@ -181,6 +185,8 @@ export default function ExamsPage() {
       toast({ title: 'Failed to load exams', variant: 'destructive' })
     } finally {
       setLoading(false)
+      setRefetching(false)
+      hasFetchedRef.current = true
     }
   }, [sessionId, semester, searchTerm, toast])
 
@@ -403,7 +409,8 @@ export default function ExamsPage() {
           </div>
         </div>
       ) : filteredExams.length === 0 ? (
-        <div className="rounded-xl border border-gray-200 p-12 text-center">
+        <div className="relative rounded-xl border border-gray-200 p-12 text-center">
+          {refetching && <RefetchIndicator />}
           <ClipboardList className="h-16 w-16 mx-auto text-gray-300 mb-4" />
           <h3 className="text-base font-semibold text-gray-700">No exams scheduled</h3>
           <p className="text-sm text-gray-400 mt-2">Schedule exams for the active session.</p>
@@ -415,7 +422,8 @@ export default function ExamsPage() {
           )}
         </div>
       ) : (
-        <>
+        <div className="relative">
+          {refetching && <RefetchIndicator />}
           {/* Desktop table */}
           <div className="hidden md:block rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
@@ -509,7 +517,7 @@ export default function ExamsPage() {
               )
             })}
           </div>
-        </>
+        </div>
       )}
 
       {/* 9.3 Schedule Exam Modal */}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/sheet";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageLoadReporter } from "@/contexts/PageLoadContext";
+import { RefetchIndicator } from "@/components/ui/refetch-indicator";
 import { useToast } from "@/hooks/use-toast";
 import {
   BookOpen,
@@ -73,6 +74,8 @@ export default function CoursesPage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refetching, setRefetching] = useState(false);
+  const hasFetchedRef = useRef(false);
   usePageLoadReporter(loading);
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -123,7 +126,8 @@ export default function CoursesPage() {
 
   const fetchCourses = useCallback(async () => {
     try {
-      setLoading(true);
+      if (!hasFetchedRef.current) setLoading(true);
+      else setRefetching(true);
       setFetchError(null);
       const params: Record<string, string | number | boolean> = {
         page,
@@ -146,6 +150,8 @@ export default function CoursesPage() {
       toast({ title: "Failed to load courses", variant: "destructive" });
     } finally {
       setLoading(false);
+      setRefetching(false);
+      hasFetchedRef.current = true;
     }
   }, [page, limit, debouncedSearch, departmentCode, level, semester, isGeneral, toast]);
 
@@ -439,7 +445,8 @@ export default function CoursesPage() {
           </div>
         </div>
       ) : courses.length === 0 ? (
-        <div className="rounded-xl border border-gray-200 p-12 text-center">
+        <div className="relative rounded-xl border border-gray-200 p-12 text-center">
+          {refetching && <RefetchIndicator />}
           <BookOpen className="h-16 w-16 mx-auto text-gray-300 mb-4" />
           <h3 className="text-base font-semibold text-gray-700">No courses found</h3>
           <p className="text-sm text-gray-400 mt-2">Try adjusting your filters or add a new course.</p>
@@ -451,7 +458,8 @@ export default function CoursesPage() {
           )}
         </div>
       ) : (
-        <>
+        <div className="relative">
+          {refetching && <RefetchIndicator />}
           {/* Desktop table */}
           <div className="hidden md:block rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
@@ -596,7 +604,7 @@ export default function CoursesPage() {
               </div>
             </SheetContent>
           </Sheet>
-        </>
+        </div>
       )}
 
       {/* Pagination — §17 */}
