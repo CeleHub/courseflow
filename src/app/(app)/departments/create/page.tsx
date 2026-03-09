@@ -2,10 +2,12 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
@@ -14,32 +16,55 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
+import { ServerErrorBanner } from '@/components/ui/server-error-banner'
 import { useAuth } from '@/contexts/AuthContext'
 import { HodCombobox } from '@/components/departments/hod-combobox'
 import { usePageLoadReporter } from '@/contexts/PageLoadContext'
 import { useToast } from '@/hooks/use-toast'
 import { Building2, ArrowLeft, Loader2 } from 'lucide-react'
-import { ErrorState } from '@/components/state/error-state'
 import { apiClient } from '@/lib/api'
 import { College } from '@/types'
 
+const createDepartmentSchema = z.object({
+  name: z.string().min(1, 'Department name is required').max(100),
+  code: z.string().min(1, 'Department code is required').regex(/^[A-Z]{2,4}$/, 'Code must be 2–4 uppercase letters'),
+  description: z.string().max(1000).optional(),
+  college: z.nativeEnum(College),
+  hodId: z.string().optional(),
+})
+
+type CreateDepartmentFormValues = z.infer<typeof createDepartmentSchema>
+
 export default function CreateDepartmentPage() {
   const router = useRouter()
-  const { isAuthenticated, isAdmin, isLecturer, isHod } = useAuth()
+  const { isAuthenticated, isAdmin } = useAuth()
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
-  const [loadingData, setLoadingData] = useState(false)
-  usePageLoadReporter(loadingData)
-  const [fetchError, setFetchError] = useState<string | null>(null)
-  const [formData, setFormData] = useState({
-    name: '',
-    code: '',
-    description: '',
-    college: College.CBAS,
-    hodId: '',
-  })
+  const [serverError, setServerError] = useState('')
+  usePageLoadReporter(false)
 
-  const canCreate = isAdmin /* Only ADMIN can create departments per 0.1; HOD mutates own dept's courses/schedules only */
+  const canCreate = isAdmin
+
+  const form = useForm<CreateDepartmentFormValues>({
+    resolver: zodResolver(createDepartmentSchema),
+    mode: 'onBlur',
+    defaultValues: {
+      name: '',
+      code: '',
+      description: '',
+      college: College.CBAS,
+      hodId: '',
+    },
+  })
 
   useEffect(() => {
     if (!isAuthenticated || !canCreate) {
@@ -52,210 +77,164 @@ export default function CreateDepartmentPage() {
     return null
   }
 
-  if (fetchError) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <Button variant="ghost" onClick={() => router.back()} className="mb-4">
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back
-        </Button>
-        <ErrorState title={fetchError} onRetry={() => setFetchError(null)} />
-      </div>
-    )
-  }
-
-  if (loadingData) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 rounded w-1/3" />
-          <div className="h-4 bg-gray-200 rounded w-2/3" />
-          <div className="h-64 bg-gray-200 rounded" />
-        </div>
-      </div>
-    )
-  }
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }))
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (!formData.name.trim() || !formData.code.trim()) {
-      toast({
-        title: "Validation Error",
-        description: "Please fill in all required fields",
-        variant: "destructive",
-      })
-      return
-    }
-
+  const handleSubmit = form.handleSubmit(async (data) => {
+    setServerError('')
+    setLoading(true)
     try {
-      setLoading(true)
       const response = await apiClient.createDepartment({
-        name: formData.name.trim(),
-        code: formData.code.trim().toUpperCase().slice(0, 4),
-        description: formData.description.trim() || undefined,
-        college: formData.college,
-        hodId: formData.hodId || undefined,
+        name: data.name.trim(),
+        code: data.code.trim().toUpperCase(),
+        description: data.description?.trim() || undefined,
+        college: data.college,
+        hodId: data.hodId || undefined,
       })
 
       if (response.success) {
-        toast({
-          title: "Success",
-          description: "Department created successfully",
-        })
+        toast({ title: 'Success', description: 'Department created successfully' })
         router.push('/departments')
       } else {
-        toast({
-          title: "Error",
-          description: response.error || "Failed to create department",
-          variant: "destructive",
-        })
+        setServerError(response.error || 'Failed to create department')
       }
     } catch (error) {
       console.error('Create department failed:', error)
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred",
-        variant: "destructive",
-      })
+      setServerError('An unexpected error occurred')
     } finally {
       setLoading(false)
     }
-  }
+  })
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
-
       <div className="container mx-auto px-4 py-8">
-        {/* Header */}
         <div className="mb-8">
-          <Button
-            variant="ghost"
-            onClick={() => router.back()}
-            className="mb-4"
-          >
+          <Button variant="ghost" onClick={() => router.back()} className="mb-4">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
-
           <h1 className="text-3xl font-bold mb-2 flex items-center gap-2">
             <Building2 className="h-8 w-8" />
             Create Department
           </h1>
-          <p className="text-muted-foreground">
-            Add a new academic department to the system
-          </p>
+          <p className="text-muted-foreground">Add a new academic department to the system</p>
         </div>
 
-        {/* Form */}
         <Card className="max-w-2xl">
           <CardHeader>
             <CardTitle>Department Information</CardTitle>
-            <CardDescription>
-              Enter the details for the new department
-            </CardDescription>
+            <CardDescription>Enter the details for the new department</CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className={`space-y-6 transition-opacity ${loading ? 'opacity-60' : ''}`}>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Department Name *</Label>
-                  <Input
-                    id="name"
+            <Form {...form}>
+              <form onSubmit={handleSubmit} className={`space-y-6 transition-opacity ${loading ? 'opacity-60' : ''}`}>
+                {serverError && <ServerErrorBanner message={serverError} />}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <FormField
+                    control={form.control}
                     name="name"
-                    type="text"
-                    placeholder="e.g., Computer Science"
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    required
-                    maxLength={100}
-                    disabled={loading}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Department Name *</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="e.g., Computer Science"
+                            maxLength={100}
+                            disabled={loading}
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="code">Department Code *</Label>
-                  <Input
-                    id="code"
+                  <FormField
+                    control={form.control}
                     name="code"
-                    type="text"
-                    placeholder="e.g., CS"
-                    value={formData.code}
-                    onChange={(e) => setFormData((p) => ({ ...p, code: e.target.value.toUpperCase().slice(0, 4) }))}
-                    required
-                    maxLength={4}
-                    className="font-mono"
-                    disabled={loading}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Department Code *</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="e.g., CS"
+                            maxLength={4}
+                            className="font-mono"
+                            disabled={loading}
+                            {...field}
+                            onChange={(e) => field.onChange(e.target.value.toUpperCase().slice(0, 4))}
+                          />
+                        </FormControl>
+                        <FormDescription>2–4 uppercase letters</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                  <p className="text-xs text-muted-foreground">
-                    2–4 uppercase letters
-                  </p>
-                </div>
-
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="description">Description (Optional)</Label>
-                  <Textarea
-                    id="description"
+                  <FormField
+                    control={form.control}
                     name="description"
-                    placeholder="Enter department description..."
-                    value={formData.description}
-                    onChange={handleInputChange}
-                    rows={3}
-                    maxLength={1000}
-                    disabled={loading}
+                    render={({ field }) => (
+                      <FormItem className="md:col-span-2">
+                        <FormLabel>Description (Optional)</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Enter department description..."
+                            rows={3}
+                            maxLength={1000}
+                            disabled={loading}
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="college"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>College *</FormLabel>
+                        <Select value={field.value} onValueChange={field.onChange} disabled={loading}>
+                          <FormControl>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value={College.CBAS}>CBAS</SelectItem>
+                            <SelectItem value={College.CHMS}>CHMS</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="hodId"
+                    render={({ field }) => (
+                      <FormItem className="md:col-span-2">
+                        <FormLabel>Head of Department (Optional)</FormLabel>
+                        <FormControl>
+                          <HodCombobox
+                            value={field.value}
+                            onChange={field.onChange}
+                            placeholder="Search by name..."
+                            disabled={loading}
+                          />
+                        </FormControl>
+                        <FormDescription>Automatically links Head of Department to this department</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
                 </div>
-
-                <div className="space-y-2">
-                  <Label>College *</Label>
-                  <Select value={formData.college} onValueChange={(v) => setFormData((p) => ({ ...p, college: v as College }))} disabled={loading}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={College.CBAS}>CBAS</SelectItem>
-                      <SelectItem value={College.CHMS}>CHMS</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="flex gap-4 pt-4">
+                  <Button type="button" variant="outline" onClick={() => router.back()} disabled={loading}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={loading}>
+                    {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Create Department'}
+                  </Button>
                 </div>
-
-                <div className="space-y-2 md:col-span-2">
-                  <Label>Head of Department (Optional)</Label>
-                  <HodCombobox
-                    value={formData.hodId}
-                    onChange={(v) => setFormData((p) => ({ ...p, hodId: v }))}
-                    placeholder="Search by name..."
-                    disabled={loading}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Automatically links Head of Department to this department
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex gap-4 pt-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => router.back()}
-                  disabled={loading}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={loading}
-                >
-                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Create Department'}
-                </Button>
-              </div>
-            </form>
+              </form>
+            </Form>
           </CardContent>
         </Card>
       </div>

@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
+import { ServerErrorBanner } from '@/components/ui/server-error-banner'
 import { Loader2 } from 'lucide-react'
 import { apiClient } from '@/lib/api'
 import { getItemsFromResponse } from '@/lib/utils'
@@ -63,6 +64,7 @@ export function CreateScheduleModal({
   const { toast } = useToast()
   const [courses, setCourses] = useState<Course[]>([])
   const [loading, setLoading] = useState(false)
+  const [serverError, setServerError] = useState('')
   const [query, setQuery] = useState('')
   const [comboboxOpen, setComboboxOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -128,6 +130,7 @@ export function CreateScheduleModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setServerError('')
     if (!formData.courseCode || !formData.dayOfWeek || !formData.startTime) {
       toast({ title: 'Please fill required fields', variant: 'destructive' })
       return
@@ -152,7 +155,7 @@ export function CreateScheduleModal({
           setQuery('')
           onSuccess?.()
         } else {
-          toast({ title: (res as any).error ?? 'Failed', variant: 'destructive' })
+          setServerError((res as { error?: string }).error ?? 'Failed to update')
         }
       } else {
         const res = await apiClient.createSchedule({
@@ -169,11 +172,11 @@ export function CreateScheduleModal({
           setQuery('')
           onSuccess?.()
         } else {
-          toast({ title: (res as any).error ?? 'Failed', variant: 'destructive' })
+          setServerError((res as { error?: string }).error ?? 'Failed to create')
         }
       }
     } catch {
-      toast({ title: isEdit ? 'Failed to update schedule' : 'Failed to create schedule', variant: 'destructive' })
+      setServerError(isEdit ? 'Failed to update schedule' : 'Failed to create schedule')
     } finally {
       setLoading(false)
     }
@@ -197,6 +200,7 @@ export function CreateScheduleModal({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className={`space-y-4 transition-opacity ${loading ? "opacity-60" : ""}`}>
+          {serverError && <ServerErrorBanner message={serverError} />}
           <div ref={containerRef} className="relative">
             <Label>Course *</Label>
             <Input

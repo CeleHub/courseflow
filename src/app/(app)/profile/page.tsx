@@ -1,18 +1,36 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageLoadReporter } from "@/contexts/PageLoadContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { ServerErrorBanner } from "@/components/ui/server-error-banner";
 import { Badge } from "@/components/ui/badge";
 import { apiClient } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { Lock, Loader2 } from "lucide-react";
 
 const AVATAR_COLORS = ["bg-indigo-500", "bg-violet-500", "bg-blue-500", "bg-emerald-500"] as const;
+
+const profileSchema = z.object({
+  name: z.string(),
+  phone: z.string(),
+});
+
+type ProfileFormValues = z.infer<typeof profileSchema>;
 
 function getInitials(name: string | null, email: string): string {
   if (name?.trim()) {
@@ -27,35 +45,56 @@ export default function ProfilePage() {
   const { user } = useAuth();
   const { toast } = useToast();
   usePageLoadReporter(false);
-  const [name, setName] = useState(user?.name ?? "");
-  const [phone, setPhone] = useState(user?.phone ?? "");
   const [saving, setSaving] = useState(false);
+  const [serverError, setServerError] = useState("");
   const [passwordResetSent, setPasswordResetSent] = useState(false);
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const form = useForm<ProfileFormValues>({
+    resolver: zodResolver(profileSchema),
+    mode: "onBlur",
+    defaultValues: {
+      name: user?.name ?? "",
+      phone: user?.phone ?? "",
+    },
+  });
+
+  useEffect(() => {
+    if (user) {
+      form.reset({ name: user.name ?? "", phone: user.phone ?? "" });
+    }
+  }, [user?.id, user?.name, user?.phone, form]);
+
+  const handleSave = form.handleSubmit(async (data) => {
     if (!user) return;
+    setServerError("");
     setSaving(true);
     try {
-      const response = await apiClient.updateUser(user.id, { name: name.trim() || undefined, phone: phone.trim() || undefined });
+      const response = await apiClient.updateUser(user.id, {
+        name: data.name.trim() || undefined,
+        phone: data.phone.trim() || undefined,
+      });
       if (response.success) {
         toast({ title: "Saved", description: "Profile updated successfully" });
       } else {
-        toast({ title: "Error", description: response.error, variant: "destructive" });
+        setServerError(response.error || "Failed to update profile");
       }
-    } catch (err) {
-      toast({ title: "Error", description: "Failed to update", variant: "destructive" });
+    } catch {
+      setServerError("Failed to update");
     } finally {
       setSaving(false);
     }
-  };
+  });
 
   const handlePasswordReset = async () => {
     if (!user?.email) return;
     try {
-      await apiClient.forgotPassword(user.email);
-      setPasswordResetSent(true);
-    } catch (err) {
+      const response = await apiClient.forgotPassword(user.email);
+      if (response.success) {
+        setPasswordResetSent(true);
+      } else {
+        toast({ title: "Error", description: response.error || "Failed to send reset link", variant: "destructive" });
+      }
+    } catch {
       toast({ title: "Error", description: "Failed to send reset link", variant: "destructive" });
     }
   };
@@ -84,28 +123,49 @@ export default function ProfilePage() {
           <CardTitle>Personal Information</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <form onSubmit={handleSave} className={`space-y-4 transition-opacity ${saving ? "opacity-60" : ""}`}>
-            <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
-              <Input id="name" value={name} onChange={(e) => setName(e.target.value)} disabled={saving} />
-            </div>
-            <div className="space-y-2">
-              <Label>Email</Label>
-              <div className="flex items-center gap-2" title="Email cannot be changed here.">
-                <Lock className="h-4 w-4 text-gray-400 shrink-0" />
-                <span className="text-sm text-gray-500">{user.email}</span>
+          <Form {...form}>
+            <form onSubmit={handleSave} className={`space-y-4 transition-opacity ${saving ? "opacity-60" : ""}`}>
+              {serverError && <ServerErrorBanner message={serverError} />}
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Name</FormLabel>
+                    <FormControl>
+                      <Input disabled={saving} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="space-y-2">
+                <FormLabel>Email</FormLabel>
+                <div className="flex items-center gap-2" title="Email cannot be changed here.">
+                  <Lock className="h-4 w-4 text-gray-400 shrink-0" />
+                  <span className="text-sm text-gray-500">{user.email}</span>
+                </div>
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="phone">Phone</Label>
-              <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} disabled={saving} />
-            </div>
-            <div className="flex justify-end">
-              <Button type="submit" disabled={saving} className="h-10 bg-indigo-600 hover:bg-indigo-700 text-white">
-                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Changes"}
-              </Button>
-            </div>
-          </form>
+              <FormField
+                control={form.control}
+                name="phone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Phone</FormLabel>
+                    <FormControl>
+                      <Input disabled={saving} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="flex justify-end">
+                <Button type="submit" disabled={saving} className="h-10 bg-indigo-600 hover:bg-indigo-700 text-white">
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Changes"}
+                </Button>
+              </div>
+            </form>
+          </Form>
         </CardContent>
       </Card>
 

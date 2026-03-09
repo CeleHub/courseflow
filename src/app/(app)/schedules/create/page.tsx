@@ -2,11 +2,23 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
+import { ServerErrorBanner } from '@/components/ui/server-error-banner'
 import { useAuth } from '@/contexts/AuthContext'
 import { usePageLoadReporter } from '@/contexts/PageLoadContext'
 import { useToast } from '@/hooks/use-toast'
@@ -16,6 +28,20 @@ import { apiClient } from '@/lib/api'
 import { getItemsFromResponse } from '@/lib/utils'
 import { Course, DayOfWeek } from '@/types'
 
+const createScheduleSchema = z.object({
+  courseCode: z.string().min(1, 'Course is required'),
+  dayOfWeek: z.string().min(1, 'Day of week is required'),
+  startTime: z.string().min(1, 'Start time is required'),
+  endTime: z.string().min(1, 'End time is required'),
+}).refine((data) => {
+  if (!data.startTime || !data.endTime) return true
+  const start = new Date(`2000-01-01T${data.startTime}:00`)
+  const end = new Date(`2000-01-01T${data.endTime}:00`)
+  return end > start
+}, { message: 'End time must be after start time', path: ['endTime'] })
+
+type CreateScheduleFormValues = z.infer<typeof createScheduleSchema>
+
 export default function CreateSchedulePage() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -23,15 +49,20 @@ export default function CreateSchedulePage() {
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
   const [loadingData, setLoadingData] = useState(true)
+  const [serverError, setServerError] = useState('')
   usePageLoadReporter(loadingData)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [courses, setCourses] = useState<Course[]>([])
-  const [formData, setFormData] = useState({
-    courseCode: '',
-    dayOfWeek: '',
-    startTime: '',
-    endTime: '',
-    isFixed: false,
+
+  const form = useForm<CreateScheduleFormValues>({
+    resolver: zodResolver(createScheduleSchema),
+    mode: 'onBlur',
+    defaultValues: {
+      courseCode: '',
+      dayOfWeek: '',
+      startTime: '',
+      endTime: '',
+    },
   })
 
   const canCreate = isAdmin || isHod /* LECTURER is read-only per 0.1 */
@@ -107,86 +138,33 @@ export default function CreateSchedulePage() {
     )
   }
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }))
-  }
+  const [isFixed, setIsFixed] = useState(false)
 
-  const handleSelectChange = (name: string, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }))
-  }
-
-  const validateTime = (startTime: string, endTime: string) => {
-    if (!startTime || !endTime) return false
-
-    const start = new Date(`2000-01-01T${startTime}:00`)
-    const end = new Date(`2000-01-01T${endTime}:00`)
-
-    return end > start
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (!formData.courseCode || !formData.dayOfWeek || !formData.startTime ||
-        !formData.endTime) {
-      toast({
-        title: "Validation Error",
-        description: "Please fill in all required fields",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (!validateTime(formData.startTime, formData.endTime)) {
-      toast({
-        title: "Validation Error",
-        description: "End time must be after start time",
-        variant: "destructive",
-      })
-      return
-    }
-
+  const handleSubmit = form.handleSubmit(async (data) => {
+    setServerError('')
+    setLoading(true)
     try {
-      setLoading(true)
       const response = await apiClient.createSchedule({
-        courseCode: formData.courseCode,
-        dayOfWeek: formData.dayOfWeek as DayOfWeek,
-        startTime: formData.startTime,
-        endTime: formData.endTime,
-        isFixed: formData.isFixed,
+        courseCode: data.courseCode,
+        dayOfWeek: data.dayOfWeek as DayOfWeek,
+        startTime: data.startTime,
+        endTime: data.endTime,
+        isFixed,
       })
 
       if (response.success) {
-        toast({
-          title: "Success",
-          description: "Schedule created successfully",
-        })
+        toast({ title: 'Success', description: 'Schedule created successfully' })
         router.push('/schedules')
       } else {
-        toast({
-          title: "Error",
-          description: response.error || "Failed to create schedule",
-          variant: "destructive",
-        })
+        setServerError(response.error || 'Failed to create schedule')
       }
     } catch (error) {
       console.error('Create schedule failed:', error)
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred",
-        variant: "destructive",
-      })
+      setServerError('An unexpected error occurred')
     } finally {
       setLoading(false)
     }
-  }
+  })
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
@@ -221,74 +199,92 @@ export default function CreateSchedulePage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            <Form {...form}>
             <form onSubmit={handleSubmit} className={`space-y-6 transition-opacity ${loading ? 'opacity-60' : ''}`}>
+              {serverError && <ServerErrorBanner message={serverError} />}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="courseCode">Course *</Label>
-                  <Select value={formData.courseCode} onValueChange={(value) => handleSelectChange('courseCode', value)} disabled={loading}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select course" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {courses.map((course) => (
-                        <SelectItem key={course.code} value={course.code}>
-                          {course.code} - {course.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="dayOfWeek">Day of Week *</Label>
-                  <Select value={formData.dayOfWeek} onValueChange={(value) => handleSelectChange('dayOfWeek', value)} disabled={loading}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select day" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {dayOptions.map((day) => (
-                        <SelectItem key={day.value} value={day.value}>
-                          {day.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="startTime">Start Time *</Label>
-                  <Input
-                    id="startTime"
-                    name="startTime"
-                    type="time"
-                    value={formData.startTime}
-                    onChange={handleInputChange}
-                    required
-                    disabled={loading}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="endTime">End Time *</Label>
-                  <Input
-                    id="endTime"
-                    name="endTime"
-                    type="time"
-                    value={formData.endTime}
-                    onChange={handleInputChange}
-                    required
-                    disabled={loading}
-                  />
-                </div>
-
+                <FormField
+                  control={form.control}
+                  name="courseCode"
+                  render={({ field }) => (
+                    <FormItem className="md:col-span-2">
+                      <FormLabel>Course *</FormLabel>
+                      <Select value={field.value} onValueChange={field.onChange} disabled={loading}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select course" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {courses.map((course) => (
+                            <SelectItem key={course.code} value={course.code}>
+                              {course.code} - {course.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="dayOfWeek"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Day of Week *</FormLabel>
+                      <Select value={field.value} onValueChange={field.onChange} disabled={loading}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select day" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {dayOptions.map((day) => (
+                            <SelectItem key={day.value} value={day.value}>
+                              {day.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="startTime"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Start Time *</FormLabel>
+                      <FormControl>
+                        <Input type="time" disabled={loading} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="endTime"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>End Time *</FormLabel>
+                      <FormControl>
+                        <Input type="time" disabled={loading} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
 
               <div className="flex items-center gap-2 pt-2">
                 <input
                   type="checkbox"
                   id="isFixed"
-                  checked={formData.isFixed}
-                  onChange={(e) => setFormData(prev => ({ ...prev, isFixed: e.target.checked }))}
+                  checked={isFixed}
+                  onChange={(e) => setIsFixed(e.target.checked)}
                   className="rounded border-gray-300"
                   disabled={loading}
                 />
@@ -312,6 +308,7 @@ export default function CreateSchedulePage() {
                 </Button>
               </div>
             </form>
+            </Form>
           </CardContent>
         </Card>
       </div>

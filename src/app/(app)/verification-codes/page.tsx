@@ -43,6 +43,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { ServerErrorBanner } from '@/components/ui/server-error-banner'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { ErrorState } from '@/components/state/error-state'
 
@@ -67,6 +68,7 @@ export default function VerificationCodesPage() {
   const [actionLoading, setActionLoading] = useState(false)
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [fetchError, setFetchError] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState('')
 
   const [formData, setFormData] = useState<CreateVerificationCodeData & { maxUsage?: number }>({
     code: '',
@@ -121,6 +123,7 @@ export default function VerificationCodesPage() {
 
   const openCreate = () => {
     setEditingCode(null)
+    setSaveError('')
     setFormData({
       code: '',
       role: Role.LECTURER,
@@ -133,6 +136,7 @@ export default function VerificationCodesPage() {
 
   const openEdit = (c: VerificationCode) => {
     setEditingCode(c)
+    setSaveError('')
     setFormData({
       code: c.code,
       role: c.role,
@@ -145,6 +149,7 @@ export default function VerificationCodesPage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
+    setSaveError('')
     if (!formData.code.trim()) {
       toast({ title: 'Code is required', variant: 'destructive' })
       return
@@ -170,7 +175,7 @@ export default function VerificationCodesPage() {
           setIsModalOpen(false)
           fetchCodes()
         } else {
-          toast({ title: (res as any).error, variant: 'destructive' })
+          setSaveError((res as { error?: string }).error ?? 'Failed to update')
         }
       } else {
         const res = await apiClient.createVerificationCode(payload)
@@ -179,11 +184,11 @@ export default function VerificationCodesPage() {
           setIsModalOpen(false)
           fetchCodes()
         } else {
-          toast({ title: (res as any).error, variant: 'destructive' })
+          setSaveError((res as { error?: string }).error ?? 'Failed to create')
         }
       }
     } catch {
-      toast({ title: 'Save failed', variant: 'destructive' })
+      setSaveError('Save failed')
     } finally {
       setSaving(false)
     }
@@ -414,6 +419,7 @@ export default function VerificationCodesPage() {
             <DialogDescription>{editingCode ? 'Update code details.' : 'Create a verification code for registration.'}</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSave} className={`space-y-4 transition-opacity ${saving ? "opacity-60" : ""}`}>
+            {saveError && <ServerErrorBanner message={saveError} />}
             <div>
               <Label>Code * (max 50 chars)</Label>
               <div className="relative mt-1.5">

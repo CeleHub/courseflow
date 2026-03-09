@@ -3,45 +3,64 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageLoadReporter } from "@/contexts/PageLoadContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Loader2, Mail, Lock, Eye, EyeOff } from "lucide-react";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { ServerErrorBanner } from "@/components/ui/server-error-banner";
+import { Loader2, Eye, EyeOff } from "lucide-react";
+
+const loginSchema = z.object({
+  email: z.string().min(1, "Email is required").email("Invalid email format"),
+  password: z.string().min(1, "Password is required").min(6, "Password must be at least 6 characters"),
+});
+
+type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [serverError, setServerError] = useState("");
   usePageLoadReporter(false);
 
   const { login } = useAuth();
   const router = useRouter();
 
-  const [error, setError] = useState("");
+  const form = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
+    mode: "onBlur",
+    defaultValues: { email: "", password: "" },
+  });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
+  const handleSubmit = form.handleSubmit(async (data) => {
+    setServerError("");
     setIsLoading(true);
-
     try {
-      const result = await login({ email, password });
+      const result = await login({ email: data.email, password: data.password });
       if (result.success) {
         router.push("/dashboard");
       } else {
-        setError(result.error || "Invalid credentials");
-        setPassword("");
+        setServerError(result.error || "Invalid credentials");
+        form.setValue("password", "");
       }
-    } catch (err) {
-      setError("An unexpected error occurred");
-      setPassword("");
+    } catch {
+      setServerError("An unexpected error occurred");
+      form.setValue("password", "");
     } finally {
       setIsLoading(false);
     }
-  };
+  });
 
   return (
     <div className="space-y-8">
@@ -50,71 +69,82 @@ export default function LoginPage() {
         <p className="text-sm text-gray-500 mt-1">Enter your credentials to continue</p>
       </div>
 
-      <form onSubmit={handleSubmit} className={`space-y-5 transition-opacity ${isLoading ? "opacity-60" : ""}`}>
-        {error && (
-          <div className="p-3 rounded-lg bg-red-50 text-red-700 text-sm">
-            {error}
-          </div>
-        )}
-        <div className="space-y-2">
-          <Label htmlFor="email">Email address</Label>
-          <Input
-            id="email"
-            type="email"
-            placeholder="you@university.edu"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="text-base min-h-[44px]"
-            required
-            disabled={isLoading}
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="password">Password</Label>
-          <div className="relative">
-            <Input
-              id="password"
-              type={showPassword ? "text" : "password"}
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="text-base min-h-[44px] pr-12"
-              required
-              minLength={6}
-              disabled={isLoading}
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-0 top-0 h-full min-w-[44px] flex items-center justify-center text-gray-500 hover:text-gray-700 touch-manipulation"
-              aria-label={showPassword ? "Hide password" : "Show password"}
-            >
-              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
-          </div>
-          <div className="flex justify-end">
-            <Link
-              href="/forgot-password"
-              className="text-sm text-indigo-600 hover:underline"
-            >
-              Forgot password?
-            </Link>
-          </div>
-        </div>
-
-        <Button
-          type="submit"
-          className="w-full h-11 text-base bg-indigo-600 hover:bg-indigo-700 text-white"
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            "Sign in"
+      <Form {...form}>
+        <form onSubmit={handleSubmit} className={`space-y-5 transition-opacity ${isLoading ? "opacity-60" : ""}`}>
+          {serverError && (
+            <ServerErrorBanner message={serverError} />
           )}
-        </Button>
-      </form>
+          <FormField
+            control={form.control}
+            name="email"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Email address</FormLabel>
+                <FormControl>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="you@university.edu"
+                    className="text-base min-h-[44px]"
+                    disabled={isLoading}
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="password"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Password</FormLabel>
+                <FormControl>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="••••••••"
+                      className="text-base min-h-[44px] pr-12"
+                      disabled={isLoading}
+                      {...field}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-0 top-0 h-full min-w-[44px] flex items-center justify-center text-gray-500 hover:text-gray-700 touch-manipulation"
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </FormControl>
+                <FormMessage />
+                <div className="flex justify-end">
+                  <Link
+                    href="/forgot-password"
+                    className="text-sm text-indigo-600 hover:underline"
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
+              </FormItem>
+            )}
+          />
+          <Button
+            type="submit"
+            className="w-full h-11 text-base bg-indigo-600 hover:bg-indigo-700 text-white"
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              "Sign in"
+            )}
+          </Button>
+        </form>
+      </Form>
 
       <p className="text-center text-sm text-gray-500">
         Don&apos;t have an account?{" "}

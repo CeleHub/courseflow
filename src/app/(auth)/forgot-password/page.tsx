@@ -2,31 +2,58 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { ServerErrorBanner } from "@/components/ui/server-error-banner";
 import { usePageLoadReporter } from "@/contexts/PageLoadContext";
 import { apiClient } from "@/lib/api";
 import { CheckCircle, Loader2 } from "lucide-react";
 
+const forgotPasswordSchema = z.object({
+  email: z.string().min(1, "Email is required").email("Invalid email format"),
+});
+
+type ForgotPasswordFormValues = z.infer<typeof forgotPasswordSchema>;
+
 export default function ForgotPasswordPage() {
-  const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [serverError, setServerError] = useState("");
   usePageLoadReporter(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const form = useForm<ForgotPasswordFormValues>({
+    resolver: zodResolver(forgotPasswordSchema),
+    mode: "onBlur",
+    defaultValues: { email: "" },
+  });
+
+  const handleSubmit = form.handleSubmit(async (data) => {
+    setServerError("");
     setIsLoading(true);
     try {
-      await apiClient.forgotPassword(email);
-      setSubmitted(true);
+      const response = await apiClient.forgotPassword(data.email);
+      if (response.success) {
+        setSubmitted(true);
+      } else {
+        setServerError(response.error || "Failed to send reset link");
+      }
     } catch (error) {
-      console.error(error);
+      setServerError("An unexpected error occurred");
     } finally {
       setIsLoading(false);
     }
-  };
+  });
 
   if (submitted) {
     return (
@@ -55,28 +82,37 @@ export default function ForgotPasswordPage() {
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className={`space-y-5 transition-opacity ${isLoading ? "opacity-60" : ""}`}>
-        <div className="space-y-2">
-          <Label htmlFor="email">Email address</Label>
-          <Input
-            id="email"
-            type="email"
-            placeholder="you@university.edu"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="text-base min-h-[44px]"
-            required
-            disabled={isLoading}
+      <Form {...form}>
+        <form onSubmit={handleSubmit} className={`space-y-5 transition-opacity ${isLoading ? "opacity-60" : ""}`}>
+          {serverError && <ServerErrorBanner message={serverError} />}
+          <FormField
+            control={form.control}
+            name="email"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Email address</FormLabel>
+                <FormControl>
+                  <Input
+                    type="email"
+                    placeholder="you@university.edu"
+                    className="text-base min-h-[44px]"
+                    disabled={isLoading}
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
           />
-        </div>
-        <Button
-          type="submit"
-          className="w-full h-11"
-          disabled={isLoading}
-        >
-          {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send reset link"}
-        </Button>
-      </form>
+          <Button
+            type="submit"
+            className="w-full h-11"
+            disabled={isLoading}
+          >
+            {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send reset link"}
+          </Button>
+        </form>
+      </Form>
 
       <p className="text-center text-sm text-gray-500">
         <Link href="/login" className="text-indigo-600 hover:underline">

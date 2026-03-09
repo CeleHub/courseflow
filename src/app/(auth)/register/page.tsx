@@ -3,45 +3,88 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageLoadReporter } from "@/contexts/PageLoadContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Mail, Lock, Eye, EyeOff, User, IdCard, Shield } from "lucide-react";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { ServerErrorBanner } from "@/components/ui/server-error-banner";
+import { Loader2, Eye, EyeOff } from "lucide-react";
 import { Role } from "@/types";
-import { useToast } from "@/hooks/use-toast";
 import { apiClient } from "@/lib/api";
 import { getItemsFromResponse } from "@/lib/utils";
 import type { Department } from "@/types";
 
-export default function RegisterPage() {
-  const [formData, setFormData] = useState({
-    matricNO: "",
-    email: "",
-    password: "",
-    confirmPassword: "",
-    name: "",
-    role: Role.STUDENT,
-    verificationCode: "",
-    departmentCode: "",
-    phone: "",
+const registerSchema = z
+  .object({
+    name: z.string(),
+    matricNO: z.string().min(1, "Matric / Staff number is required"),
+    email: z.string().min(1, "Email is required").email("Invalid email format"),
+    password: z.string().min(1, "Password is required").min(6, "Password must be at least 6 characters"),
+    confirmPassword: z.string().min(1, "Please confirm your password"),
+    role: z.nativeEnum(Role),
+    departmentCode: z.string(),
+    verificationCode: z.string(),
+    phone: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  })
+  .superRefine((data, ctx) => {
+    if (data.role !== Role.ADMIN && !data.departmentCode?.trim()) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Please select your department", path: ["departmentCode"] });
+    }
+    if ([Role.LECTURER, Role.HOD, Role.ADMIN].includes(data.role) && !data.verificationCode?.trim()) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Verification code is required", path: ["verificationCode"] });
+    }
   });
+
+type RegisterFormValues = z.infer<typeof registerSchema>;
+
+export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [deptLoading, setDeptLoading] = useState(true);
-  usePageLoadReporter(deptLoading);
   const [deptError, setDeptError] = useState<string | null>(null);
-  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [serverError, setServerError] = useState("");
+  usePageLoadReporter(deptLoading);
 
   const { register } = useAuth();
-  const { toast } = useToast();
   const router = useRouter();
 
-  const needsDepartment = formData.role !== Role.ADMIN;
-  const needsVerificationCode = [Role.LECTURER, Role.HOD, Role.ADMIN].includes(formData.role);
+  const form = useForm<RegisterFormValues>({
+    resolver: zodResolver(registerSchema),
+    mode: "onBlur",
+    defaultValues: {
+      name: "",
+      matricNO: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+      role: Role.STUDENT,
+      departmentCode: "",
+      verificationCode: "",
+      phone: "",
+    },
+  });
+
+  const role = form.watch("role");
+  const needsDepartment = role !== Role.ADMIN;
+  const needsVerificationCode = [Role.LECTURER, Role.HOD, Role.ADMIN].includes(role);
+  const needsPhone = role === Role.LECTURER || role === Role.HOD;
 
   const fetchDepartments = async () => {
     setDeptError(null);
@@ -61,54 +104,40 @@ export default function RegisterPage() {
     fetchDepartments();
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (formData.password !== formData.confirmPassword) {
-      toast({ title: "Passwords do not match", variant: "destructive" });
-      return;
+  useEffect(() => {
+    if (role === Role.ADMIN) {
+      form.setValue("departmentCode", "");
     }
-    if (needsDepartment && !formData.departmentCode?.trim()) {
-      toast({ title: "Please select your department", variant: "destructive" });
-      return;
-    }
-    if (needsVerificationCode && !formData.verificationCode?.trim()) {
-      toast({ title: "Verification code is required", variant: "destructive" });
-      return;
-    }
-    setSubmitError(null);
+    form.setValue("verificationCode", "");
+    form.setValue("phone", "");
+  }, [role, form]);
+
+  const handleSubmit = form.handleSubmit(async (data) => {
+    setServerError("");
     setIsLoading(true);
     try {
-      const payload: any = {
-        matricNO: formData.matricNO.trim(),
-        email: formData.email.trim(),
-        password: formData.password,
-        name: formData.name.trim() || undefined,
-        role: formData.role,
-        verificationCode: needsVerificationCode ? formData.verificationCode.trim() : undefined,
-        departmentCode: needsDepartment ? formData.departmentCode : undefined,
-        phone: formData.phone.trim() || undefined,
+      const payload = {
+        matricNO: data.matricNO.trim(),
+        email: data.email.trim(),
+        password: data.password,
+        name: data.name.trim() || undefined,
+        role: data.role,
+        verificationCode: needsVerificationCode ? data.verificationCode.trim() : undefined,
+        departmentCode: needsDepartment ? data.departmentCode : undefined,
+        phone: data.phone.trim() || undefined,
       };
       const result = await register(payload);
-      if (result.success) router.push("/dashboard");
-      else setSubmitError(result.error || "Registration failed");
-    } catch (err) {
-      setSubmitError("An unexpected error occurred");
+      if (result.success) {
+        router.push("/dashboard");
+      } else {
+        setServerError(result.error || "Registration failed");
+      }
+    } catch {
+      setServerError("An unexpected error occurred");
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleChange = (field: string, value: string) => {
-    setFormData((prev) => {
-      const next = { ...prev, [field]: value };
-      if (field === "role") {
-        if (value === Role.ADMIN) next.departmentCode = "";
-        next.verificationCode = "";
-        next.phone = "";
-      }
-      return next;
-    });
-  };
+  });
 
   return (
     <div className="space-y-8">
@@ -117,196 +146,255 @@ export default function RegisterPage() {
         <p className="text-sm text-gray-500 mt-1">Fill in your details to get started</p>
       </div>
 
-      <form onSubmit={handleSubmit} className={`space-y-5 transition-opacity ${isLoading ? "opacity-60" : ""}`}>
-        {submitError && (
-          <div className="p-3 rounded-lg bg-red-50 text-red-700 text-sm">
-            {submitError}
-          </div>
-        )}
-        <div className="space-y-2">
-          <Label htmlFor="name">Full name</Label>
-          <Input
-            id="name"
-            placeholder="John Doe"
-            value={formData.name}
-            onChange={(e) => handleChange("name", e.target.value)}
-            className="text-base min-h-[44px]"
-            disabled={isLoading}
+      <Form {...form}>
+        <form onSubmit={handleSubmit} className={`space-y-5 transition-opacity ${isLoading ? "opacity-60" : ""}`}>
+          {serverError && <ServerErrorBanner message={serverError} />}
+          <FormField
+            control={form.control}
+            name="name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Full name</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="John Doe"
+                    className="text-base min-h-[44px]"
+                    disabled={isLoading}
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
           />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="matricNO">Matric / Staff number *</Label>
-          <Input
-            id="matricNO"
-            placeholder="CS/2023/001"
-            value={formData.matricNO}
-            onChange={(e) => handleChange("matricNO", e.target.value)}
-            className="text-base min-h-[44px]"
-            required
-            disabled={isLoading}
+          <FormField
+            control={form.control}
+            name="matricNO"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Matric / Staff number *</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="CS/2023/001"
+                    className="text-base min-h-[44px]"
+                    disabled={isLoading}
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
           />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="email">Email address *</Label>
-          <Input
-            id="email"
-            type="email"
-            placeholder="you@university.edu"
-            value={formData.email}
-            onChange={(e) => handleChange("email", e.target.value)}
-            className="text-base min-h-[44px]"
-            required
-            disabled={isLoading}
+          <FormField
+            control={form.control}
+            name="email"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Email address *</FormLabel>
+                <FormControl>
+                  <Input
+                    type="email"
+                    placeholder="you@university.edu"
+                    className="text-base min-h-[44px]"
+                    disabled={isLoading}
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
           />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="password">Password *</Label>
-          <div className="relative">
-            <Input
-              id="password"
-              type={showPassword ? "text" : "password"}
-              placeholder="••••••••"
-              value={formData.password}
-              onChange={(e) => handleChange("password", e.target.value)}
-              className="text-base min-h-[44px] pr-12"
-              required
-              minLength={6}
-              disabled={isLoading}
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-0 top-0 h-full min-w-[44px] flex items-center justify-center text-gray-500"
-            >
-              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
-          </div>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="confirmPassword">Confirm password *</Label>
-          <Input
-            id="confirmPassword"
-            type="password"
-            placeholder="••••••••"
-            value={formData.confirmPassword}
-            onChange={(e) => handleChange("confirmPassword", e.target.value)}
-            className="text-base min-h-[44px]"
-            required
-            disabled={isLoading}
+          <FormField
+            control={form.control}
+            name="password"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Password *</FormLabel>
+                <FormControl>
+                  <div className="relative">
+                    <Input
+                      type={showPassword ? "text" : "password"}
+                      placeholder="••••••••"
+                      className="text-base min-h-[44px] pr-12"
+                      disabled={isLoading}
+                      {...field}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-0 top-0 h-full min-w-[44px] flex items-center justify-center text-gray-500"
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
           />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="role">Role</Label>
-          <Select value={formData.role} onValueChange={(v) => handleChange("role", v)} disabled={isLoading}>
-            <SelectTrigger className="text-base min-h-[44px]">
-              <SelectValue placeholder="Select role" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={Role.STUDENT}>Student</SelectItem>
-              <SelectItem value={Role.LECTURER}>Lecturer</SelectItem>
-              <SelectItem value={Role.HOD}>HOD</SelectItem>
-              <SelectItem value={Role.ADMIN}>Admin</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+          <FormField
+            control={form.control}
+            name="confirmPassword"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Confirm password *</FormLabel>
+                <FormControl>
+                  <Input
+                    type="password"
+                    placeholder="••••••••"
+                    className="text-base min-h-[44px]"
+                    disabled={isLoading}
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="role"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Role</FormLabel>
+                <Select value={field.value} onValueChange={field.onChange} disabled={isLoading}>
+                  <FormControl>
+                    <SelectTrigger className="text-base min-h-[44px]">
+                      <SelectValue placeholder="Select role" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value={Role.STUDENT}>Student</SelectItem>
+                    <SelectItem value={Role.LECTURER}>Lecturer</SelectItem>
+                    <SelectItem value={Role.HOD}>HOD</SelectItem>
+                    <SelectItem value={Role.ADMIN}>Admin</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-        <div
-          className="grid transition-[grid-template-rows] duration-300 ease-in-out"
-          style={{ gridTemplateRows: needsDepartment ? "1fr" : "0fr" }}
-        >
-          <div className="overflow-hidden">
-            <div className="space-y-2 pt-0">
-              <Label htmlFor="department">Department *</Label>
-              <Select
-                value={formData.departmentCode}
-                onValueChange={(v) => {
-                  if (v === "__retry__") {
-                    fetchDepartments();
-                    return;
-                  }
-                  handleChange("departmentCode", v);
-                }}
-                disabled={deptLoading || isLoading}
-              >
-                <SelectTrigger className="text-base min-h-[44px]">
-                  {deptLoading ? (
-                    <span className="flex items-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin shrink-0" />
-                      Loading departments…
-                    </span>
-                  ) : (
-                    <SelectValue placeholder={deptError ? "Failed to load departments. Retry." : "Select department..."} />
-                  )}
-                </SelectTrigger>
-                <SelectContent>
-                  {deptLoading ? (
-                    <SelectItem value="" disabled>
-                      <span className="flex items-center gap-2">
-                        <Loader2 className="h-4 w-4 animate-spin shrink-0" />
-                        Loading departments…
-                      </span>
-                    </SelectItem>
-                  ) : deptError ? (
-                    <SelectItem value="__retry__" className="text-indigo-600 font-medium cursor-pointer">
-                      Failed to load departments. Retry.
-                    </SelectItem>
-                  ) : (
-                    departments.map((d) => (
-                      <SelectItem key={d.code} value={d.code}>
-                        {d.name} ({d.code})
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </div>
-
-        <div
-          className="grid transition-[grid-template-rows] duration-300 ease-in-out"
-          style={{ gridTemplateRows: needsVerificationCode ? "1fr" : "0fr" }}
-        >
-          <div className="overflow-hidden">
-            <div className="space-y-2 pt-0">
-              <Label htmlFor="verificationCode">Verification code *</Label>
-              <Input
-                id="verificationCode"
-                placeholder="XXXX-XXXX"
-                value={formData.verificationCode}
-                onChange={(e) => handleChange("verificationCode", e.target.value)}
-                className="text-base min-h-[44px]"
-                disabled={isLoading}
+          <div
+            className="grid transition-[grid-template-rows] duration-300 ease-in-out"
+            style={{ gridTemplateRows: needsDepartment ? "1fr" : "0fr" }}
+          >
+            <div className="overflow-hidden">
+              <FormField
+                control={form.control}
+                name="departmentCode"
+                render={({ field }) => (
+                  <FormItem className="pt-0">
+                    <FormLabel>Department *</FormLabel>
+                    <Select
+                      value={field.value}
+                      onValueChange={(v) => {
+                        if (v === "__retry__") {
+                          fetchDepartments();
+                          return;
+                        }
+                        field.onChange(v);
+                      }}
+                      disabled={deptLoading || isLoading}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="text-base min-h-[44px]">
+                          {deptLoading ? (
+                            <span className="flex items-center gap-2">
+                              <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                              Loading departments…
+                            </span>
+                          ) : (
+                            <SelectValue placeholder={deptError ? "Failed to load departments. Retry." : "Select department..."} />
+                          )}
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {deptLoading ? (
+                          <SelectItem value="" disabled>
+                            <span className="flex items-center gap-2">
+                              <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                              Loading departments…
+                            </span>
+                          </SelectItem>
+                        ) : deptError ? (
+                          <SelectItem value="__retry__" className="text-indigo-600 font-medium cursor-pointer">
+                            Failed to load departments. Retry.
+                          </SelectItem>
+                        ) : (
+                          departments.map((d) => (
+                            <SelectItem key={d.code} value={d.code}>
+                              {d.name} ({d.code})
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
             </div>
           </div>
-        </div>
 
-        <div
-          className="grid transition-[grid-template-rows] duration-300 ease-in-out"
-          style={{
-            gridTemplateRows: formData.role === Role.LECTURER || formData.role === Role.HOD ? "1fr" : "0fr",
-          }}
-        >
-          <div className="overflow-hidden">
-            <div className="space-y-2 pt-0">
-              <Label htmlFor="phone">Phone number</Label>
-              <Input
-                id="phone"
-                placeholder="+234 800 000 0000"
-                value={formData.phone}
-                onChange={(e) => handleChange("phone", e.target.value)}
-                className="text-base min-h-[44px]"
-                disabled={isLoading}
+          <div
+            className="grid transition-[grid-template-rows] duration-300 ease-in-out"
+            style={{ gridTemplateRows: needsVerificationCode ? "1fr" : "0fr" }}
+          >
+            <div className="overflow-hidden">
+              <FormField
+                control={form.control}
+                name="verificationCode"
+                render={({ field }) => (
+                  <FormItem className="pt-0">
+                    <FormLabel>Verification code *</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="XXXX-XXXX"
+                        className="text-base min-h-[44px]"
+                        disabled={isLoading}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
             </div>
           </div>
-        </div>
 
-        <Button type="submit" className="w-full h-11 bg-indigo-600 hover:bg-indigo-700 text-white" disabled={isLoading}>
-          {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create account"}
-        </Button>
-      </form>
+          <div
+            className="grid transition-[grid-template-rows] duration-300 ease-in-out"
+            style={{ gridTemplateRows: needsPhone ? "1fr" : "0fr" }}
+          >
+            <div className="overflow-hidden">
+              <FormField
+                control={form.control}
+                name="phone"
+                render={({ field }) => (
+                  <FormItem className="pt-0">
+                    <FormLabel>Phone number</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="+234 800 000 0000"
+                        className="text-base min-h-[44px]"
+                        disabled={isLoading}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          </div>
+
+          <Button type="submit" className="w-full h-11 bg-indigo-600 hover:bg-indigo-700 text-white" disabled={isLoading}>
+            {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create account"}
+          </Button>
+        </form>
+      </Form>
 
       <p className="text-center text-sm text-gray-500">
         Already have an account?{" "}

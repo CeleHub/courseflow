@@ -34,6 +34,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { MessageSquare, MessageSquareWarning, MoreVertical, Eye, Plus, Search, Loader2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { ServerErrorBanner } from '@/components/ui/server-error-banner'
 import { ErrorState } from '@/components/state/error-state'
 
 const STATUS_BADGES: Record<ComplaintStatus, string> = {
@@ -70,6 +71,7 @@ export default function ComplaintsPage() {
   const [detailComplaint, setDetailComplaint] = useState<Complaint | null>(null)
   const [isSubmitOpen, setIsSubmitOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState('')
   const [statusLoading, setStatusLoading] = useState<string | null>(null)
   const [fetchError, setFetchError] = useState<string | null>(null)
 
@@ -146,6 +148,7 @@ export default function ComplaintsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setSubmitError('')
     if (!formData.name?.trim() || !formData.email?.trim() || !formData.department?.trim() || !formData.subject?.trim() || !formData.message?.trim()) {
       toast({ title: 'All fields are required', variant: 'destructive' })
       return
@@ -168,10 +171,10 @@ export default function ComplaintsPage() {
         setFormData({ name: user?.name ?? '', email: user?.email ?? '', department: '', subject: '', message: '' })
         fetchComplaints()
       } else {
-        toast({ title: (res as any).error || 'Submission failed', variant: 'destructive' })
+        setSubmitError((res as { error?: string }).error || 'Submission failed')
       }
     } catch {
-      toast({ title: 'Submission failed', variant: 'destructive' })
+      setSubmitError('Submission failed')
     } finally {
       setSubmitting(false)
     }
@@ -266,6 +269,7 @@ export default function ComplaintsPage() {
               <DialogTitle>Submit Complaint</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className={`space-y-4 transition-opacity ${submitting ? "opacity-60" : ""}`}>
+              {submitError && <ServerErrorBanner message={submitError} />}
               <div>
                 <Label>Full name *</Label>
                 <Input value={formData.name} onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))} required disabled={submitting} />

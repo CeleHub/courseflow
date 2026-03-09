@@ -2,6 +2,9 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import {
   Card,
   CardContent,
@@ -11,7 +14,6 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -20,6 +22,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { ServerErrorBanner } from "@/components/ui/server-error-banner";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageLoadReporter } from "@/contexts/PageLoadContext";
 import { useToast } from "@/hooks/use-toast";
@@ -28,33 +40,57 @@ import { ErrorState } from "@/components/state/error-state";
 import { LecturerCombobox } from "@/components/courses/lecturer-combobox";
 import { apiClient } from "@/lib/api";
 import { getItemsFromResponse } from "@/lib/utils";
-import { Department, Level, Role, Semester } from "@/types";
+import { Department, Level, Semester } from "@/types";
+
+const createCourseSchema = z.object({
+  code: z.string().min(1, "Course code is required").regex(/^[A-Za-z]{2,4}\d{3}$/, "2–4 letters + 3 digits (e.g., CS101, MTH201)"),
+  name: z.string().min(1, "Course name is required").max(200),
+  level: z.string().min(1, "Level is required"),
+  credits: z.string().min(1, "Credits is required").refine((v) => {
+    const n = parseInt(v, 10);
+    return !isNaN(n) && n >= 1 && n <= 6;
+  }, "Credits must be 1–6"),
+  semester: z.enum(["FIRST", "SECOND"]),
+  departmentCode: z.string().min(1, "Department is required"),
+  lecturerId: z.string().optional(),
+  overview: z.string().max(2000).optional(),
+  isGeneral: z.boolean().optional(),
+  isLocked: z.boolean().optional(),
+});
+
+type CreateCourseFormValues = z.infer<typeof createCourseSchema>;
 
 export default function CreateCoursePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const departmentFromUrl = searchParams.get("department") ?? "";
-  const { isAuthenticated, isAdmin, isLecturer, isHod } = useAuth();
+  const { isAuthenticated, isAdmin, isHod } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
+  const [serverError, setServerError] = useState("");
   usePageLoadReporter(loadingData);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [formData, setFormData] = useState({
-    code: "",
-    name: "",
-    level: "",
-    credits: "",
-    semester: "FIRST",
-    departmentCode: "",
-    lecturerId: "",
-    overview: "",
-    isGeneral: false,
-    isLocked: false,
-  });
 
-  const canCreate = isAdmin || isHod; /* LECTURER is read-only per 0.1 */
+  const canCreate = isAdmin || isHod;
+
+  const form = useForm<CreateCourseFormValues>({
+    resolver: zodResolver(createCourseSchema),
+    mode: "onBlur",
+    defaultValues: {
+      code: "",
+      name: "",
+      level: "",
+      credits: "",
+      semester: "FIRST",
+      departmentCode: "",
+      lecturerId: "",
+      overview: "",
+      isGeneral: false,
+      isLocked: false,
+    },
+  });
 
   const levelOptions = [
     { value: Level.LEVEL_100, label: "100 Level" },
@@ -88,9 +124,9 @@ export default function CreateCoursePage() {
 
   useEffect(() => {
     if (departmentFromUrl && departments.some((d) => d.code === departmentFromUrl)) {
-      setFormData((p) => ({ ...p, departmentCode: departmentFromUrl }));
+      form.setValue("departmentCode", departmentFromUrl);
     }
-  }, [departmentFromUrl, departments]);
+  }, [departmentFromUrl, departments, form]);
 
   if (!isAuthenticated || !canCreate) {
     return null;
@@ -120,103 +156,37 @@ export default function CreateCoursePage() {
     );
   }
 
-  const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-  ) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  const handleSelectChange = (name: string, value: string) => {
-    setFormData((prev) => {
-      const next = { ...prev, [name]: value };
-      if (name === "departmentCode") next.lecturerId = "";
-      return next;
-    });
-  };
-
-  const COURSE_CODE_PATTERN = /^[A-Z]{2,4}\d{3}$/;
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (
-      !formData.code.trim() ||
-      !formData.name.trim() ||
-      !formData.level ||
-      !formData.credits.trim() ||
-      !formData.departmentCode
-    ) {
-      toast({
-        title: "Validation Error",
-        description: "Please fill in all required fields",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const codeUpper = formData.code.trim().toUpperCase();
-    if (!COURSE_CODE_PATTERN.test(codeUpper)) {
-      toast({
-        title: "Validation Error",
-        description: "Course code must match pattern (e.g. CS101, MTH201): 2–4 letters + 3 digits",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const credits = parseInt(formData.credits);
-    if (isNaN(credits) || credits < 1 || credits > 6) {
-      toast({
-        title: "Validation Error",
-        description: "Credits must be a number between 1 and 6",
-        variant: "destructive",
-      });
-      return;
-    }
-
+  const handleSubmit = form.handleSubmit(async (data) => {
+    setServerError("");
+    setLoading(true);
     try {
-      setLoading(true);
+      const codeUpper = data.code.trim().toUpperCase();
       const response = await apiClient.createCourse({
         code: codeUpper,
-        name: formData.name.trim(),
-        level: formData.level as Level,
-        credits: credits,
-        semester: formData.semester as Semester,
-        departmentCode: formData.departmentCode,
-        lecturerId: formData.lecturerId || undefined,
-        overview: formData.overview.trim() || undefined,
-        isGeneral: formData.isGeneral,
-        isLocked: formData.isLocked,
+        name: data.name.trim(),
+        level: data.level as Level,
+        credits: parseInt(data.credits, 10),
+        semester: data.semester as Semester,
+        departmentCode: data.departmentCode,
+        lecturerId: data.lecturerId || undefined,
+        overview: data.overview?.trim() || undefined,
+        isGeneral: data.isGeneral ?? false,
+        isLocked: data.isLocked ?? false,
       });
 
       if (response.success) {
-        toast({
-          title: "Success",
-          description: "Course created successfully",
-        });
+        toast({ title: "Success", description: "Course created successfully" });
         router.push("/courses");
       } else {
-        toast({
-          title: "Error",
-          description: response.error || "Failed to create course",
-          variant: "destructive",
-        });
+        setServerError(response.error || "Failed to create course");
       }
     } catch (error) {
       console.error("Create course failed:", error);
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred",
-        variant: "destructive",
-      });
+      setServerError("An unexpected error occurred");
     } finally {
       setLoading(false);
     }
-  };
+  });
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
@@ -249,208 +219,232 @@ export default function CreateCoursePage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className={`space-y-6 transition-opacity ${loading ? "opacity-60" : ""}`}>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="code">
-                    Course Code <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="code"
+            <Form {...form}>
+              <form onSubmit={handleSubmit} className={`space-y-6 transition-opacity ${loading ? "opacity-60" : ""}`}>
+                {serverError && <ServerErrorBanner message={serverError} />}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <FormField
+                    control={form.control}
                     name="code"
-                    type="text"
-                    placeholder="e.g., CS101"
-                    value={formData.code}
-                    onChange={handleInputChange}
-                    required
-                    maxLength={7}
-                    style={{ textTransform: "uppercase" }}
-                    disabled={loading}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Course Code <span className="text-red-500">*</span></FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="e.g., CS101"
+                            maxLength={7}
+                            style={{ textTransform: "uppercase" }}
+                            disabled={loading}
+                            {...field}
+                            onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                          />
+                        </FormControl>
+                        <FormDescription>2–4 letters + 3 digits (e.g., CS101, MTH201)</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                  <p className="text-xs text-muted-foreground">
-                    2–4 letters + 3 digits (e.g., CS101, MTH201)
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="credits">
-                    Credits <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="credits"
+                  <FormField
+                    control={form.control}
                     name="credits"
-                    type="number"
-                    placeholder="e.g., 3"
-                    value={formData.credits}
-                    onChange={handleInputChange}
-                    required
-                    min="1"
-                    max="6"
-                    disabled={loading}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Credits <span className="text-red-500">*</span></FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            placeholder="e.g., 3"
+                            min={1}
+                            max={6}
+                            disabled={loading}
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </div>
-
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="name">
-                    Course Name <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="name"
+                  <FormField
+                    control={form.control}
                     name="name"
-                    type="text"
-                    placeholder="e.g., Introduction to Computer Science"
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    required
-                    maxLength={200}
-                    disabled={loading}
+                    render={({ field }) => (
+                      <FormItem className="md:col-span-2">
+                        <FormLabel>Course Name <span className="text-red-500">*</span></FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="e.g., Introduction to Computer Science"
+                            maxLength={200}
+                            disabled={loading}
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="level">
-                    Level <span className="text-red-500">*</span>
-                  </Label>
-                  <Select
-                    value={formData.level}
-                    onValueChange={(value) =>
-                      handleSelectChange("level", value)
-                    }
-                    disabled={loading}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select level" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {levelOptions.map((level) => (
-                        <SelectItem key={level.value} value={level.value}>
-                          {level.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="semester">
-                    Semester <span className="text-red-500">*</span>
-                  </Label>
-                  <Select
-                    value={formData.semester}
-                    onValueChange={(value) =>
-                      handleSelectChange("semester", value)
-                    }
-                    disabled={loading}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select semester" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="FIRST">First Semester</SelectItem>
-                      <SelectItem value="SECOND">Second Semester</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="departmentCode">
-                    Department <span className="text-red-500">*</span>
-                  </Label>
-                  <Select
-                    value={formData.departmentCode}
-                    onValueChange={(value) =>
-                      handleSelectChange("departmentCode", value)
-                    }
-                    disabled={loading}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select department" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {departments.map((dept) => (
-                        <SelectItem key={dept.code} value={dept.code}>
-                          {dept.name} ({dept.code})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="lecturer">Lecturer</Label>
-                  <LecturerCombobox
-                    value={formData.lecturerId}
-                    onChange={(id) => handleSelectChange("lecturerId", id)}
-                    departmentCode={formData.departmentCode || undefined}
-                    placeholder="Search by name or email..."
-                    disabled={loading}
+                  <FormField
+                    control={form.control}
+                    name="level"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Level <span className="text-red-500">*</span></FormLabel>
+                        <Select value={field.value} onValueChange={field.onChange} disabled={loading}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select level" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {levelOptions.map((level) => (
+                              <SelectItem key={level.value} value={level.value}>
+                                {level.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </div>
-
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="overview">Course Overview (Optional)</Label>
-                  <Textarea
-                    id="overview"
+                  <FormField
+                    control={form.control}
+                    name="semester"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Semester <span className="text-red-500">*</span></FormLabel>
+                        <Select value={field.value} onValueChange={field.onChange} disabled={loading}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select semester" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="FIRST">First Semester</SelectItem>
+                            <SelectItem value="SECOND">Second Semester</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="departmentCode"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Department <span className="text-red-500">*</span></FormLabel>
+                        <Select
+                          value={field.value}
+                          onValueChange={(v) => {
+                            field.onChange(v);
+                            form.setValue("lecturerId", "");
+                          }}
+                          disabled={loading}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select department" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {departments.map((dept) => (
+                              <SelectItem key={dept.code} value={dept.code}>
+                                {dept.name} ({dept.code})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="lecturerId"
+                    render={({ field }) => (
+                      <FormItem className="md:col-span-2">
+                        <FormLabel>Lecturer</FormLabel>
+                        <FormControl>
+                          <LecturerCombobox
+                            value={field.value}
+                            onChange={field.onChange}
+                            departmentCode={form.watch("departmentCode") || undefined}
+                            placeholder="Search by name or email..."
+                            disabled={loading}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
                     name="overview"
-                    placeholder="Enter course description/overview..."
-                    value={formData.overview}
-                    onChange={(e) => handleInputChange(e)}
-                    rows={4}
-                    maxLength={2000}
-                    disabled={loading}
+                    render={({ field }) => (
+                      <FormItem className="md:col-span-2">
+                        <FormLabel>Course Overview (Optional)</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Enter course description/overview..."
+                            rows={4}
+                            maxLength={2000}
+                            disabled={loading}
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
+                  {isAdmin && (
+                    <FormField
+                      control={form.control}
+                      name="isGeneral"
+                      render={({ field }) => (
+                        <FormItem className="md:col-span-2 flex flex-row items-center gap-2">
+                          <FormControl>
+                            <input
+                              type="checkbox"
+                              checked={field.value}
+                              onChange={(e) => field.onChange(e.target.checked)}
+                              className="rounded border-gray-300"
+                              disabled={loading}
+                            />
+                          </FormControl>
+                          <FormLabel className="cursor-pointer font-normal">
+                            General Course (GST) - University-wide course
+                          </FormLabel>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+                  {isAdmin && (
+                    <FormField
+                      control={form.control}
+                      name="isLocked"
+                      render={({ field }) => (
+                        <FormItem className="md:col-span-2 flex flex-row items-center gap-2">
+                          <FormControl>
+                            <input
+                              type="checkbox"
+                              checked={field.value}
+                              onChange={(e) => field.onChange(e.target.checked)}
+                              className="rounded border-gray-300"
+                              disabled={loading}
+                            />
+                          </FormControl>
+                          <FormLabel className="cursor-pointer font-normal">
+                            Lock Course (Prevent deletion)
+                          </FormLabel>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
                 </div>
 
-                {isAdmin && (
-                  <div className="space-y-2 md:col-span-2">
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id="isGeneral"
-                        name="isGeneral"
-                        checked={formData.isGeneral}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            isGeneral: e.target.checked,
-                          }))
-                        }
-                        className="rounded border-gray-300"
-                        disabled={loading}
-                      />
-                      <Label htmlFor="isGeneral" className="cursor-pointer">
-                        General Course (GST) - University-wide course
-                      </Label>
-                    </div>
-                  </div>
-                )}
-
-                {isAdmin && (
-                  <div className="space-y-2 md:col-span-2">
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id="isLocked"
-                        name="isLocked"
-                        checked={formData.isLocked}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            isLocked: e.target.checked,
-                          }))
-                        }
-                        className="rounded border-gray-300"
-                        disabled={loading}
-                      />
-                      <Label htmlFor="isLocked" className="cursor-pointer">
-                        Lock Course (Prevent deletion)
-                      </Label>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex gap-4 pt-4 border-t">
+                <div className="flex gap-4 pt-4 border-t">
                 <Button
                   type="button"
                   variant="outline"
@@ -464,6 +458,7 @@ export default function CreateCoursePage() {
                 </Button>
               </div>
             </form>
+            </Form>
           </CardContent>
         </Card>
       </div>

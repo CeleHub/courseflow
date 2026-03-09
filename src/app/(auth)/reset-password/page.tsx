@@ -3,12 +3,35 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { ServerErrorBanner } from "@/components/ui/server-error-banner";
 import { usePageLoadReporter } from "@/contexts/PageLoadContext";
 import { apiClient } from "@/lib/api";
 import { CheckCircle, Eye, EyeOff, Loader2 } from "lucide-react";
+
+const resetPasswordSchema = z
+  .object({
+    password: z.string().min(1, "Password is required").min(6, "Password must be at least 6 characters"),
+    confirmPassword: z.string().min(1, "Please confirm your password"),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
+
+type ResetPasswordFormValues = z.infer<typeof resetPasswordSchema>;
 
 function ResetPasswordContent() {
   const router = useRouter();
@@ -16,12 +39,16 @@ function ResetPasswordContent() {
   const token = searchParams.get("token");
   usePageLoadReporter(false);
 
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [error, setError] = useState("");
+  const [serverError, setServerError] = useState("");
+
+  const form = useForm<ResetPasswordFormValues>({
+    resolver: zodResolver(resetPasswordSchema),
+    mode: "onBlur",
+    defaultValues: { password: "", confirmPassword: "" },
+  });
 
   useEffect(() => {
     if (!token) {
@@ -29,29 +56,24 @@ function ResetPasswordContent() {
     }
   }, [token, router]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    if (password !== confirmPassword) {
-      setError("Passwords do not match");
-      return;
-    }
+  const handleSubmit = form.handleSubmit(async (data) => {
     if (!token) return;
+    setServerError("");
     setIsLoading(true);
     try {
-      const response = await apiClient.resetPassword(token, password);
+      const response = await apiClient.resetPassword(token, data.password);
       if (response.success) {
         setSuccess(true);
         setTimeout(() => router.push("/login"), 3000);
       } else {
-        setError(response.error || "Invalid or expired reset token");
+        setServerError(response.error || "Invalid or expired reset token");
       }
-    } catch (err) {
-      setError("An error occurred");
+    } catch {
+      setServerError("An error occurred");
     } finally {
       setIsLoading(false);
     }
-  };
+  });
 
   if (!token) return null;
 
@@ -79,62 +101,78 @@ function ResetPasswordContent() {
         <p className="text-sm text-gray-500 mt-1">Choose a secure password</p>
       </div>
 
-      <form onSubmit={handleSubmit} className={`space-y-5 transition-opacity ${isLoading ? "opacity-60" : ""}`}>
-        {error && (
-          <div className="p-3 rounded-lg bg-red-50 text-red-700 text-sm">
-            {error}
-            {error.includes("expired") && (
-              <Link
-                href="/forgot-password"
-                className="block mt-2 text-indigo-600 font-medium"
-              >
-                Request a new link
-              </Link>
+      <Form {...form}>
+        <form onSubmit={handleSubmit} className={`space-y-5 transition-opacity ${isLoading ? "opacity-60" : ""}`}>
+          {serverError && (
+            <div className="space-y-2">
+              <ServerErrorBanner message={serverError} />
+              {serverError.includes("expired") && (
+                <Link
+                  href="/forgot-password"
+                  className="block text-indigo-600 font-medium text-sm"
+                >
+                  Request a new link
+                </Link>
+              )}
+            </div>
+          )}
+          <FormField
+            control={form.control}
+            name="password"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>New password</FormLabel>
+                <FormControl>
+                  <div className="relative">
+                    <Input
+                      type={showPassword ? "text" : "password"}
+                      placeholder="••••••••"
+                      className="text-base min-h-[44px] pr-12"
+                      disabled={isLoading}
+                      {...field}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-0 top-0 h-full min-w-[44px] flex items-center justify-center text-gray-500"
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
             )}
-          </div>
-        )}
-        <div className="space-y-2">
-          <Label htmlFor="password">New password</Label>
-          <div className="relative">
-            <Input
-              id="password"
-              type={showPassword ? "text" : "password"}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="text-base min-h-[44px] pr-12"
-              required
-              minLength={6}
-              disabled={isLoading}
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-0 top-0 h-full min-w-[44px] flex items-center justify-center text-gray-500"
-            >
-              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
-          </div>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="confirm">Confirm new password</Label>
-          <Input
-            id="confirm"
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            className="text-base min-h-[44px]"
-            required
-            disabled={isLoading}
           />
-        </div>
-        <Button
-          type="submit"
-          className="w-full h-11"
-          disabled={isLoading}
-        >
-          {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update password"}
-        </Button>
-      </form>
+          <FormField
+            control={form.control}
+            name="confirmPassword"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Confirm new password</FormLabel>
+                <FormControl>
+                  <Input
+                    type="password"
+                    placeholder="••••••••"
+                    className="text-base min-h-[44px]"
+                    disabled={isLoading}
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <Button
+            type="submit"
+            className="w-full h-11"
+            disabled={isLoading}
+          >
+            {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update password"}
+          </Button>
+        </form>
+      </Form>
 
       <p className="text-center text-sm text-gray-500">
         <Link href="/forgot-password" className="text-indigo-600 hover:underline">
