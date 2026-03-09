@@ -2,6 +2,9 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -13,6 +16,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
 import {
   Select,
   SelectContent,
@@ -52,6 +63,7 @@ import {
 } from 'lucide-react'
 import { usePageLoadReporter } from '@/contexts/PageLoadContext'
 import { RefetchIndicator } from '@/components/ui/refetch-indicator'
+import { ServerErrorBanner } from '@/components/ui/server-error-banner'
 import { apiClient } from '@/lib/api'
 import { getItemsFromResponse } from '@/lib/utils'
 import { Department, College, BulkOperationResult } from '@/types'
@@ -61,6 +73,16 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { ErrorState } from '@/components/state/error-state'
 import { HodCombobox } from '@/components/departments/hod-combobox'
 import { Pagination } from '@/components/ui/pagination'
+
+const editDepartmentSchema = z.object({
+  name: z.string().min(1, 'Department name is required').max(100),
+  code: z.string().min(1, 'Department code is required').regex(/^[A-Z]{2,4}$/, 'Code must be 2–4 uppercase letters'),
+  description: z.string().max(1000).optional(),
+  college: z.nativeEnum(College),
+  hodId: z.string().optional(),
+})
+
+type EditDepartmentFormValues = z.infer<typeof editDepartmentSchema>
 
 function getInitials(name: string | null | undefined): string {
   if (!name?.trim()) return '?'
@@ -112,8 +134,14 @@ export default function DepartmentsPage() {
   const [confirmAction, setConfirmAction] = useState<{ open: boolean; type: 'lock' | 'unlock' | 'delete'; dept: Department | null }>({ open: false, type: 'lock', dept: null })
   const [actionLoading, setActionLoading] = useState(false)
   const [editDept, setEditDept] = useState<Department | null>(null)
-  const [editForm, setEditForm] = useState({ name: '', code: '', description: '', college: College.CBAS, hodId: '' })
   const [editSaving, setEditSaving] = useState(false)
+  const [editError, setEditError] = useState('')
+
+  const editForm = useForm<EditDepartmentFormValues>({
+    resolver: zodResolver(editDepartmentSchema),
+    mode: 'onBlur',
+    defaultValues: { name: '', code: '', description: '', college: College.CBAS, hodId: '' },
+  })
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [mobileDeptMenu, setMobileDeptMenu] = useState<Department | null>(null)
 
@@ -423,7 +451,7 @@ export default function DepartmentsPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => router.push(`/departments/${dept.code}`)}>View Details</DropdownMenuItem>
-                        {isAdmin && <DropdownMenuItem onClick={() => { setEditDept(dept); setEditForm({ name: dept.name, code: dept.code, description: dept.description ?? '', college: dept.college, hodId: dept.hodId ?? '' }); }}>Edit Department</DropdownMenuItem>}
+                        {isAdmin && <DropdownMenuItem onClick={() => { setEditDept(dept); setEditError(''); editForm.reset({ name: dept.name, code: dept.code, description: dept.description ?? '', college: dept.college, hodId: dept.hodId ?? '' }); }}>Edit Department</DropdownMenuItem>}
                         {canLockUnlock(dept) && (
                           <>
                             <DropdownMenuSeparator />
@@ -483,7 +511,7 @@ export default function DepartmentsPage() {
                     <button
                       type="button"
                       className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-100 text-left w-full min-h-[52px] font-medium"
-                      onClick={() => { setEditDept(d); setEditForm({ name: d.name, code: d.code, description: d.description ?? '', college: d.college, hodId: d.hodId ?? '' }); close(); }}
+                      onClick={() => { setEditDept(d); setEditError(''); editForm.reset({ name: d.name, code: d.code, description: d.description ?? '', college: d.college, hodId: d.hodId ?? '' }); close(); }}
                     >
                       Edit Department
                     </button>
@@ -645,70 +673,118 @@ export default function DepartmentsPage() {
             <DialogTitle>Edit Department</DialogTitle>
             <DialogDescription>Update department details.</DialogDescription>
           </DialogHeader>
-          <form
-            onSubmit={async (e) => {
-              e.preventDefault()
-              if (!editDept) return
-              try {
-                setEditSaving(true)
-                const res = await apiClient.updateDepartment(editDept.code, {
-                  name: editForm.name,
-                  code: editForm.code,
-                  description: editForm.description || undefined,
-                  college: editForm.college,
-                  hodId: editForm.hodId || undefined,
-                })
-                if (res.success) {
-                  toast({ title: 'Department updated.' })
-                  setEditDept(null)
-                  fetchDepartments()
-                } else toast({ title: (res as any).error, variant: 'destructive' })
-              } catch {
-                toast({ title: 'Update failed', variant: 'destructive' })
-              } finally {
-                setEditSaving(false)
-              }
-            }}
-            className={`space-y-4 transition-opacity ${editSaving ? 'opacity-60' : ''}`}
-          >
-            <div>
-              <label className="text-sm font-medium">Department name</label>
-              <Input value={editForm.name} onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))} className="mt-1.5" required maxLength={100} disabled={editSaving} />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Department code</label>
-              <Input value={editForm.code} onChange={(e) => setEditForm((p) => ({ ...p, code: e.target.value.toUpperCase().slice(0, 4) }))} className="mt-1.5 font-mono" required disabled={editSaving} />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Description</label>
-              <Textarea value={editForm.description} onChange={(e) => setEditForm((p) => ({ ...p, description: e.target.value }))} rows={3} className="mt-1.5" maxLength={1000} disabled={editSaving} />
-            </div>
-            <div>
-              <label className="text-sm font-medium">College</label>
-              <Select value={editForm.college} onValueChange={(v) => setEditForm((p) => ({ ...p, college: v as College }))} disabled={editSaving}>
-                <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={College.CBAS}>CBAS</SelectItem>
-                  <SelectItem value={College.CHMS}>CHMS</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-sm font-medium">Head of Department (Optional)</Label>
-              <div className="mt-1.5">
-                <HodCombobox
-                  value={editForm.hodId}
-                  onChange={(v) => setEditForm((p) => ({ ...p, hodId: v }))}
-                  placeholder="Search by name..."
-                  disabled={editSaving}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setEditDept(null)} disabled={editSaving}>Cancel</Button>
-              <Button type="submit" disabled={editSaving}>{editSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save Changes'}</Button>
-            </DialogFooter>
-          </form>
+          <Form {...editForm}>
+            <form
+              onSubmit={editForm.handleSubmit(async (data) => {
+                if (!editDept) return
+                setEditError('')
+                try {
+                  setEditSaving(true)
+                  const res = await apiClient.updateDepartment(editDept.code, {
+                    name: data.name,
+                    code: data.code,
+                    description: data.description || undefined,
+                    college: data.college,
+                    hodId: data.hodId || undefined,
+                  })
+                  if (res.success) {
+                    toast({ title: 'Department updated.' })
+                    setEditDept(null)
+                    fetchDepartments()
+                  } else {
+                    setEditError((res as { error?: string }).error ?? 'Failed to update')
+                  }
+                } catch {
+                  setEditError('Update failed')
+                } finally {
+                  setEditSaving(false)
+                }
+              })}
+              className={`space-y-4 transition-opacity ${editSaving ? 'opacity-60' : ''}`}
+            >
+              {editError && <ServerErrorBanner message={editError} />}
+              <FormField
+                control={editForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Department name</FormLabel>
+                    <FormControl>
+                      <Input maxLength={100} disabled={editSaving} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="code"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Department code</FormLabel>
+                    <FormControl>
+                      <Input className="font-mono" disabled={editSaving} {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase().slice(0, 4))} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description</FormLabel>
+                    <FormControl>
+                      <Textarea rows={3} maxLength={1000} disabled={editSaving} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="college"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>College</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange} disabled={editSaving}>
+                      <FormControl>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value={College.CBAS}>CBAS</SelectItem>
+                        <SelectItem value={College.CHMS}>CHMS</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="hodId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Head of Department (Optional)</FormLabel>
+                    <FormControl>
+                      <HodCombobox
+                        value={field.value}
+                        onChange={field.onChange}
+                        placeholder="Search by name..."
+                        disabled={editSaving}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setEditDept(null)} disabled={editSaving}>Cancel</Button>
+                <Button type="submit" disabled={editSaving}>{editSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save Changes'}</Button>
+              </DialogFooter>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
 

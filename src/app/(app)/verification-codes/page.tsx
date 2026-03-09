@@ -1,6 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useState, useRef } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 import { useAuth } from '@/contexts/AuthContext'
 import { usePageLoadReporter } from '@/contexts/PageLoadContext'
 import { RefetchIndicator } from '@/components/ui/refetch-indicator'
@@ -10,7 +13,6 @@ import { VerificationCode, Role, CreateVerificationCodeData } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import {
   Dialog,
   DialogContent,
@@ -19,6 +21,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
 import {
   Select,
   SelectContent,
@@ -47,6 +57,16 @@ import { ServerErrorBanner } from '@/components/ui/server-error-banner'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { ErrorState } from '@/components/state/error-state'
 
+const verificationCodeSchema = z.object({
+  code: z.string().min(1, 'Code is required').max(50, 'Code max 50 chars'),
+  role: z.nativeEnum(Role),
+  description: z.string().max(200).optional(),
+  maxUsage: z.string().optional().refine((s) => !s || (parseInt(s, 10) >= 1), 'Must be 1 or more'),
+  expiresAt: z.string().optional(),
+})
+
+type VerificationCodeFormValues = z.infer<typeof verificationCodeSchema>
+
 function formatExpiry(iso: string | null | undefined): string {
   if (!iso) return 'Never'
   return new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
@@ -70,12 +90,16 @@ export default function VerificationCodesPage() {
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [saveError, setSaveError] = useState('')
 
-  const [formData, setFormData] = useState<CreateVerificationCodeData & { maxUsage?: number }>({
-    code: '',
-    role: Role.LECTURER,
-    description: '',
-    maxUsage: undefined,
-    expiresAt: undefined,
+  const form = useForm<VerificationCodeFormValues>({
+    resolver: zodResolver(verificationCodeSchema),
+    mode: 'onBlur',
+    defaultValues: {
+      code: '',
+      role: Role.LECTURER,
+      description: '',
+      maxUsage: '',
+      expiresAt: '',
+    },
   })
 
   const fetchCodes = useCallback(async () => {
@@ -113,60 +137,44 @@ export default function VerificationCodesPage() {
   }
 
   const generateCode = () => {
-    const rolePrefix = formData.role.toUpperCase()
+    const rolePrefix = form.watch('role').toUpperCase()
     const year = new Date().getFullYear()
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
     let suffix = ''
     for (let i = 0; i < 6; i++) suffix += chars[Math.floor(Math.random() * chars.length)]
-    setFormData((p) => ({ ...p, code: `${rolePrefix}-${year}-${suffix}` }))
+    form.setValue('code', `${rolePrefix}-${year}-${suffix}`)
   }
 
   const openCreate = () => {
     setEditingCode(null)
     setSaveError('')
-    setFormData({
-      code: '',
-      role: Role.LECTURER,
-      description: '',
-      maxUsage: undefined,
-      expiresAt: undefined,
-    })
+    form.reset({ code: '', role: Role.LECTURER, description: '', maxUsage: '', expiresAt: '' })
     setIsModalOpen(true)
   }
 
   const openEdit = (c: VerificationCode) => {
     setEditingCode(c)
     setSaveError('')
-    setFormData({
+    form.reset({
       code: c.code,
       role: c.role,
       description: c.description ?? '',
-      maxUsage: c.maxUsage ?? undefined,
-      expiresAt: c.expiresAt ? new Date(c.expiresAt).toISOString().slice(0, 16) : undefined,
+      maxUsage: c.maxUsage != null ? String(c.maxUsage) : '',
+      expiresAt: c.expiresAt ? new Date(c.expiresAt).toISOString().slice(0, 16) : '',
     })
     setIsModalOpen(true)
   }
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSave = form.handleSubmit(async (data) => {
     setSaveError('')
-    if (!formData.code.trim()) {
-      toast({ title: 'Code is required', variant: 'destructive' })
-      return
-    }
-    if (formData.code.length > 50) {
-      toast({ title: 'Code max 50 chars', variant: 'destructive' })
-      return
-    }
-
     try {
       setSaving(true)
       const payload: CreateVerificationCodeData = {
-        code: formData.code.trim(),
-        role: formData.role,
-        description: formData.description?.trim(),
-        maxUsage: formData.maxUsage && formData.maxUsage >= 1 ? formData.maxUsage : undefined,
-        expiresAt: formData.expiresAt ? new Date(formData.expiresAt).toISOString() : undefined,
+        code: data.code.trim(),
+        role: data.role,
+        description: data.description?.trim(),
+        maxUsage: data.maxUsage && parseInt(data.maxUsage, 10) >= 1 ? parseInt(data.maxUsage, 10) : undefined,
+        expiresAt: data.expiresAt ? new Date(data.expiresAt).toISOString() : undefined,
       }
       if (editingCode) {
         const res = await apiClient.updateVerificationCode(editingCode.id, payload)
@@ -192,7 +200,7 @@ export default function VerificationCodesPage() {
     } finally {
       setSaving(false)
     }
-  }
+  })
 
   const handleToggleActive = async (c: VerificationCode) => {
     try {
@@ -418,43 +426,90 @@ export default function VerificationCodesPage() {
             <DialogTitle>{editingCode ? 'Edit Verification Code' : 'New Verification Code'}</DialogTitle>
             <DialogDescription>{editingCode ? 'Update code details.' : 'Create a verification code for registration.'}</DialogDescription>
           </DialogHeader>
+          <Form {...form}>
           <form onSubmit={handleSave} className={`space-y-4 transition-opacity ${saving ? "opacity-60" : ""}`}>
             {saveError && <ServerErrorBanner message={saveError} />}
-            <div>
-              <Label>Code * (max 50 chars)</Label>
-              <div className="relative mt-1.5">
-                <Input value={formData.code} onChange={(e) => setFormData((p) => ({ ...p, code: e.target.value }))} placeholder="ROLE-YEAR-XXXXXX" className="pr-24 font-mono" required maxLength={50} disabled={saving} />
-                <Button type="button" variant="outline" size="sm" className="absolute right-2 top-1/2 -translate-y-1/2" onClick={generateCode} disabled={saving}>Generate</Button>
-              </div>
-            </div>
-            <div>
-              <Label>Role *</Label>
-              <Select value={formData.role} onValueChange={(v) => setFormData((p) => ({ ...p, role: v as Role }))} disabled={saving}>
-                <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {staffRoles.map((r) => (
-                    <SelectItem key={r} value={r}>{r}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Description (max 200 chars)</Label>
-              <Input value={formData.description ?? ''} onChange={(e) => setFormData((p) => ({ ...p, description: e.target.value }))} maxLength={200} disabled={saving} />
-            </div>
-            <div>
-              <Label>Max usage (empty = unlimited)</Label>
-              <Input type="number" min={1} value={formData.maxUsage ?? ''} onChange={(e) => setFormData((p) => ({ ...p, maxUsage: e.target.value ? Number(e.target.value) : undefined }))} placeholder="Unlimited" disabled={saving} />
-            </div>
-            <div>
-              <Label>Expiry date/time</Label>
-              <Input type="datetime-local" value={formData.expiresAt ?? ''} onChange={(e) => setFormData((p) => ({ ...p, expiresAt: e.target.value || undefined }))} disabled={saving} />
-            </div>
+            <FormField
+              control={form.control}
+              name="code"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Code * (max 50 chars)</FormLabel>
+                  <FormControl>
+                    <div className="relative">
+                      <Input placeholder="ROLE-YEAR-XXXXXX" className="pr-24 font-mono" maxLength={50} disabled={saving} {...field} />
+                      <Button type="button" variant="outline" size="sm" className="absolute right-2 top-1/2 -translate-y-1/2" onClick={generateCode} disabled={saving}>Generate</Button>
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="role"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Role *</FormLabel>
+                  <Select value={field.value} onValueChange={field.onChange} disabled={saving}>
+                    <FormControl>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {staffRoles.map((r) => (
+                        <SelectItem key={r} value={r}>{r}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Description (max 200 chars)</FormLabel>
+                  <FormControl>
+                    <Input maxLength={200} disabled={saving} {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="maxUsage"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Max usage (empty = unlimited)</FormLabel>
+                  <FormControl>
+                    <Input type="number" min={1} placeholder="Unlimited" disabled={saving} {...field} value={field.value ?? ''} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="expiresAt"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Expiry date/time</FormLabel>
+                  <FormControl>
+                    <Input type="datetime-local" disabled={saving} {...field} value={field.value ?? ''} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)} disabled={saving}>Cancel</Button>
               <Button type="submit" disabled={saving}>{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}</Button>
             </DialogFooter>
           </form>
+          </Form>
         </DialogContent>
       </Dialog>
 

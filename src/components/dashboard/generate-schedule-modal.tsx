@@ -19,6 +19,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { apiClient } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { ServerErrorBanner } from "@/components/ui/server-error-banner";
 import { AcademicSession, Department, Semester } from "@/types";
 import { getItemsFromResponse } from "@/lib/utils";
 import { RefreshCw, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
@@ -52,6 +53,7 @@ export function GenerateScheduleModal({
   const [loadingData, setLoadingData] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [showGenerateConfirm, setShowGenerateConfirm] = useState(false);
+  const [serverError, setServerError] = useState("");
   const [result, setResult] = useState<{
     success: boolean;
     session?: string;
@@ -66,6 +68,7 @@ export function GenerateScheduleModal({
   const fetchData = useCallback(async () => {
     if (!open) return;
     setFetchError(null);
+    setServerError("");
     setLoadingData(true);
     try {
       const [sessRes, deptRes, activeRes] = await Promise.all([
@@ -95,6 +98,7 @@ export function GenerateScheduleModal({
   const handleSubmit = async () => {
     setLoading(true);
     setResult(null);
+    setServerError("");
     try {
       const res = await apiClient.generateSchedules({
         semester,
@@ -115,20 +119,30 @@ export function GenerateScheduleModal({
         toast({ title: `${d.scheduled ?? 0} courses scheduled for ${semester === Semester.FIRST ? "First" : "Second"} semester.` });
         onSuccess?.();
       } else {
-        const errData = (res as any).data;
+        const errMsg = (res as { error?: string }).error;
+        if (errMsg) {
+          setServerError(errMsg);
+        } else {
+          const errData = (res as any).data;
+          const failed = errData?.failedCourses ?? errData?.courses ?? [];
+          setResult({
+            success: false,
+            failedCourses: Array.isArray(failed) ? failed : [],
+          });
+        }
+      }
+    } catch (e: any) {
+      const errMsg = e?.message ?? (e as { error?: string })?.error;
+      if (errMsg) {
+        setServerError(errMsg);
+      } else {
+        const errData = e?.data ?? e?.response?.data;
         const failed = errData?.failedCourses ?? errData?.courses ?? [];
         setResult({
           success: false,
           failedCourses: Array.isArray(failed) ? failed : [],
         });
       }
-    } catch (e: any) {
-      const errData = e?.data ?? e?.response?.data;
-      const failed = errData?.failedCourses ?? errData?.courses ?? [];
-      setResult({
-        success: false,
-        failedCourses: Array.isArray(failed) ? failed : [],
-      });
     } finally {
       setLoading(false);
     }
@@ -261,6 +275,9 @@ export function GenerateScheduleModal({
                   </div>
                 )}
               </div>
+              {serverError && (
+                <ServerErrorBanner message={serverError} />
+              )}
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>Cancel</Button>

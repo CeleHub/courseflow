@@ -1,6 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 import { useAuth } from '@/contexts/AuthContext'
 import { usePageLoadReporter } from '@/contexts/PageLoadContext'
 import { RefetchIndicator } from '@/components/ui/refetch-indicator'
@@ -29,7 +32,15 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
+import { ServerErrorBanner } from '@/components/ui/server-error-banner'
 import {
   Select,
   SelectContent,
@@ -109,6 +120,34 @@ function courseDisplayLabel(c: Course): string {
   return `${c.code} — ${c.name} (${c.level?.replace('LEVEL_', '') ?? ''})`
 }
 
+function createExamSchema(courses: Course[]) {
+  return z.object({
+    courseCode: z.string().min(1, 'Course is required'),
+    venue: z.nativeEnum(VenueType),
+    date: z.string().min(1, 'Date is required'),
+    startTime: z.string().min(1, 'Start time is required'),
+    endTime: z.string().min(1, 'End time is required'),
+    studentCount: z.union([z.number(), z.string()]).transform((v) => {
+      const n = typeof v === 'string' ? parseInt(v, 10) : v
+      return isNaN(n as number) ? 1 : (n as number)
+    }).pipe(z.number().min(1, 'Student count must be at least 1')),
+    invigilators: z.string().optional(),
+    targetCollege: z.nativeEnum(College).optional(),
+  }).refine((d) => {
+    const [sh, sm] = d.startTime.split(':').map(Number)
+    const [eh, em] = d.endTime.split(':').map(Number)
+    return (eh * 60 + (em || 0)) > (sh * 60 + (sm || 0))
+  }, { message: 'End time must be after start time', path: ['endTime'] }).superRefine((data, ctx) => {
+    const course = courses.find((c) => c.code === data.courseCode)
+    if (course && isCbtCourse(course) && !ICT_VENUES.includes(data.venue)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'CBT courses require an ICT venue', path: ['venue'] })
+    }
+    if (course?.isGeneral && !data.targetCollege) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'General courses require Target College', path: ['targetCollege'] })
+    }
+  })
+}
+
 export default function ExamsPage() {
   const { isAdmin, user } = useAuth()
   const { toast } = useToast()
@@ -126,27 +165,36 @@ export default function ExamsPage() {
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [creating, setCreating] = useState(false)
+  const [createError, setCreateError] = useState('')
   const [editExam, setEditExam] = useState<Exam | null>(null)
   const [deleteExam, setDeleteExam] = useState<Exam | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
   const [fetchError, setFetchError] = useState<string | null>(null)
 
-  const [formData, setFormData] = useState<CreateExamData>({
-    courseCode: '',
-    venue: VenueType.LECTURE_HALL_1,
-    date: '',
-    startTime: '',
-    endTime: '',
-    studentCount: 1,
-    invigilators: '',
-    targetCollege: undefined,
-  })
-
   const [courseComboboxQuery, setCourseComboboxQuery] = useState('')
   const [courseComboboxOpen, setCourseComboboxOpen] = useState(false)
   const courseComboboxRef = useRef<HTMLDivElement>(null)
 
-  const selectedCourse = courses.find((c) => c.code === formData.courseCode)
+  const examSchema = useMemo(() => createExamSchema(courses), [courses])
+  type ExamFormValues = z.infer<ReturnType<typeof createExamSchema>>
+
+  const form = useForm<ExamFormValues>({
+    resolver: zodResolver(examSchema),
+    mode: 'onBlur',
+    defaultValues: {
+      courseCode: '',
+      venue: VenueType.LECTURE_HALL_1,
+      date: '',
+      startTime: '',
+      endTime: '',
+      studentCount: 1,
+      invigilators: '',
+      targetCollege: undefined,
+    },
+  })
+
+  const courseCode = form.watch('courseCode')
+  const selectedCourse = courses.find((c) => c.code === courseCode)
   const filteredCoursesForCombobox = courses.filter((c) => {
     const q = courseComboboxQuery.toLowerCase().trim()
     if (!q) return true
@@ -203,7 +251,7 @@ export default function ExamsPage() {
   })
 
   const resetForm = () => {
-    setFormData({
+    form.reset({
       courseCode: '',
       venue: VenueType.LECTURE_HALL_1,
       date: '',
@@ -215,54 +263,38 @@ export default function ExamsPage() {
     })
     setCourseComboboxQuery('')
     setCourseComboboxOpen(false)
+    setCreateError('')
   }
 
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!formData.courseCode || !formData.venue || !formData.date || !formData.startTime || !formData.endTime || !formData.studentCount) {
-      toast({ title: 'Please fill required fields', variant: 'destructive' })
-      return
-    }
-    const [sh, sm] = formData.startTime.split(':').map(Number)
-    const [eh, em] = formData.endTime.split(':').map(Number)
-    const startMins = sh * 60 + (sm || 0)
-    const endMins = eh * 60 + (em || 0)
-    if (endMins <= startMins) {
-      toast({ title: 'End time must be after start time', variant: 'destructive' })
-      return
-    }
-    if (isCbt && !ICT_VENUES.includes(formData.venue)) {
-      toast({ title: 'CBT courses require an ICT venue', variant: 'destructive' })
-      return
-    }
-    if (selectedCourse?.isGeneral && !formData.targetCollege) {
-      toast({ title: 'General courses require Target College', variant: 'destructive' })
-      return
-    }
-
+  const handleCreate = form.handleSubmit(async (data) => {
+    setCreateError('')
     try {
       setCreating(true)
       const payload: CreateExamData = {
-        ...formData,
-        date: formData.date.includes('T') ? formData.date : `${formData.date}T00:00:00.000Z`,
-        studentCount: Number(formData.studentCount) || 1,
-        targetCollege: selectedCourse?.isGeneral ? formData.targetCollege : undefined,
+        courseCode: data.courseCode,
+        venue: data.venue,
+        date: data.date.includes('T') ? data.date : `${data.date}T00:00:00.000Z`,
+        startTime: data.startTime,
+        endTime: data.endTime,
+        studentCount: typeof data.studentCount === 'number' ? data.studentCount : parseInt(String(data.studentCount), 10) || 1,
+        invigilators: data.invigilators,
+        targetCollege: selectedCourse?.isGeneral ? data.targetCollege : undefined,
       }
       const res = await apiClient.createExam(payload)
       if (res.success) {
-        toast({ title: `Exam scheduled for ${formData.courseCode}.` })
+        toast({ title: `Exam scheduled for ${data.courseCode}.` })
         setIsCreateOpen(false)
         resetForm()
         fetchData()
       } else {
-        toast({ title: (res as any).error || 'Failed to schedule', variant: 'destructive' })
+        setCreateError((res as { error?: string }).error || 'Failed to schedule')
       }
     } catch {
-      toast({ title: 'Failed to schedule exam', variant: 'destructive' })
+      setCreateError('Failed to schedule exam')
     } finally {
       setCreating(false)
     }
-  }
+  })
 
   const handleDelete = async (): Promise<boolean> => {
     if (!deleteExam) return false
@@ -527,123 +559,187 @@ export default function ExamsPage() {
             <DialogTitle>Schedule Exam</DialogTitle>
             <DialogDescription>Select course, venue, date and time.</DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleCreate} className={`space-y-4 transition-opacity ${creating ? "opacity-60" : ""}`}>
-            <div ref={courseComboboxRef} className="relative">
-              <Label>Course *</Label>
-              <div className="relative mt-1.5">
-              <Input
-                className="pr-10"
-                placeholder="Search by code or name..."
-                value={selectedCourse && !courseComboboxQuery ? courseDisplayLabel(selectedCourse) : courseComboboxQuery}
-                onChange={(e) => {
-                  const v = e.target.value
-                  setCourseComboboxQuery(v)
-                  if (selectedCourse) setFormData((p) => ({ ...p, courseCode: '' }))
-                  setCourseComboboxOpen(true)
-                }}
-                onFocus={() => setCourseComboboxOpen(true)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Escape') setCourseComboboxOpen(false)
-                }}
-                disabled={creating}
+          <Form {...form}>
+            <form onSubmit={handleCreate} className={`space-y-4 transition-opacity ${creating ? "opacity-60" : ""}`}>
+              {createError && <ServerErrorBanner message={createError} />}
+              <FormField
+                control={form.control}
+                name="courseCode"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Course *</FormLabel>
+                    <FormControl>
+                      <div ref={courseComboboxRef} className="relative">
+                        <Input
+                          className="pr-10"
+                          placeholder="Search by code or name..."
+                          value={selectedCourse && !courseComboboxQuery ? courseDisplayLabel(selectedCourse) : courseComboboxQuery}
+                          onChange={(e) => {
+                            setCourseComboboxQuery(e.target.value)
+                            if (selectedCourse) field.onChange('')
+                            setCourseComboboxOpen(true)
+                          }}
+                          onFocus={() => setCourseComboboxOpen(true)}
+                          onKeyDown={(e) => e.key === 'Escape' && setCourseComboboxOpen(false)}
+                          disabled={creating}
+                        />
+                        <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                        {courseComboboxOpen && (
+                          <>
+                            <div className="fixed inset-0 z-40" aria-hidden onClick={() => setCourseComboboxOpen(false)} />
+                            <div className="absolute z-50 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg max-h-48 overflow-y-auto">
+                              {filteredCoursesForCombobox.length === 0 ? (
+                                <div className="px-3 py-6 text-center text-sm text-gray-500">No courses match</div>
+                              ) : (
+                                filteredCoursesForCombobox.map((c) => (
+                                  <button
+                                    key={c.code}
+                                    type="button"
+                                    className="w-full px-3 py-2.5 text-left text-sm hover:bg-gray-100 first:rounded-t-lg last:rounded-b-lg focus:bg-gray-100 focus:outline-2 focus:outline-indigo-600 focus:outline-offset-2"
+                                    onClick={() => {
+                                      field.onChange(c.code)
+                                      setCourseComboboxQuery('')
+                                      setCourseComboboxOpen(false)
+                                    }}
+                                  >
+                                    {courseDisplayLabel(c)}
+                                  </button>
+                                ))
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-              <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-              </div>
-              {courseComboboxOpen && (
-                <div className="absolute z-50 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg max-h-48 overflow-y-auto">
-                  {filteredCoursesForCombobox.length === 0 ? (
-                    <div className="px-3 py-6 text-center text-sm text-gray-500">No courses match</div>
-                  ) : (
-                    filteredCoursesForCombobox.map((c) => (
-                      <button
-                        key={c.code}
-                        type="button"
-                        className="w-full px-3 py-2.5 text-left text-sm hover:bg-gray-100 first:rounded-t-lg last:rounded-b-lg focus:bg-gray-100 focus:outline-2 focus:outline-indigo-600 focus:outline-offset-2"
-                        onClick={() => {
-                          setFormData((p) => ({ ...p, courseCode: c.code }))
-                          setCourseComboboxQuery('')
-                          setCourseComboboxOpen(false)
-                        }}
-                      >
-                        {courseDisplayLabel(c)}
-                      </button>
-                    ))
-                  )}
+              {isCbt && (
+                <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800 flex items-start gap-2">
+                  <Info className="h-4 w-4 shrink-0 mt-0.5" />
+                  <span>This is a CBT course (100L or General). You must select an ICT venue.</span>
                 </div>
               )}
-            </div>
-            {courseComboboxOpen && (
-              <div
-                className="fixed inset-0 z-40"
-                aria-hidden
-                onClick={() => setCourseComboboxOpen(false)}
+              <FormField
+                control={form.control}
+                name="venue"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Venue *</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange} disabled={creating}>
+                      <FormControl>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <div className="px-2 py-1.5 text-xs font-medium text-gray-500">ICT Venues (Required for CBT)</div>
+                        {ICT_VENUES.map((v) => (
+                          <SelectItem key={v} value={v}>{VENUE_LABELS[v]}</SelectItem>
+                        ))}
+                        <div className="px-2 py-1.5 text-xs font-medium text-gray-500 mt-2">Regular Venues</div>
+                        {REGULAR_VENUES.map((v) => (
+                          <SelectItem key={v} value={v} disabled={isCbt}>{VENUE_LABELS[v]}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            )}
-            {isCbt && (
-              <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800 flex items-start gap-2">
-                <Info className="h-4 w-4 shrink-0 mt-0.5" />
-                <span>This is a CBT course (100L or General). You must select an ICT venue.</span>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <FormField
+                  control={form.control}
+                  name="date"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Exam date *</FormLabel>
+                      <FormControl>
+                        <Input type="date" disabled={creating} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="startTime"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Start time *</FormLabel>
+                      <FormControl>
+                        <Input type="time" disabled={creating} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="endTime"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>End time *</FormLabel>
+                      <FormControl>
+                        <Input type="time" disabled={creating} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
-            )}
-            <div>
-              <Label>Venue *</Label>
-              <Select
-                value={formData.venue}
-                onValueChange={(v) => setFormData((p) => ({ ...p, venue: v as VenueType }))}
-                disabled={creating}
-              >
-                <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <div className="px-2 py-1.5 text-xs font-medium text-gray-500">ICT Venues (Required for CBT)</div>
-                  {ICT_VENUES.map((v) => (
-                    <SelectItem key={v} value={v} disabled={isCbt ? false : false}>{VENUE_LABELS[v]}</SelectItem>
-                  ))}
-                  <div className="px-2 py-1.5 text-xs font-medium text-gray-500 mt-2">Regular Venues</div>
-                  {REGULAR_VENUES.map((v) => (
-                    <SelectItem key={v} value={v} disabled={isCbt}>{VENUE_LABELS[v]}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <Label>Exam date *</Label>
-                <Input type="date" value={formData.date} onChange={(e) => setFormData((p) => ({ ...p, date: e.target.value }))} className="mt-1.5" required disabled={creating} />
-              </div>
-              <div>
-                <Label>Start time *</Label>
-                <Input type="time" value={formData.startTime} onChange={(e) => setFormData((p) => ({ ...p, startTime: e.target.value }))} className="mt-1.5" required disabled={creating} />
-              </div>
-              <div>
-                <Label>End time *</Label>
-                <Input type="time" value={formData.endTime} onChange={(e) => setFormData((p) => ({ ...p, endTime: e.target.value }))} className="mt-1.5" required disabled={creating} />
-              </div>
-            </div>
-            <div>
-              <Label>Student count *</Label>
-              <Input type="number" min={1} value={formData.studentCount || ''} onChange={(e) => setFormData((p) => ({ ...p, studentCount: Number(e.target.value) || 1 }))} className="mt-1.5" required disabled={creating} />
-            </div>
-            {selectedCourse?.isGeneral && (
-              <div>
-                <Label>Target college *</Label>
-                <Select value={formData.targetCollege ?? ''} onValueChange={(v) => setFormData((p) => ({ ...p, targetCollege: v as College }))} disabled={creating}>
-                  <SelectTrigger className="mt-1.5"><SelectValue placeholder="Select college" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={College.CBAS}>CBAS</SelectItem>
-                    <SelectItem value={College.CHMS}>CHMS</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-            <div>
-              <Label>Invigilators</Label>
-              <Input placeholder="e.g. Dr. Smith, Prof. Jones" value={formData.invigilators ?? ''} onChange={(e) => setFormData((p) => ({ ...p, invigilators: e.target.value }))} disabled={creating} />
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)} disabled={creating}>Cancel</Button>
-              <Button type="submit" disabled={creating}>{creating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Schedule Exam"}</Button>
-            </DialogFooter>
-          </form>
+              <FormField
+                control={form.control}
+                name="studentCount"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Student count *</FormLabel>
+                    <FormControl>
+                      <Input type="number" min={1} disabled={creating} {...field} value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value, 10) : 1)} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              {selectedCourse?.isGeneral && (
+                <FormField
+                  control={form.control}
+                  name="targetCollege"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Target college *</FormLabel>
+                      <Select value={field.value ?? ''} onValueChange={field.onChange} disabled={creating}>
+                        <FormControl>
+                          <SelectTrigger><SelectValue placeholder="Select college" /></SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value={College.CBAS}>CBAS</SelectItem>
+                          <SelectItem value={College.CHMS}>CHMS</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+              <FormField
+                control={form.control}
+                name="invigilators"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Invigilators</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g. Dr. Smith, Prof. Jones" disabled={creating} {...field} value={field.value ?? ''} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)} disabled={creating}>Cancel</Button>
+                <Button type="submit" disabled={creating}>{creating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Schedule Exam"}</Button>
+              </DialogFooter>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
 

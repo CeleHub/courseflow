@@ -1,6 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useState, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 import { useAuth } from '@/contexts/AuthContext'
 import { usePageLoadReporter } from '@/contexts/PageLoadContext'
 import { RefetchIndicator } from '@/components/ui/refetch-indicator'
@@ -16,7 +19,6 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import {
   Dialog,
   DialogContent,
@@ -25,6 +27,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
 import {
   Select,
   SelectContent,
@@ -51,8 +61,27 @@ import {
   Users,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { ServerErrorBanner } from '@/components/ui/server-error-banner'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { ErrorState } from '@/components/state/error-state'
+
+function createUserSchema(isEdit: boolean) {
+  return z.object({
+    matricNO: z.string().min(1, 'Matric/Staff No. is required'),
+    email: z.string().min(1, 'Email is required').email('Invalid email format'),
+    password: z.string().optional(),
+    name: z.string().optional(),
+    role: z.nativeEnum(Role),
+    departmentCode: z.string().optional(),
+    phone: z.string().optional(),
+  }).superRefine((data, ctx) => {
+    if (!isEdit && !data.password?.trim()) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Password is required for new users', path: ['password'] })
+    }
+  })
+}
+
+type UserFormValues = z.infer<ReturnType<typeof createUserSchema>>
 
 function getInitials(name: string | null | undefined, email: string): string {
   if (name && name.trim()) {
@@ -120,15 +149,22 @@ export function UsersPage({ role }: UsersPageProps) {
   const [saving, setSaving] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
   const [fetchError, setFetchError] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState('')
 
-  const [formData, setFormData] = useState<CreateUserData & { password?: string }>({
-    matricNO: '',
-    email: '',
-    password: '',
-    name: '',
-    role: isLecturers ? Role.LECTURER : Role.STUDENT,
-    departmentCode: '',
-    phone: '',
+  const userSchema = useMemo(() => createUserSchema(!!editingUser), [editingUser])
+
+  const form = useForm<UserFormValues>({
+    resolver: zodResolver(userSchema),
+    mode: 'onBlur',
+    defaultValues: {
+      matricNO: '',
+      email: '',
+      password: '',
+      name: '',
+      role: isLecturers ? Role.LECTURER : Role.STUDENT,
+      departmentCode: isHod ? (user?.departmentCode ?? '') : (departmentCode || ''),
+      phone: '',
+    },
   })
 
   const fetchData = useCallback(async () => {
@@ -196,7 +232,8 @@ export function UsersPage({ role }: UsersPageProps) {
 
   const openCreate = () => {
     setEditingUser(null)
-    setFormData({
+    setSaveError('')
+    form.reset({
       matricNO: '',
       email: '',
       password: '',
@@ -210,7 +247,8 @@ export function UsersPage({ role }: UsersPageProps) {
 
   const openEdit = (u: UserType) => {
     setEditingUser(u)
-    setFormData({
+    setSaveError('')
+    form.reset({
       matricNO: u.matricNO,
       email: u.email,
       name: u.name ?? '',
@@ -222,27 +260,18 @@ export function UsersPage({ role }: UsersPageProps) {
     setIsModalOpen(true)
   }
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!formData.matricNO.trim() || !formData.email.trim()) {
-      toast({ title: 'Matric/Staff No. and Email are required', variant: 'destructive' })
-      return
-    }
-    if (!editingUser && !formData.password) {
-      toast({ title: 'Password is required for new users', variant: 'destructive' })
-      return
-    }
-
+  const handleSave = form.handleSubmit(async (data) => {
+    setSaveError('')
     try {
       setSaving(true)
       if (editingUser) {
         const payload: UpdateUserData = {
-          matricNO: formData.matricNO.trim(),
-          email: formData.email.trim(),
-          name: formData.name?.trim() || undefined,
-          role: formData.role,
-          departmentCode: formData.departmentCode || undefined,
-          phone: formData.phone?.trim() || undefined,
+          matricNO: data.matricNO.trim(),
+          email: data.email.trim(),
+          name: data.name?.trim() || undefined,
+          role: data.role,
+          departmentCode: data.departmentCode || undefined,
+          phone: data.phone?.trim() || undefined,
         }
         const res = await apiClient.updateUser(editingUser.id, payload)
         if (res.success) {
@@ -250,18 +279,17 @@ export function UsersPage({ role }: UsersPageProps) {
           setIsModalOpen(false)
           fetchData()
         } else {
-          toast({ title: (res as any).error || 'Update failed', variant: 'destructive' })
+          setSaveError((res as { error?: string }).error || 'Update failed')
         }
       } else {
         const payload: CreateUserData = {
-          ...formData,
-          password: formData.password!,
-          matricNO: formData.matricNO.trim(),
-          email: formData.email.trim(),
-          name: formData.name?.trim(),
-          role: formData.role,
-          departmentCode: formData.departmentCode || undefined,
-          phone: formData.phone?.trim(),
+          matricNO: data.matricNO.trim(),
+          email: data.email.trim(),
+          password: data.password!,
+          name: data.name?.trim(),
+          role: data.role,
+          departmentCode: data.departmentCode || undefined,
+          phone: data.phone?.trim(),
         }
         const res = await apiClient.createUser(payload)
         if (res.success) {
@@ -269,15 +297,15 @@ export function UsersPage({ role }: UsersPageProps) {
           setIsModalOpen(false)
           fetchData()
         } else {
-          toast({ title: (res as any).error || 'Create failed', variant: 'destructive' })
+          setSaveError((res as { error?: string }).error || 'Create failed')
         }
       }
     } catch {
-      toast({ title: 'Save failed', variant: 'destructive' })
+      setSaveError('Save failed')
     } finally {
       setSaving(false)
     }
-  }
+  })
 
   const handleToggleActive = async (u: UserType): Promise<void> => {
     if (u.isActive) {
@@ -554,60 +582,126 @@ export function UsersPage({ role }: UsersPageProps) {
             <DialogTitle>{editingUser ? 'Edit User' : addLabel}</DialogTitle>
             <DialogDescription>{editingUser ? 'Update user details.' : 'Create a new user account.'}</DialogDescription>
           </DialogHeader>
+          <Form {...form}>
           <form onSubmit={handleSave} className={`space-y-4 transition-opacity ${saving ? "opacity-60" : ""}`}>
-            <div>
-              <Label>Full name</Label>
-              <Input value={formData.name ?? ''} onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))} placeholder="Optional" disabled={saving} />
-            </div>
-            <div>
-              <Label>Matric / Staff no. *</Label>
-              <Input value={formData.matricNO} onChange={(e) => setFormData((p) => ({ ...p, matricNO: e.target.value }))} required disabled={saving} />
-            </div>
-            <div>
-              <Label>Email *</Label>
-              <Input type="email" value={formData.email} onChange={(e) => setFormData((p) => ({ ...p, email: e.target.value }))} required disabled={!!editingUser || saving} />
-            </div>
+            {saveError && <ServerErrorBanner message={saveError} />}
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Full name</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Optional" disabled={saving} {...field} value={field.value ?? ''} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="matricNO"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Matric / Staff no. *</FormLabel>
+                  <FormControl>
+                    <Input disabled={saving} {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email *</FormLabel>
+                  <FormControl>
+                    <Input type="email" disabled={!!editingUser || saving} {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             {!editingUser && (
-              <div>
-                <Label>Password *</Label>
-                <Input type="password" value={formData.password ?? ''} onChange={(e) => setFormData((p) => ({ ...p, password: e.target.value }))} required disabled={saving} />
-              </div>
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Password *</FormLabel>
+                    <FormControl>
+                      <Input type="password" disabled={saving} {...field} value={field.value ?? ''} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             )}
             {isLecturers && (
-              <div>
-                <Label>Role</Label>
-                <Select value={formData.role} onValueChange={(v) => setFormData((p) => ({ ...p, role: v as Role }))} disabled={saving}>
-                  <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={Role.LECTURER}>Lecturer</SelectItem>
-                    <SelectItem value={Role.HOD}>HOD</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <FormField
+                control={form.control}
+                name="role"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Role</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange} disabled={saving}>
+                      <FormControl>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value={Role.LECTURER}>Lecturer</SelectItem>
+                        <SelectItem value={Role.HOD}>HOD</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             )}
             {(isLecturers || role === 'STUDENT') && (
-              <div>
-                <Label>Department</Label>
-                <Select value={formData.departmentCode || ''} onValueChange={(v) => setFormData((p) => ({ ...p, departmentCode: v }))} disabled={saving}>
-                  <SelectTrigger className="mt-1.5"><SelectValue placeholder="Select department" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">None</SelectItem>
-                    {departments.map((d) => (
-                      <SelectItem key={d.id} value={d.code}>{d.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <FormField
+                control={form.control}
+                name="departmentCode"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Department</FormLabel>
+                    <Select value={field.value || ''} onValueChange={field.onChange} disabled={saving}>
+                      <FormControl>
+                        <SelectTrigger><SelectValue placeholder="Select department" /></SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="">None</SelectItem>
+                        {departments.map((d) => (
+                          <SelectItem key={d.id} value={d.code}>{d.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             )}
-            <div>
-              <Label>Phone</Label>
-              <Input value={formData.phone ?? ''} onChange={(e) => setFormData((p) => ({ ...p, phone: e.target.value }))} placeholder="Optional" disabled={saving} />
-            </div>
+            <FormField
+              control={form.control}
+              name="phone"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Phone</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Optional" disabled={saving} {...field} value={field.value ?? ''} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)} disabled={saving}>Cancel</Button>
               <Button type="submit" disabled={saving}>{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}</Button>
             </DialogFooter>
           </form>
+          </Form>
         </DialogContent>
       </Dialog>
 

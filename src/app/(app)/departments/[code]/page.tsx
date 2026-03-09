@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -14,6 +17,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
 import {
   Select,
   SelectContent,
@@ -55,11 +66,21 @@ import { useAuth } from '@/contexts/AuthContext'
 import { usePageLoadReporter } from '@/contexts/PageLoadContext'
 import { useToast } from '@/hooks/use-toast'
 import { ErrorState } from '@/components/state/error-state'
+import { ServerErrorBanner } from '@/components/ui/server-error-banner'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Label } from '@/components/ui/label'
 import { HodCombobox } from '@/components/departments/hod-combobox'
+
+const editDepartmentSchema = z.object({
+  name: z.string().min(1, 'Department name is required').max(100),
+  code: z.string().min(1, 'Department code is required').regex(/^[A-Z]{2,4}$/, 'Code must be 2–4 uppercase letters'),
+  description: z.string().max(1000).optional(),
+  college: z.nativeEnum(College),
+  hodId: z.string().optional(),
+})
+
+type EditDepartmentFormValues = z.infer<typeof editDepartmentSchema>
 
 const LEVEL_PILL: Record<Level, string> = {
   [Level.LEVEL_100]: 'bg-slate-100 text-slate-700',
@@ -88,8 +109,14 @@ export default function DepartmentDetailsPage() {
   usePageLoadReporter(loading)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [editOpen, setEditOpen] = useState(false)
-  const [editForm, setEditForm] = useState({ name: '', code: '', description: '', college: College.CBAS, hodId: '' })
   const [editSaving, setEditSaving] = useState(false)
+  const [editError, setEditError] = useState('')
+
+  const editForm = useForm<EditDepartmentFormValues>({
+    resolver: zodResolver(editDepartmentSchema),
+    mode: 'onBlur',
+    defaultValues: { name: '', code: '', description: '', college: College.CBAS, hodId: '' },
+  })
   const [lockLoading, setLockLoading] = useState(false)
   const [detailCourse, setDetailCourse] = useState<Course | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
@@ -156,7 +183,8 @@ export default function DepartmentDetailsPage() {
 
   const openEdit = useCallback(() => {
     if (!department) return
-    setEditForm({
+    setEditError('')
+    editForm.reset({
       name: department.name,
       code: department.code,
       description: department.description ?? '',
@@ -164,7 +192,7 @@ export default function DepartmentDetailsPage() {
       hodId: department.hodId ?? '',
     })
     setEditOpen(true)
-  }, [department])
+  }, [department, editForm])
 
   const openDetail = async (course: Course) => {
     setDetailCourse(course)
@@ -499,70 +527,118 @@ export default function DepartmentDetailsPage() {
             <DialogTitle>Edit Department</DialogTitle>
             <DialogDescription>Update department details and assign HOD.</DialogDescription>
           </DialogHeader>
-          <form
-            onSubmit={async (e) => {
-              e.preventDefault()
-              if (!department) return
-              try {
-                setEditSaving(true)
-                const res = await apiClient.updateDepartment(department.code, {
-                  name: editForm.name,
-                  code: editForm.code,
-                  description: editForm.description || undefined,
-                  college: editForm.college,
-                  hodId: editForm.hodId || undefined,
-                })
-                if (res.success) {
-                  toast({ title: 'Department updated.' })
-                  setEditOpen(false)
-                  fetchDetails()
-                } else toast({ title: (res as { error?: string }).error, variant: 'destructive' })
-              } catch {
-                toast({ title: 'Update failed', variant: 'destructive' })
-              } finally {
-                setEditSaving(false)
-              }
-            }}
-            className={`space-y-4 transition-opacity ${editSaving ? 'opacity-60' : ''}`}
-          >
-            <div>
-              <Label>Department name</Label>
-              <Input value={editForm.name} onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))} className="mt-1.5" required maxLength={100} disabled={editSaving} />
-            </div>
-            <div>
-              <Label>Department code</Label>
-              <Input value={editForm.code} onChange={(e) => setEditForm((p) => ({ ...p, code: e.target.value.toUpperCase().slice(0, 4) }))} className="mt-1.5 font-mono" required disabled={editSaving} />
-            </div>
-            <div>
-              <Label>Description</Label>
-              <Textarea value={editForm.description} onChange={(e) => setEditForm((p) => ({ ...p, description: e.target.value }))} rows={3} className="mt-1.5" maxLength={1000} disabled={editSaving} />
-            </div>
-            <div>
-              <Label>College</Label>
-              <Select value={editForm.college} onValueChange={(v) => setEditForm((p) => ({ ...p, college: v as College }))} disabled={editSaving}>
-                <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={College.CBAS}>CBAS</SelectItem>
-                  <SelectItem value={College.CHMS}>CHMS</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Head of Department (Optional)</Label>
-              <div className="mt-1.5">
-                <HodCombobox
-                  value={editForm.hodId}
-                  onChange={(v) => setEditForm((p) => ({ ...p, hodId: v }))}
-                  placeholder="Search by name..."
-                  disabled={editSaving}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setEditOpen(false)} disabled={editSaving}>Cancel</Button>
-              <Button type="submit" disabled={editSaving}>{editSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save Changes'}</Button>
-            </DialogFooter>
-          </form>
+          <Form {...editForm}>
+            <form
+              onSubmit={editForm.handleSubmit(async (data) => {
+                if (!department) return
+                setEditError('')
+                try {
+                  setEditSaving(true)
+                  const res = await apiClient.updateDepartment(department.code, {
+                    name: data.name,
+                    code: data.code,
+                    description: data.description || undefined,
+                    college: data.college,
+                    hodId: data.hodId || undefined,
+                  })
+                  if (res.success) {
+                    toast({ title: 'Department updated.' })
+                    setEditOpen(false)
+                    fetchDetails()
+                  } else {
+                    setEditError((res as { error?: string }).error ?? 'Failed to update')
+                  }
+                } catch {
+                  setEditError('Update failed')
+                } finally {
+                  setEditSaving(false)
+                }
+              })}
+              className={`space-y-4 transition-opacity ${editSaving ? 'opacity-60' : ''}`}
+            >
+              {editError && <ServerErrorBanner message={editError} />}
+              <FormField
+                control={editForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Department name</FormLabel>
+                    <FormControl>
+                      <Input maxLength={100} disabled={editSaving} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="code"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Department code</FormLabel>
+                    <FormControl>
+                      <Input className="font-mono" disabled={editSaving} {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase().slice(0, 4))} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description</FormLabel>
+                    <FormControl>
+                      <Textarea rows={3} maxLength={1000} disabled={editSaving} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="college"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>College</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange} disabled={editSaving}>
+                      <FormControl>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value={College.CBAS}>CBAS</SelectItem>
+                        <SelectItem value={College.CHMS}>CHMS</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="hodId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Head of Department (Optional)</FormLabel>
+                    <FormControl>
+                      <HodCombobox
+                        value={field.value}
+                        onChange={field.onChange}
+                        placeholder="Search by name..."
+                        disabled={editSaving}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setEditOpen(false)} disabled={editSaving}>Cancel</Button>
+                <Button type="submit" disabled={editSaving}>{editSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save Changes'}</Button>
+              </DialogFooter>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
 

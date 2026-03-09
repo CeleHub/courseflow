@@ -1,6 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useState, useRef } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 import { useAuth } from '@/contexts/AuthContext'
 import { usePageLoadReporter } from '@/contexts/PageLoadContext'
 import { RefetchIndicator } from '@/components/ui/refetch-indicator'
@@ -8,7 +11,6 @@ import { apiClient } from '@/lib/api'
 import {
   AcademicSession,
   CreateAcademicSessionData,
-  UpdateAcademicSessionData,
   SessionStatistics,
 } from '@/types'
 import { Button } from '@/components/ui/button'
@@ -22,7 +24,15 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
+import { ServerErrorBanner } from '@/components/ui/server-error-banner'
 import {
   Sheet,
   SheetContent,
@@ -43,6 +53,14 @@ import { getItemsFromResponse } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { ErrorState } from '@/components/state/error-state'
+
+const sessionSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  startDate: z.string().min(1, 'Start date is required'),
+  endDate: z.string().min(1, 'End date is required'),
+}).refine((d) => new Date(d.endDate) > new Date(d.startDate), { message: 'End date must be after start date', path: ['endDate'] })
+
+type SessionFormValues = z.infer<typeof sessionSchema>
 
 export default function AcademicSessionsPage() {
   const { isAuthenticated, isAdmin } = useAuth()
@@ -69,11 +87,19 @@ export default function AcademicSessionsPage() {
   const [actionLoading, setActionLoading] = useState(false)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [mobileSheetSession, setMobileSheetSession] = useState<AcademicSession | null>(null)
+  const [createError, setCreateError] = useState('')
+  const [editError, setEditError] = useState('')
 
-  const [formData, setFormData] = useState<CreateAcademicSessionData>({
-    name: '',
-    startDate: '',
-    endDate: '',
+  const createForm = useForm<SessionFormValues>({
+    resolver: zodResolver(sessionSchema),
+    mode: 'onBlur',
+    defaultValues: { name: '', startDate: '', endDate: '' },
+  })
+
+  const editForm = useForm<SessionFormValues>({
+    resolver: zodResolver(sessionSchema),
+    mode: 'onBlur',
+    defaultValues: { name: '', startDate: '', endDate: '' },
   })
 
   const fetchSessions = useCallback(async () => {
@@ -131,70 +157,53 @@ export default function AcademicSessionsPage() {
       day: 'numeric',
     })
 
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!formData.name?.trim() || !formData.startDate || !formData.endDate) {
-      toast({ title: 'Please fill name, start date and end date', variant: 'destructive' })
-      return
-    }
-    if (new Date(formData.endDate) <= new Date(formData.startDate)) {
-      toast({ title: 'End date must be after start date', variant: 'destructive' })
-      return
-    }
+  const handleCreate = createForm.handleSubmit(async (data) => {
+    setCreateError('')
     try {
       setCreating(true)
       const res = await apiClient.createAcademicSession({
-        ...formData,
-        startDate: new Date(formData.startDate).toISOString().split('T')[0],
-        endDate: new Date(formData.endDate).toISOString().split('T')[0],
+        name: data.name,
+        startDate: new Date(data.startDate).toISOString().split('T')[0],
+        endDate: new Date(data.endDate).toISOString().split('T')[0],
       })
       if (res.success) {
         toast({ title: 'Session created.' })
         setIsCreateDialogOpen(false)
-        setFormData({ name: '', startDate: '', endDate: '' })
+        createForm.reset()
         fetchSessions()
       } else {
-        toast({ title: (res as any).error || 'Failed to create', variant: 'destructive' })
+        setCreateError((res as { error?: string }).error || 'Failed to create')
       }
     } catch {
-      toast({ title: 'Failed to create session', variant: 'destructive' })
+      setCreateError('Failed to create session')
     } finally {
       setCreating(false)
     }
-  }
+  })
 
-  const handleEdit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleEdit = editForm.handleSubmit(async (data) => {
     if (!editSession) return
-    const d = formData
-    if (!d.name?.trim() || !d.startDate || !d.endDate) {
-      toast({ title: 'Please fill all fields', variant: 'destructive' })
-      return
-    }
-    if (new Date(d.endDate) <= new Date(d.startDate)) {
-      toast({ title: 'End date must be after start date', variant: 'destructive' })
-      return
-    }
+    setEditError('')
     try {
       setCreating(true)
       const res = await apiClient.updateAcademicSession(editSession.id, {
-        name: d.name,
-        startDate: new Date(d.startDate).toISOString().split('T')[0],
-        endDate: new Date(d.endDate).toISOString().split('T')[0],
+        name: data.name,
+        startDate: new Date(data.startDate).toISOString().split('T')[0],
+        endDate: new Date(data.endDate).toISOString().split('T')[0],
       })
       if (res.success) {
         toast({ title: 'Session updated.' })
         setEditSession(null)
         fetchSessions()
       } else {
-        toast({ title: (res as any).error || 'Failed to update', variant: 'destructive' })
+        setEditError((res as { error?: string }).error || 'Failed to update')
       }
     } catch {
-      toast({ title: 'Failed to update', variant: 'destructive' })
+      setEditError('Failed to update')
     } finally {
       setCreating(false)
     }
-  }
+  })
 
   const openStatsModal = async (session: AcademicSession) => {
     setStatsSession(session)
@@ -325,7 +334,7 @@ export default function AcademicSessionsPage() {
                           <BarChart2 className="h-5 w-5" />
                           <span className="sr-only">Statistics</span>
                         </Button>
-                        <Button size="icon" variant="ghost" className="h-11 w-11 touch-manipulation" onClick={() => { setEditSession(session); setFormData({ name: session.name, startDate: session.startDate.split('T')[0], endDate: session.endDate.split('T')[0] }); }}>
+                        <Button size="icon" variant="ghost" className="h-11 w-11 touch-manipulation" onClick={() => { setEditSession(session); editForm.reset({ name: session.name, startDate: session.startDate.split('T')[0], endDate: session.endDate.split('T')[0] }); setEditError(''); }}>
                           <Pencil className="h-5 w-5" />
                           <span className="sr-only">Edit</span>
                         </Button>
@@ -399,7 +408,7 @@ export default function AcademicSessionsPage() {
                   <button
                     type="button"
                     className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-100 text-left w-full min-h-[44px] font-medium"
-                    onClick={() => { setEditSession(s); setFormData({ name: s.name, startDate: s.startDate.split('T')[0], endDate: s.endDate.split('T')[0] }); setMobileSheetSession(null); }}
+                    onClick={() => { setEditSession(s); editForm.reset({ name: s.name, startDate: s.startDate.split('T')[0], endDate: s.endDate.split('T')[0] }); setEditError(''); setMobileSheetSession(null); }}
                   >
                     <Pencil className="h-5 w-5" />
                     Edit
@@ -420,61 +429,64 @@ export default function AcademicSessionsPage() {
       </Sheet>
 
       {/* 5.3 Create Modal */}
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+      <Dialog open={isCreateDialogOpen} onOpenChange={(o) => { if (!o) setCreateError(''); setIsCreateDialogOpen(o); }}>
         <DialogContent className="sm:max-w-[480px]" onSwipeDown={() => setIsCreateDialogOpen(false)}>
           <DialogHeader>
             <DialogTitle>Create Academic Session</DialogTitle>
             <DialogDescription>Define the academic year and its start/end dates.</DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleCreate} className={`space-y-4 transition-opacity ${creating ? "opacity-60" : ""}`}>
-            <div>
-              <Label htmlFor="create-name">Session name</Label>
-              <Input
-                id="create-name"
+          <Form {...createForm}>
+            <form onSubmit={handleCreate} className={`space-y-4 transition-opacity ${creating ? "opacity-60" : ""}`}>
+              {createError && <ServerErrorBanner message={createError} />}
+              <FormField
+                control={createForm.control}
                 name="name"
-                value={formData.name}
-                onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
-                placeholder="e.g. 2024/2025"
-                className="mt-1.5"
-                required
-                disabled={creating}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Session name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g. 2024/2025" disabled={creating} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
-            <div>
-              <Label htmlFor="create-start">Start date</Label>
-              <Input
-                id="create-start"
+              <FormField
+                control={createForm.control}
                 name="startDate"
-                type="date"
-                value={formData.startDate}
-                onChange={(e) => setFormData((p) => ({ ...p, startDate: e.target.value }))}
-                className="mt-1.5"
-                required
-                disabled={creating}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Start date</FormLabel>
+                    <FormControl>
+                      <Input type="date" disabled={creating} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
-            <div>
-              <Label htmlFor="create-end">End date</Label>
-              <Input
-                id="create-end"
+              <FormField
+                control={createForm.control}
                 name="endDate"
-                type="date"
-                value={formData.endDate}
-                onChange={(e) => setFormData((p) => ({ ...p, endDate: e.target.value }))}
-                className="mt-1.5"
-                required
-                disabled={creating}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>End date</FormLabel>
+                    <FormControl>
+                      <Input type="date" disabled={creating} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)} disabled={creating}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={creating}>
-                {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create Session"}
-              </Button>
-            </DialogFooter>
-          </form>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)} disabled={creating}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={creating}>
+                  {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create Session"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
 
@@ -485,52 +497,58 @@ export default function AcademicSessionsPage() {
             <DialogTitle>Edit Session</DialogTitle>
             <DialogDescription>Update the academic session details.</DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleEdit} className={`space-y-4 transition-opacity ${creating ? "opacity-60" : ""}`}>
-            <div>
-              <Label htmlFor="edit-name">Session name</Label>
-              <Input
-                id="edit-name"
-                value={formData.name}
-                onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
-                placeholder="e.g. 2024/2025"
-                className="mt-1.5"
-                required
-                disabled={creating}
+          <Form {...editForm}>
+            <form onSubmit={handleEdit} className={`space-y-4 transition-opacity ${creating ? "opacity-60" : ""}`}>
+              {editError && <ServerErrorBanner message={editError} />}
+              <FormField
+                control={editForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Session name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g. 2024/2025" disabled={creating} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
-            <div>
-              <Label htmlFor="edit-start">Start date</Label>
-              <Input
-                id="edit-start"
-                type="date"
-                value={formData.startDate}
-                onChange={(e) => setFormData((p) => ({ ...p, startDate: e.target.value }))}
-                className="mt-1.5"
-                required
-                disabled={creating}
+              <FormField
+                control={editForm.control}
+                name="startDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Start date</FormLabel>
+                    <FormControl>
+                      <Input type="date" disabled={creating} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
-            <div>
-              <Label htmlFor="edit-end">End date</Label>
-              <Input
-                id="edit-end"
-                type="date"
-                value={formData.endDate}
-                onChange={(e) => setFormData((p) => ({ ...p, endDate: e.target.value }))}
-                className="mt-1.5"
-                required
-                disabled={creating}
+              <FormField
+                control={editForm.control}
+                name="endDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>End date</FormLabel>
+                    <FormControl>
+                      <Input type="date" disabled={creating} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setEditSession(null)} disabled={creating}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={creating}>
-                {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Changes"}
-              </Button>
-            </DialogFooter>
-          </form>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setEditSession(null)} disabled={creating}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={creating}>
+                  {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Changes"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
 

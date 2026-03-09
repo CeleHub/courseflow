@@ -1,6 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useState, useRef } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 import { useAuth } from '@/contexts/AuthContext'
 import { usePageLoadReporter } from '@/contexts/PageLoadContext'
 import { RefetchIndicator } from '@/components/ui/refetch-indicator'
@@ -20,6 +23,14 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -36,6 +47,15 @@ import { MessageSquare, MessageSquareWarning, MoreVertical, Eye, Plus, Search, L
 import { useToast } from '@/hooks/use-toast'
 import { ServerErrorBanner } from '@/components/ui/server-error-banner'
 import { ErrorState } from '@/components/state/error-state'
+
+const complaintSchema = z.object({
+  name: z.string().min(1, 'Full name is required'),
+  department: z.string().min(1, 'Department is required'),
+  subject: z.string().min(5, 'Subject must be 5–200 characters').max(200, 'Subject must be 5–200 characters'),
+  message: z.string().min(10, 'Message must be 10–1000 characters').max(1000, 'Message must be 10–1000 characters'),
+})
+
+type ComplaintFormValues = z.infer<typeof complaintSchema>
 
 const STATUS_BADGES: Record<ComplaintStatus, string> = {
   [ComplaintStatus.PENDING]: 'bg-amber-100 text-amber-800',
@@ -75,13 +95,28 @@ export default function ComplaintsPage() {
   const [statusLoading, setStatusLoading] = useState<string | null>(null)
   const [fetchError, setFetchError] = useState<string | null>(null)
 
-  const [formData, setFormData] = useState({
-    name: user?.name ?? '',
-    email: user?.email ?? '',
-    department: '',
-    subject: '',
-    message: '',
+  const complaintForm = useForm<ComplaintFormValues>({
+    resolver: zodResolver(complaintSchema),
+    mode: 'onBlur',
+    defaultValues: {
+      name: user?.name ?? '',
+      department: '',
+      subject: '',
+      message: '',
+    },
   })
+
+  useEffect(() => {
+    if (isSubmitOpen && user) {
+      complaintForm.reset({
+        name: user.name ?? '',
+        department: '',
+        subject: '',
+        message: '',
+      })
+      setSubmitError('')
+    }
+  }, [isSubmitOpen, user?.id, user?.name])
 
   const fetchComplaints = useCallback(async () => {
     try {
@@ -146,29 +181,22 @@ export default function ComplaintsPage() {
     return orderBy === 'newest' ? tb - ta : ta - tb
   })
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSubmit = complaintForm.handleSubmit(async (data) => {
     setSubmitError('')
-    if (!formData.name?.trim() || !formData.email?.trim() || !formData.department?.trim() || !formData.subject?.trim() || !formData.message?.trim()) {
-      toast({ title: 'All fields are required', variant: 'destructive' })
-      return
-    }
-    if (formData.subject.length < 5 || formData.subject.length > 200) {
-      toast({ title: 'Subject must be 5–200 characters', variant: 'destructive' })
-      return
-    }
-    if (formData.message.length < 10 || formData.message.length > 1000) {
-      toast({ title: 'Message must be 10–1000 characters', variant: 'destructive' })
-      return
-    }
-
+    if (!user?.email) return
     try {
       setSubmitting(true)
-      const res = await apiClient.createComplaint(formData)
+      const res = await apiClient.createComplaint({
+        name: data.name,
+        email: user.email,
+        department: data.department,
+        subject: data.subject,
+        message: data.message,
+      })
       if (res.success) {
         toast({ title: 'Your complaint has been submitted.' })
         setIsSubmitOpen(false)
-        setFormData({ name: user?.name ?? '', email: user?.email ?? '', department: '', subject: '', message: '' })
+        complaintForm.reset()
         fetchComplaints()
       } else {
         setSubmitError((res as { error?: string }).error || 'Submission failed')
@@ -178,7 +206,7 @@ export default function ComplaintsPage() {
     } finally {
       setSubmitting(false)
     }
-  }
+  })
 
   const handleStatusChange = async (id: string, status: ComplaintStatus) => {
     try {
@@ -268,34 +296,72 @@ export default function ComplaintsPage() {
             <DialogHeader>
               <DialogTitle>Submit Complaint</DialogTitle>
             </DialogHeader>
+            <Form {...complaintForm}>
             <form onSubmit={handleSubmit} className={`space-y-4 transition-opacity ${submitting ? "opacity-60" : ""}`}>
               {submitError && <ServerErrorBanner message={submitError} />}
-              <div>
-                <Label>Full name *</Label>
-                <Input value={formData.name} onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))} required disabled={submitting} />
-              </div>
-              <div>
+              <FormField
+                control={complaintForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Full name *</FormLabel>
+                    <FormControl>
+                      <Input disabled={submitting} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="space-y-2">
                 <Label>Email *</Label>
-                <Input type="email" value={formData.email} readOnly className="bg-gray-50" disabled={submitting} />
+                <Input type="email" value={user?.email ?? ''} readOnly className="bg-gray-50" disabled={submitting} />
               </div>
-              <div>
-                <Label>Department *</Label>
-                <Input value={formData.department} onChange={(e) => setFormData((p) => ({ ...p, department: e.target.value }))} placeholder="e.g. Computer Science" required disabled={submitting} />
-              </div>
-              <div>
-                <Label>Subject * (5–200 chars)</Label>
-                <Input value={formData.subject} onChange={(e) => setFormData((p) => ({ ...p, subject: e.target.value }))} placeholder="Brief description" required maxLength={200} disabled={submitting} />
-              </div>
-              <div>
-                <Label>Message * (10–1000 chars)</Label>
-                <Textarea value={formData.message} onChange={(e) => setFormData((p) => ({ ...p, message: e.target.value }))} rows={5} required minLength={10} maxLength={1000} disabled={submitting} />
-                <p className="text-xs text-gray-500 mt-1">{formData.message.length}/1000</p>
-              </div>
+              <FormField
+                control={complaintForm.control}
+                name="department"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Department *</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g. Computer Science" disabled={submitting} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={complaintForm.control}
+                name="subject"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Subject * (5–200 chars)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Brief description" maxLength={200} disabled={submitting} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={complaintForm.control}
+                name="message"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Message * (10–1000 chars)</FormLabel>
+                    <FormControl>
+                      <Textarea rows={5} maxLength={1000} disabled={submitting} {...field} />
+                    </FormControl>
+                    <p className="text-xs text-gray-500 mt-1">{field.value.length}/1000</p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setIsSubmitOpen(false)} disabled={submitting}>Cancel</Button>
                 <Button type="submit" disabled={submitting}>{submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Submit"}</Button>
               </DialogFooter>
             </form>
+            </Form>
           </DialogContent>
         </Dialog>
 
