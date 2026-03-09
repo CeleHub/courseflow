@@ -567,7 +567,7 @@ export default function AcademicSessionsPage() {
         icon={Archive}
         iconClassName="bg-amber-500 text-white"
         confirmLabel="Archive"
-        confirmVariant="outline"
+        confirmClassName="bg-amber-600 hover:bg-amber-700 text-white"
         onConfirm={handleConfirmAction}
         loading={actionLoading}
       />

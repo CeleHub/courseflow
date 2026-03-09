@@ -45,6 +45,7 @@ import {
   Power,
   Search,
   Trash2,
+  UserX,
   Users,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
@@ -110,6 +111,7 @@ export function UsersPage({ role }: UsersPageProps) {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<UserType | null>(null)
   const [deleteUser, setDeleteUser] = useState<UserType | null>(null)
+  const [deactivateUser, setDeactivateUser] = useState<UserType | null>(null)
   const [saving, setSaving] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
   const [fetchError, setFetchError] = useState<string | null>(null)
@@ -270,17 +272,42 @@ export function UsersPage({ role }: UsersPageProps) {
   }
 
   const handleToggleActive = async (u: UserType): Promise<void> => {
+    if (u.isActive) {
+      setDeactivateUser(u)
+      return
+    }
     try {
       setActionLoading(true)
-      const res = await apiClient.updateUser(u.id, { isActive: !u.isActive })
+      const res = await apiClient.updateUser(u.id, { isActive: true })
       if (res.success) {
-        toast({ title: u.isActive ? 'User deactivated.' : 'User activated.' })
+        toast({ title: 'User activated.' })
         fetchData()
       } else {
         toast({ title: (res as any).error, variant: 'destructive' })
       }
     } catch {
       toast({ title: 'Update failed', variant: 'destructive' })
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const handleConfirmDeactivate = async (): Promise<boolean> => {
+    if (!deactivateUser) return false
+    try {
+      setActionLoading(true)
+      const res = await apiClient.updateUser(deactivateUser.id, { isActive: false })
+      if (res.success) {
+        toast({ title: 'User deactivated.' })
+        setDeactivateUser(null)
+        fetchData()
+        return true
+      }
+      toast({ title: (res as any).error, variant: 'destructive' })
+      return false
+    } catch {
+      toast({ title: 'Update failed', variant: 'destructive' })
+      return false
     } finally {
       setActionLoading(false)
     }
@@ -553,6 +580,18 @@ export function UsersPage({ role }: UsersPageProps) {
         </DialogContent>
       </Dialog>
 
+      <ConfirmDialog
+        open={!!deactivateUser}
+        onOpenChange={(o) => !o && setDeactivateUser(null)}
+        title="Deactivate user?"
+        description={`This will deactivate ${deactivateUser?.name ?? deactivateUser?.email}. They will no longer be able to sign in.`}
+        icon={UserX}
+        iconClassName="bg-red-500 text-white"
+        confirmLabel="Deactivate"
+        confirmVariant="destructive"
+        onConfirm={handleConfirmDeactivate}
+        loading={actionLoading}
+      />
       <ConfirmDialog
         open={!!deleteUser}
         onOpenChange={(o) => !o && setDeleteUser(null)}

@@ -447,7 +447,7 @@ export default function DashboardPage() {
             icon={department?.isScheduleLocked ? Unlock : Lock}
             iconClassName={department?.isScheduleLocked ? "bg-green-500 text-white" : "bg-amber-500 text-white"}
             confirmLabel={department?.isScheduleLocked ? "Unlock" : "Lock"}
-            confirmVariant="default"
+            confirmClassName={department?.isScheduleLocked ? "bg-green-600 hover:bg-green-700 text-white" : "bg-amber-600 hover:bg-amber-700 text-white"}
             onConfirm={handleToggleLock}
             loading={togglingLock}
           />

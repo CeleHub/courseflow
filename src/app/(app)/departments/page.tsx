@@ -44,6 +44,7 @@ import {
   MoreVertical,
   Lock,
   Unlock,
+  Trash2,
   Filter,
   FileUp,
   X,
@@ -700,9 +701,9 @@ export default function DepartmentsPage() {
         </DialogContent>
       </Dialog>
 
-      <ConfirmDialog open={confirmAction.open && confirmAction.type === 'lock'} onOpenChange={(o) => !o && setConfirmAction({ open: false, type: 'lock', dept: null })} title="Lock schedule?" description={`Lock the schedule for ${confirmAction.dept?.name}. No changes can be made until unlocked.`} icon={Lock} iconClassName="bg-amber-500 text-white" confirmLabel="Lock" onConfirm={handleConfirmAction} loading={actionLoading} />
-      <ConfirmDialog open={confirmAction.open && confirmAction.type === 'unlock'} onOpenChange={(o) => !o && setConfirmAction({ open: false, type: 'unlock', dept: null })} title="Unlock schedule?" description={`Unlock the schedule for ${confirmAction.dept?.name}.`} icon={Unlock} iconClassName="bg-green-500 text-white" confirmLabel="Unlock" onConfirm={handleConfirmAction} loading={actionLoading} />
-      <ConfirmDialog open={confirmAction.open && confirmAction.type === 'delete'} onOpenChange={(o) => !o && setConfirmAction({ open: false, type: 'delete', dept: null })} title="Delete department?" description={`This will permanently deactivate ${confirmAction.dept?.name}. Courses will not be deleted but the department will no longer appear in listings.`} icon={Building2} iconClassName="bg-red-500 text-white" confirmLabel="Delete" confirmVariant="destructive" onConfirm={handleConfirmAction} loading={actionLoading} />
+      <ConfirmDialog open={confirmAction.open && confirmAction.type === 'lock'} onOpenChange={(o) => !o && setConfirmAction({ open: false, type: 'lock', dept: null })} title="Lock schedule?" description={`Lock the schedule for ${confirmAction.dept?.name}. No changes can be made until unlocked.`} icon={Lock} iconClassName="bg-amber-500 text-white" confirmLabel="Lock" confirmClassName="bg-amber-600 hover:bg-amber-700 text-white" onConfirm={handleConfirmAction} loading={actionLoading} />
+      <ConfirmDialog open={confirmAction.open && confirmAction.type === 'unlock'} onOpenChange={(o) => !o && setConfirmAction({ open: false, type: 'unlock', dept: null })} title="Unlock schedule?" description={`Unlock the schedule for ${confirmAction.dept?.name}.`} icon={Unlock} iconClassName="bg-green-500 text-white" confirmLabel="Unlock" confirmClassName="bg-green-600 hover:bg-green-700 text-white" onConfirm={handleConfirmAction} loading={actionLoading} />
+      <ConfirmDialog open={confirmAction.open && confirmAction.type === 'delete'} onOpenChange={(o) => !o && setConfirmAction({ open: false, type: 'delete', dept: null })} title="Delete department?" description={`This will permanently deactivate ${confirmAction.dept?.name}. Courses in this department will not be deleted but the department will no longer appear in listings.`} icon={Trash2} iconClassName="bg-red-500 text-white" confirmLabel="Delete" confirmVariant="destructive" onConfirm={handleConfirmAction} loading={actionLoading} />
     </div>
   )
 }

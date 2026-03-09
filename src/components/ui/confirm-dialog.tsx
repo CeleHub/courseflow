@@ -23,6 +23,8 @@ export interface ConfirmDialogProps {
   confirmLabel?: string;
   cancelLabel?: string;
   confirmVariant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
+  /** Spec 15: Override confirm button color (e.g. "bg-amber-600 hover:bg-amber-700 text-white") */
+  confirmClassName?: string;
   onConfirm: () => void | Promise<void | boolean>;
   loading?: boolean;
 }
@@ -37,6 +39,7 @@ export function ConfirmDialog({
   confirmLabel = "Confirm",
   cancelLabel = "Cancel",
   confirmVariant = "default",
+  confirmClassName,
   onConfirm,
   loading = false,
 }: ConfirmDialogProps) {
@@ -80,18 +83,10 @@ export function ConfirmDialog({
         </div>
         <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={busy}
-            className="w-full sm:w-auto"
-          >
-            {cancelLabel}
-          </Button>
-          <Button
             variant={confirmVariant}
             onClick={handleConfirm}
             disabled={busy}
-            className="w-full sm:w-auto"
+            className={cn("w-full sm:w-auto", confirmClassName)}
           >
             {busy ? (
               <span className="flex items-center justify-center gap-2">
@@ -101,6 +96,14 @@ export function ConfirmDialog({
             ) : (
               confirmLabel
             )}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={busy}
+            className="w-full sm:w-auto"
+          >
+            {cancelLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

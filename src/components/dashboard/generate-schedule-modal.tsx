@@ -23,6 +23,7 @@ import { AcademicSession, Department, Semester } from "@/types";
 import { getItemsFromResponse } from "@/lib/utils";
 import { RefreshCw, CheckCircle, AlertCircle } from "lucide-react";
 import Link from "next/link";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 interface GenerateScheduleModalProps {
   open: boolean;
@@ -50,6 +51,7 @@ export function GenerateScheduleModal({
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [showGenerateConfirm, setShowGenerateConfirm] = useState(false);
   const [result, setResult] = useState<{
     success: boolean;
     session?: string;
@@ -208,7 +210,7 @@ export function GenerateScheduleModal({
           <>
             <div className="space-y-4 py-4">
               <div className="rounded-lg border-l-[3px] border-amber-600 bg-amber-50 py-3 px-4 text-sm text-amber-800">
-                This will delete all existing auto-generated schedules for the selected scope and regenerate them. Manual overrides and fixed schedules will be preserved.
+                This will delete all auto-generated schedules for the selected scope and regenerate them. Manual overrides and fixed slots will be preserved.
               </div>
               <div className="grid gap-4">
                 <div>
@@ -262,20 +264,29 @@ export function GenerateScheduleModal({
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>Cancel</Button>
-              <Button onClick={handleSubmit} disabled={loading || loadingData} className="bg-indigo-600 hover:bg-indigo-700">
-                {loading ? (
-                  <span className="flex items-center gap-2">
-                    <RefreshCw className="h-4 w-4 animate-spin" />
-                    Generating…
-                  </span>
-                ) : (
-                  "Generate Schedules"
-                )}
+              <Button onClick={() => setShowGenerateConfirm(true)} disabled={loading || loadingData} className="bg-indigo-600 hover:bg-indigo-700">
+                Generate Schedules
               </Button>
             </DialogFooter>
           </>
         )}
       </DialogContent>
+
+      <ConfirmDialog
+        open={showGenerateConfirm}
+        onOpenChange={(o) => !o && setShowGenerateConfirm(false)}
+        title="Generate schedules?"
+        description="This will delete all auto-generated schedules for the selected scope and regenerate them. Manual overrides and fixed slots will be preserved."
+        icon={RefreshCw}
+        iconClassName="bg-indigo-500 text-white"
+        confirmLabel="Generate"
+        confirmClassName="bg-indigo-600 hover:bg-indigo-700 text-white"
+        onConfirm={async () => {
+          setShowGenerateConfirm(false);
+          await handleSubmit();
+        }}
+        loading={loading}
+      />
     </Dialog>
   );
 }
