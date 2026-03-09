@@ -850,25 +850,21 @@ export default function SchedulePage() {
                 <th style="border: 1px solid #000; padding: 8px; text-align: left;">Day</th>
                 ${timeSlots.map(ts => {
                   const [start, end] = ts.split('-')
-                  return `<th style="border: 1px solid #000; padding: 8px; text-align: center;">${formatTimeSlot(start, end)}</th>`
+                  return '<th style="border: 1px solid #000; padding: 8px; text-align: center;">' + formatTimeSlot(start, end) + '</th>'
                 }).join('')}
               </tr>
             </thead>
             <tbody>
-              ${dayOptions.map(day => `
-                <tr>
-                  <td style="border: 1px solid #000; padding: 8px; font-weight: bold;">${day.shortLabel || day.label}</td>
-                  ${timeSlots.map(timeSlot => {
-                    const schedules = grid[day.value]?.[timeSlot] || []
-                    const cellContent = schedules.length > 0
-                      ? schedules.map(s => {
-              return s.code
-                        }).join(' / ')
-                      : ''
-                    return `<td style="border: 1px solid #000; padding: 8px; text-align: center;">${cellContent}</td>`
-                  }).join('')}
-                </tr>
-              `).join('')}
+              ${dayOptions.map(day => {
+                const dayCells = timeSlots.map(timeSlot => {
+                  const schedules = grid[day.value]?.[timeSlot] || []
+                  const cellContent = schedules.length > 0
+                    ? schedules.map(s => s.code).join(' / ')
+                    : ''
+                  return '<td style="border: 1px solid #000; padding: 8px; text-align: center;">' + cellContent + '</td>'
+                }).join('')
+                return '<tr><td style="border: 1px solid #000; padding: 8px; font-weight: bold;">' + (day.shortLabel || day.label) + '</td>' + dayCells + '</tr>'
+              }).join('')}
             </tbody>
           </table>
 
@@ -885,16 +881,16 @@ export default function SchedulePage() {
               </tr>
             </thead>
             <tbody>
-              ${courseDetails.map((course, index) => `
-                <tr>
-                  <td style="border: 1px solid #000; padding: 8px; text-align: center;">${index + 1}</td>
-                  <td style="border: 1px solid #000; padding: 8px;">${course.code}</td>
-                  <td style="border: 1px solid #000; padding: 8px;">${course.title}</td>
-                  <td style="border: 1px solid #000; padding: 8px;">${course.lecturer}</td>
-                  <td style="border: 1px solid #000; padding: 8px; text-align: center;">${course.units}</td>
-                  <td style="border: 1px solid #000; padding: 8px; text-align: center;">${course.status}</td>
-                </tr>
-              `).join('')}
+              ${courseDetails.map((course, index) =>
+                '<tr>' +
+                  '<td style="border: 1px solid #000; padding: 8px; text-align: center;">' + (index + 1) + '</td>' +
+                  '<td style="border: 1px solid #000; padding: 8px;">' + course.code + '</td>' +
+                  '<td style="border: 1px solid #000; padding: 8px;">' + course.title + '</td>' +
+                  '<td style="border: 1px solid #000; padding: 8px;">' + course.lecturer + '</td>' +
+                  '<td style="border: 1px solid #000; padding: 8px; text-align: center;">' + course.units + '</td>' +
+                  '<td style="border: 1px solid #000; padding: 8px; text-align: center;">' + course.status + '</td>' +
+                '</tr>'
+              ).join('')}
             </tbody>
           </table>
         </div>
@@ -1055,7 +1051,7 @@ export default function SchedulePage() {
           description={deleteSchedule ? `Remove ${deleteSchedule.course?.code ?? deleteSchedule.courseCode} from the timetable?` : ''}
           icon={Trash2}
           confirmLabel="Delete"
-          variant="destructive"
+          confirmVariant="destructive"
           onConfirm={handleDeleteSchedule}
           loading={deleteLoading}
         />
@@ -1383,7 +1379,7 @@ export default function SchedulePage() {
                           </DropdownMenu>
                         </div>
                       </div>
-                    )}))}
+                    )})}
                 </div>
                 {filteredSchedules.length === 0 && (
                   <div className="p-12 text-center text-gray-500">No schedules this semester</div>

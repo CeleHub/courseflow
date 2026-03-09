@@ -49,7 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       toast({
         title: "Session Expired",
         description: "Your session has expired. Please sign in again.",
-        variant: "destructive",
+        variant: "warning",
       })
       router.push('/login')
     }

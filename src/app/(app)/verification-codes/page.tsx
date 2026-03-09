@@ -95,7 +95,7 @@ export default function VerificationCodesPage() {
     try {
       await navigator.clipboard.writeText(code.code)
       setCopiedId(code.id)
-      toast({ title: 'Copied!' })
+      toast({ title: 'Copied to clipboard.', variant: 'info' })
       setTimeout(() => setCopiedId(null), 2000)
     } catch {
       toast({ title: 'Copy failed', variant: 'destructive' })

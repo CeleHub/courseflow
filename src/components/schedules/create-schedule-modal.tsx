@@ -304,7 +304,7 @@ export function CreateScheduleModal({
             <Button type="button" variant="outline" onClick={handleClose} disabled={loading}>
               Cancel
             </Button>
-            <Button type="submit" disabled={loading || wednesdayError}>
+            <Button type="submit" disabled={loading || !!wednesdayError}>
               {loading ? (isEdit ? 'Updating...' : 'Creating...') : isEdit ? 'Save Changes' : 'Create Schedule'}
             </Button>
           </DialogFooter>
