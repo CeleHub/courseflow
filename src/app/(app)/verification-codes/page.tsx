@@ -403,17 +403,17 @@ export default function VerificationCodesPage() {
             <DialogTitle>{editingCode ? 'Edit Verification Code' : 'New Verification Code'}</DialogTitle>
             <DialogDescription>{editingCode ? 'Update code details.' : 'Create a verification code for registration.'}</DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleSave} className="space-y-4">
+          <form onSubmit={handleSave} className={`space-y-4 transition-opacity ${saving ? "opacity-60" : ""}`}>
             <div>
               <Label>Code * (max 50 chars)</Label>
               <div className="relative mt-1.5">
-                <Input value={formData.code} onChange={(e) => setFormData((p) => ({ ...p, code: e.target.value }))} placeholder="ROLE-YEAR-XXXXXX" className="pr-24 font-mono" required maxLength={50} />
-                <Button type="button" variant="outline" size="sm" className="absolute right-2 top-1/2 -translate-y-1/2" onClick={generateCode}>Generate</Button>
+                <Input value={formData.code} onChange={(e) => setFormData((p) => ({ ...p, code: e.target.value }))} placeholder="ROLE-YEAR-XXXXXX" className="pr-24 font-mono" required maxLength={50} disabled={saving} />
+                <Button type="button" variant="outline" size="sm" className="absolute right-2 top-1/2 -translate-y-1/2" onClick={generateCode} disabled={saving}>Generate</Button>
               </div>
             </div>
             <div>
               <Label>Role *</Label>
-              <Select value={formData.role} onValueChange={(v) => setFormData((p) => ({ ...p, role: v as Role }))}>
+              <Select value={formData.role} onValueChange={(v) => setFormData((p) => ({ ...p, role: v as Role }))} disabled={saving}>
                 <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {staffRoles.map((r) => (
@@ -424,19 +424,19 @@ export default function VerificationCodesPage() {
             </div>
             <div>
               <Label>Description (max 200 chars)</Label>
-              <Input value={formData.description ?? ''} onChange={(e) => setFormData((p) => ({ ...p, description: e.target.value }))} maxLength={200} />
+              <Input value={formData.description ?? ''} onChange={(e) => setFormData((p) => ({ ...p, description: e.target.value }))} maxLength={200} disabled={saving} />
             </div>
             <div>
               <Label>Max usage (empty = unlimited)</Label>
-              <Input type="number" min={1} value={formData.maxUsage ?? ''} onChange={(e) => setFormData((p) => ({ ...p, maxUsage: e.target.value ? Number(e.target.value) : undefined }))} placeholder="Unlimited" />
+              <Input type="number" min={1} value={formData.maxUsage ?? ''} onChange={(e) => setFormData((p) => ({ ...p, maxUsage: e.target.value ? Number(e.target.value) : undefined }))} placeholder="Unlimited" disabled={saving} />
             </div>
             <div>
               <Label>Expiry date/time</Label>
-              <Input type="datetime-local" value={formData.expiresAt ?? ''} onChange={(e) => setFormData((p) => ({ ...p, expiresAt: e.target.value || undefined }))} />
+              <Input type="datetime-local" value={formData.expiresAt ?? ''} onChange={(e) => setFormData((p) => ({ ...p, expiresAt: e.target.value || undefined }))} disabled={saving} />
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)} disabled={saving}>Cancel</Button>
-              <Button type="submit" disabled={saving}>{saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Save</Button>
+              <Button type="submit" disabled={saving}>{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}</Button>
             </DialogFooter>
           </form>
         </DialogContent>

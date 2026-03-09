@@ -416,7 +416,7 @@ export default function AcademicSessionsPage() {
             <DialogTitle>Create Academic Session</DialogTitle>
             <DialogDescription>Define the academic year and its start/end dates.</DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleCreate} className="space-y-4">
+          <form onSubmit={handleCreate} className={`space-y-4 transition-opacity ${creating ? "opacity-60" : ""}`}>
             <div>
               <Label htmlFor="create-name">Session name</Label>
               <Input
@@ -427,6 +427,7 @@ export default function AcademicSessionsPage() {
                 placeholder="e.g. 2024/2025"
                 className="mt-1.5"
                 required
+                disabled={creating}
               />
             </div>
             <div>
@@ -439,6 +440,7 @@ export default function AcademicSessionsPage() {
                 onChange={(e) => setFormData((p) => ({ ...p, startDate: e.target.value }))}
                 className="mt-1.5"
                 required
+                disabled={creating}
               />
             </div>
             <div>
@@ -451,6 +453,7 @@ export default function AcademicSessionsPage() {
                 onChange={(e) => setFormData((p) => ({ ...p, endDate: e.target.value }))}
                 className="mt-1.5"
                 required
+                disabled={creating}
               />
             </div>
             <DialogFooter>
@@ -458,8 +461,7 @@ export default function AcademicSessionsPage() {
                 Cancel
               </Button>
               <Button type="submit" disabled={creating}>
-                {creating && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                Create Session
+                {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create Session"}
               </Button>
             </DialogFooter>
           </form>
@@ -473,7 +475,7 @@ export default function AcademicSessionsPage() {
             <DialogTitle>Edit Session</DialogTitle>
             <DialogDescription>Update the academic session details.</DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleEdit} className="space-y-4">
+          <form onSubmit={handleEdit} className={`space-y-4 transition-opacity ${creating ? "opacity-60" : ""}`}>
             <div>
               <Label htmlFor="edit-name">Session name</Label>
               <Input
@@ -483,6 +485,7 @@ export default function AcademicSessionsPage() {
                 placeholder="e.g. 2024/2025"
                 className="mt-1.5"
                 required
+                disabled={creating}
               />
             </div>
             <div>
@@ -494,6 +497,7 @@ export default function AcademicSessionsPage() {
                 onChange={(e) => setFormData((p) => ({ ...p, startDate: e.target.value }))}
                 className="mt-1.5"
                 required
+                disabled={creating}
               />
             </div>
             <div>
@@ -505,6 +509,7 @@ export default function AcademicSessionsPage() {
                 onChange={(e) => setFormData((p) => ({ ...p, endDate: e.target.value }))}
                 className="mt-1.5"
                 required
+                disabled={creating}
               />
             </div>
             <DialogFooter>
@@ -512,8 +517,7 @@ export default function AcademicSessionsPage() {
                 Cancel
               </Button>
               <Button type="submit" disabled={creating}>
-                {creating && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                Save Changes
+                {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Changes"}
               </Button>
             </DialogFooter>
           </form>

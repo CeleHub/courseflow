@@ -39,6 +39,7 @@ import {
   Trash2,
   Lock,
   ArrowLeft,
+  Loader2,
 } from "lucide-react";
 import { apiClient } from "@/lib/api";
 import { getItemsFromResponse } from "@/lib/utils";
@@ -708,14 +709,28 @@ export default function CoursesPage() {
           <DialogHeader>
             <DialogTitle>Upload Courses CSV</DialogTitle>
           </DialogHeader>
-          <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center" onClick={() => document.getElementById("course-csv")?.click()}>
-            <input id="course-csv" type="file" accept=".csv" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) setSelectedFile(f); }} />
-            {selectedFile ? <p className="text-sm font-medium">{selectedFile.name}</p> : <p className="text-sm text-gray-500">Drop CSV or click to browse</p>}
+          <div className={isUploading ? "opacity-60 pointer-events-none" : ""}>
+            <div
+              className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-indigo-400 transition-colors"
+              onClick={() => !isUploading && document.getElementById("course-csv")?.click()}
+            >
+              <input
+                id="course-csv"
+                type="file"
+                accept=".csv"
+                className="hidden"
+                disabled={isUploading}
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) setSelectedFile(f); }}
+              />
+              {selectedFile ? <p className="text-sm font-medium">{selectedFile.name}</p> : <p className="text-sm text-gray-500">Drop CSV or click to browse</p>}
+            </div>
+            <p className="text-xs text-gray-500 mt-2"><button type="button" className="underline" onClick={handleDownloadTemplate}>Download template</button></p>
           </div>
-          <p className="text-xs text-gray-500"><button type="button" className="underline" onClick={handleDownloadTemplate}>Download template</button></p>
           <div className="flex gap-2 justify-end">
-            <Button variant="outline" onClick={() => setIsUploadOpen(false)}>Cancel</Button>
-            <Button onClick={handleBulkUpload} disabled={!selectedFile || isUploading}>{isUploading ? "Uploading…" : "Upload"}</Button>
+            <Button variant="outline" onClick={() => setIsUploadOpen(false)} disabled={isUploading}>Cancel</Button>
+            <Button onClick={handleBulkUpload} disabled={!selectedFile || isUploading}>
+              {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Upload"}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

@@ -17,7 +17,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext'
 import { HodCombobox } from '@/components/departments/hod-combobox'
 import { useToast } from '@/hooks/use-toast'
-import { Building2, ArrowLeft } from 'lucide-react'
+import { Building2, ArrowLeft, Loader2 } from 'lucide-react'
 import { ErrorState } from '@/components/state/error-state'
 import { apiClient } from '@/lib/api'
 import { College } from '@/types'
@@ -162,7 +162,7 @@ export default function CreateDepartmentPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className={`space-y-6 transition-opacity ${loading ? 'opacity-60' : ''}`}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="name">Department Name *</Label>
@@ -175,6 +175,7 @@ export default function CreateDepartmentPage() {
                     onChange={handleInputChange}
                     required
                     maxLength={100}
+                    disabled={loading}
                   />
                 </div>
 
@@ -190,6 +191,7 @@ export default function CreateDepartmentPage() {
                     required
                     maxLength={4}
                     className="font-mono"
+                    disabled={loading}
                   />
                   <p className="text-xs text-muted-foreground">
                     2–4 uppercase letters
@@ -206,12 +208,13 @@ export default function CreateDepartmentPage() {
                     onChange={handleInputChange}
                     rows={3}
                     maxLength={1000}
+                    disabled={loading}
                   />
                 </div>
 
                 <div className="space-y-2">
                   <Label>College *</Label>
-                  <Select value={formData.college} onValueChange={(v) => setFormData((p) => ({ ...p, college: v as College }))}>
+                  <Select value={formData.college} onValueChange={(v) => setFormData((p) => ({ ...p, college: v as College }))} disabled={loading}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value={College.CBAS}>CBAS</SelectItem>
@@ -226,6 +229,7 @@ export default function CreateDepartmentPage() {
                     value={formData.hodId}
                     onChange={(v) => setFormData((p) => ({ ...p, hodId: v }))}
                     placeholder="Search by name..."
+                    disabled={loading}
                   />
                   <p className="text-xs text-muted-foreground">
                     Automatically links Head of Department to this department
@@ -246,7 +250,7 @@ export default function CreateDepartmentPage() {
                   type="submit"
                   disabled={loading}
                 >
-                  {loading ? 'Creating...' : 'Create Department'}
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Create Department'}
                 </Button>
               </div>
             </form>

@@ -89,10 +89,7 @@ export function ConfirmDialog({
             className={cn("w-full sm:w-auto", confirmClassName)}
           >
             {busy ? (
-              <span className="flex items-center justify-center gap-2">
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                Loading…
-              </span>
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
             ) : (
               confirmLabel
             )}

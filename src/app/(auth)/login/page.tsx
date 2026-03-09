@@ -48,7 +48,7 @@ export default function LoginPage() {
         <p className="text-sm text-gray-500 mt-1">Enter your credentials to continue</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form onSubmit={handleSubmit} className={`space-y-5 transition-opacity ${isLoading ? "opacity-60" : ""}`}>
         {error && (
           <div className="p-3 rounded-lg bg-red-50 text-red-700 text-sm">
             {error}
@@ -64,6 +64,7 @@ export default function LoginPage() {
             onChange={(e) => setEmail(e.target.value)}
             className="text-base min-h-[44px]"
             required
+            disabled={isLoading}
           />
         </div>
 
@@ -79,6 +80,7 @@ export default function LoginPage() {
               className="text-base min-h-[44px] pr-12"
               required
               minLength={6}
+              disabled={isLoading}
             />
             <button
               type="button"

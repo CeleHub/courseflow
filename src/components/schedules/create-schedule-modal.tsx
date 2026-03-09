@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
+import { Loader2 } from 'lucide-react'
 import { apiClient } from '@/lib/api'
 import { getItemsFromResponse } from '@/lib/utils'
 import { Course, DayOfWeek, Schedule } from '@/types'
@@ -195,7 +196,7 @@ export function CreateScheduleModal({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className={`space-y-4 transition-opacity ${loading ? "opacity-60" : ""}`}>
           <div ref={containerRef} className="relative">
             <Label>Course *</Label>
             <Input
@@ -207,7 +208,7 @@ export function CreateScheduleModal({
               }}
               onFocus={() => setComboboxOpen(true)}
               onKeyDown={(e) => e.key === 'Escape' && setComboboxOpen(false)}
-              disabled={isEdit}
+              disabled={loading || isEdit}
               className={isEdit ? 'bg-gray-50 cursor-not-allowed' : ''}
             />
             {comboboxOpen && (
@@ -240,7 +241,7 @@ export function CreateScheduleModal({
 
           <div>
             <Label>Day of week *</Label>
-            <Select value={formData.dayOfWeek} onValueChange={(v) => setFormData((p) => ({ ...p, dayOfWeek: v }))}>
+            <Select value={formData.dayOfWeek} onValueChange={(v) => setFormData((p) => ({ ...p, dayOfWeek: v }))} disabled={loading}>
               <SelectTrigger>
                 <SelectValue placeholder="Select day" />
               </SelectTrigger>
@@ -256,7 +257,7 @@ export function CreateScheduleModal({
 
           <div>
             <Label>Start time *</Label>
-            <Select value={formData.startTime} onValueChange={(v) => setFormData((p) => ({ ...p, startTime: v }))}>
+            <Select value={formData.startTime} onValueChange={(v) => setFormData((p) => ({ ...p, startTime: v }))} disabled={loading}>
               <SelectTrigger>
                 <SelectValue placeholder="Select start time" />
               </SelectTrigger>
@@ -294,6 +295,7 @@ export function CreateScheduleModal({
               checked={formData.isFixed}
               onChange={(e) => setFormData((p) => ({ ...p, isFixed: e.target.checked }))}
               className="rounded border-gray-300"
+              disabled={loading}
             />
             <Label htmlFor="isFixed" className="cursor-pointer text-sm">
               Pin this slot (isFixed) — Fix this slot so auto-generation never moves it.
@@ -305,7 +307,7 @@ export function CreateScheduleModal({
               Cancel
             </Button>
             <Button type="submit" disabled={loading || !!wednesdayError}>
-              {loading ? (isEdit ? 'Updating...' : 'Creating...') : isEdit ? 'Save Changes' : 'Create Schedule'}
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : isEdit ? "Save Changes" : "Create Schedule"}
             </Button>
           </DialogFooter>
         </form>

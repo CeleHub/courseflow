@@ -30,7 +30,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { MessageSquare, MessageSquareWarning, MoreVertical, Eye, Plus, Search } from 'lucide-react'
+import { MessageSquare, MessageSquareWarning, MoreVertical, Eye, Plus, Search, Loader2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { ErrorState } from '@/components/state/error-state'
 
@@ -255,31 +255,31 @@ export default function ComplaintsPage() {
             <DialogHeader>
               <DialogTitle>Submit Complaint</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className={`space-y-4 transition-opacity ${submitting ? "opacity-60" : ""}`}>
               <div>
                 <Label>Full name *</Label>
-                <Input value={formData.name} onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))} required />
+                <Input value={formData.name} onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))} required disabled={submitting} />
               </div>
               <div>
                 <Label>Email *</Label>
-                <Input type="email" value={formData.email} readOnly className="bg-gray-50" />
+                <Input type="email" value={formData.email} readOnly className="bg-gray-50" disabled={submitting} />
               </div>
               <div>
                 <Label>Department *</Label>
-                <Input value={formData.department} onChange={(e) => setFormData((p) => ({ ...p, department: e.target.value }))} placeholder="e.g. Computer Science" required />
+                <Input value={formData.department} onChange={(e) => setFormData((p) => ({ ...p, department: e.target.value }))} placeholder="e.g. Computer Science" required disabled={submitting} />
               </div>
               <div>
                 <Label>Subject * (5–200 chars)</Label>
-                <Input value={formData.subject} onChange={(e) => setFormData((p) => ({ ...p, subject: e.target.value }))} placeholder="Brief description" required maxLength={200} />
+                <Input value={formData.subject} onChange={(e) => setFormData((p) => ({ ...p, subject: e.target.value }))} placeholder="Brief description" required maxLength={200} disabled={submitting} />
               </div>
               <div>
                 <Label>Message * (10–1000 chars)</Label>
-                <Textarea value={formData.message} onChange={(e) => setFormData((p) => ({ ...p, message: e.target.value }))} rows={5} required minLength={10} maxLength={1000} />
+                <Textarea value={formData.message} onChange={(e) => setFormData((p) => ({ ...p, message: e.target.value }))} rows={5} required minLength={10} maxLength={1000} disabled={submitting} />
                 <p className="text-xs text-gray-500 mt-1">{formData.message.length}/1000</p>
               </div>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setIsSubmitOpen(false)} disabled={submitting}>Cancel</Button>
-                <Button type="submit" disabled={submitting}>Submit</Button>
+                <Button type="submit" disabled={submitting}>{submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Submit"}</Button>
               </DialogFooter>
             </form>
           </DialogContent>

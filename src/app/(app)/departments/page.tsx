@@ -48,6 +48,7 @@ import {
   Filter,
   FileUp,
   X,
+  Loader2,
 } from 'lucide-react'
 import { apiClient } from '@/lib/api'
 import { getItemsFromResponse } from '@/lib/utils'
@@ -580,19 +581,21 @@ export default function DepartmentsPage() {
             </div>
           ) : (
             <>
-              <div
-                className="border-2 border-dashed border-gray-300 rounded-xl p-10 text-center cursor-pointer hover:border-indigo-400 transition-colors"
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f?.name.toLowerCase().endsWith('.csv')) handleFileSelect(f); }}
-                onClick={() => document.getElementById('dept-csv-input')?.click()}
-              >
-                <input
-                  id="dept-csv-input"
-                  type="file"
-                  accept=".csv"
-                  className="hidden"
-                  onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); }}
-                />
+              <div className={isUploading ? 'opacity-60 pointer-events-none' : ''}>
+                <div
+                  className="border-2 border-dashed border-gray-300 rounded-xl p-10 text-center cursor-pointer hover:border-indigo-400 transition-colors"
+                  onDragOver={(e) => !isUploading && e.preventDefault()}
+                  onDrop={(e) => { e.preventDefault(); if (isUploading) return; const f = e.dataTransfer.files[0]; if (f?.name.toLowerCase().endsWith('.csv')) handleFileSelect(f); }}
+                  onClick={() => !isUploading && document.getElementById('dept-csv-input')?.click()}
+                >
+                  <input
+                    id="dept-csv-input"
+                    type="file"
+                    accept=".csv"
+                    className="hidden"
+                    disabled={isUploading}
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); }}
+                  />
                 {selectedFile ? (
                   <div className="flex items-center justify-center gap-2 flex-wrap">
                     <span className="text-sm font-medium">{selectedFile.name}</span>
@@ -608,14 +611,15 @@ export default function DepartmentsPage() {
                     <p className="text-sm text-gray-500">Drop your CSV file here or click to browse</p>
                   </div>
                 )}
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  <button type="button" className="underline" onClick={handleDownloadTemplate}>Download template</button>
+                </p>
               </div>
-              <p className="text-xs text-gray-500">
-                <button type="button" className="underline" onClick={handleDownloadTemplate}>Download template</button>
-              </p>
               <DialogFooter>
-                <Button variant="outline" onClick={closeUploadModal}>Cancel</Button>
+                <Button variant="outline" onClick={closeUploadModal} disabled={isUploading}>Cancel</Button>
                 <Button className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700" onClick={handleBulkUpload} disabled={!selectedFile || isUploading}>
-                  {isUploading ? 'Uploading…' : 'Upload'}
+                  {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Upload'}
                 </Button>
               </DialogFooter>
             </>
@@ -655,23 +659,23 @@ export default function DepartmentsPage() {
                 setEditSaving(false)
               }
             }}
-            className="space-y-4"
+            className={`space-y-4 transition-opacity ${editSaving ? 'opacity-60' : ''}`}
           >
             <div>
               <label className="text-sm font-medium">Department name</label>
-              <Input value={editForm.name} onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))} className="mt-1.5" required maxLength={100} />
+              <Input value={editForm.name} onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))} className="mt-1.5" required maxLength={100} disabled={editSaving} />
             </div>
             <div>
               <label className="text-sm font-medium">Department code</label>
-              <Input value={editForm.code} onChange={(e) => setEditForm((p) => ({ ...p, code: e.target.value.toUpperCase().slice(0, 4) }))} className="mt-1.5 font-mono" required />
+              <Input value={editForm.code} onChange={(e) => setEditForm((p) => ({ ...p, code: e.target.value.toUpperCase().slice(0, 4) }))} className="mt-1.5 font-mono" required disabled={editSaving} />
             </div>
             <div>
               <label className="text-sm font-medium">Description</label>
-              <Textarea value={editForm.description} onChange={(e) => setEditForm((p) => ({ ...p, description: e.target.value }))} rows={3} className="mt-1.5" maxLength={1000} />
+              <Textarea value={editForm.description} onChange={(e) => setEditForm((p) => ({ ...p, description: e.target.value }))} rows={3} className="mt-1.5" maxLength={1000} disabled={editSaving} />
             </div>
             <div>
               <label className="text-sm font-medium">College</label>
-              <Select value={editForm.college} onValueChange={(v) => setEditForm((p) => ({ ...p, college: v as College }))}>
+              <Select value={editForm.college} onValueChange={(v) => setEditForm((p) => ({ ...p, college: v as College }))} disabled={editSaving}>
                 <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value={College.CBAS}>CBAS</SelectItem>
@@ -686,12 +690,13 @@ export default function DepartmentsPage() {
                   value={editForm.hodId}
                   onChange={(v) => setEditForm((p) => ({ ...p, hodId: v }))}
                   placeholder="Search by name..."
+                  disabled={editSaving}
                 />
               </div>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setEditDept(null)}>Cancel</Button>
-              <Button type="submit" disabled={editSaving}>{editSaving ? 'Saving…' : 'Save Changes'}</Button>
+              <Button type="button" variant="outline" onClick={() => setEditDept(null)} disabled={editSaving}>Cancel</Button>
+              <Button type="submit" disabled={editSaving}>{editSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save Changes'}</Button>
             </DialogFooter>
           </form>
         </DialogContent>

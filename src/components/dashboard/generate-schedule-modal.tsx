@@ -21,7 +21,7 @@ import { apiClient } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { AcademicSession, Department, Semester } from "@/types";
 import { getItemsFromResponse } from "@/lib/utils";
-import { RefreshCw, CheckCircle, AlertCircle } from "lucide-react";
+import { RefreshCw, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
@@ -208,14 +208,14 @@ export function GenerateScheduleModal({
           </div>
         ) : (
           <>
-            <div className="space-y-4 py-4">
+            <div className={`space-y-4 py-4 transition-opacity ${loading ? "opacity-60" : ""}`}>
               <div className="rounded-lg border-l-[3px] border-amber-600 bg-amber-50 py-3 px-4 text-sm text-amber-800">
                 This will delete all auto-generated schedules for the selected scope and regenerate them. Manual overrides and fixed slots will be preserved.
               </div>
               <div className="grid gap-4">
                 <div>
                   <Label>Semester</Label>
-                  <Select value={semester} onValueChange={(v) => setSemester(v as Semester)}>
+                  <Select value={semester} onValueChange={(v) => setSemester(v as Semester)} disabled={loading || loadingData}>
                     <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value={Semester.FIRST}>First Semester</SelectItem>
@@ -225,7 +225,7 @@ export function GenerateScheduleModal({
                 </div>
                 <div>
                   <Label>Session</Label>
-                  <Select value={activeSessionId} onValueChange={setActiveSessionId} disabled={loadingData}>
+                  <Select value={activeSessionId} onValueChange={setActiveSessionId} disabled={loading || loadingData}>
                     <SelectTrigger className="mt-1.5">
                       <SelectValue placeholder={loadingData ? "Loading…" : "Select session"} />
                     </SelectTrigger>
@@ -239,7 +239,7 @@ export function GenerateScheduleModal({
                 {!isHod && (
                   <div>
                     <Label>Department scope</Label>
-                    <Select value={departmentCode} onValueChange={setDepartmentCode} disabled={loadingData}>
+                    <Select value={departmentCode} onValueChange={setDepartmentCode} disabled={loading || loadingData}>
                       <SelectTrigger className="mt-1.5">
                         <SelectValue placeholder="All Unlocked Departments" />
                       </SelectTrigger>
@@ -264,8 +264,8 @@ export function GenerateScheduleModal({
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>Cancel</Button>
-              <Button onClick={() => setShowGenerateConfirm(true)} disabled={loading || loadingData} className="bg-indigo-600 hover:bg-indigo-700">
-                Generate Schedules
+              <Button onClick={() => setShowGenerateConfirm(true)} disabled={loading || loadingData} className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Generate Schedules"}
               </Button>
             </DialogFooter>
           </>

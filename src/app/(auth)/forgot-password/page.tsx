@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { apiClient } from "@/lib/api";
-import { CheckCircle } from "lucide-react";
+import { CheckCircle, Loader2 } from "lucide-react";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -53,7 +53,7 @@ export default function ForgotPasswordPage() {
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form onSubmit={handleSubmit} className={`space-y-5 transition-opacity ${isLoading ? "opacity-60" : ""}`}>
         <div className="space-y-2">
           <Label htmlFor="email">Email address</Label>
           <Input
@@ -64,6 +64,7 @@ export default function ForgotPasswordPage() {
             onChange={(e) => setEmail(e.target.value)}
             className="text-base min-h-[44px]"
             required
+            disabled={isLoading}
           />
         </div>
         <Button
@@ -71,7 +72,7 @@ export default function ForgotPasswordPage() {
           className="w-full h-11"
           disabled={isLoading}
         >
-          {isLoading ? "Sending…" : "Send reset link"}
+          {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send reset link"}
         </Button>
       </form>
 

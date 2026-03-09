@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { apiClient } from "@/lib/api";
-import { CheckCircle, Eye, EyeOff } from "lucide-react";
+import { CheckCircle, Eye, EyeOff, Loader2 } from "lucide-react";
 
 function ResetPasswordContent() {
   const router = useRouter();
@@ -77,7 +77,7 @@ function ResetPasswordContent() {
         <p className="text-sm text-gray-500 mt-1">Choose a secure password</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form onSubmit={handleSubmit} className={`space-y-5 transition-opacity ${isLoading ? "opacity-60" : ""}`}>
         {error && (
           <div className="p-3 rounded-lg bg-red-50 text-red-700 text-sm">
             {error}
@@ -102,6 +102,7 @@ function ResetPasswordContent() {
               className="text-base min-h-[44px] pr-12"
               required
               minLength={6}
+              disabled={isLoading}
             />
             <button
               type="button"
@@ -121,6 +122,7 @@ function ResetPasswordContent() {
             onChange={(e) => setConfirmPassword(e.target.value)}
             className="text-base min-h-[44px]"
             required
+            disabled={isLoading}
           />
         </div>
         <Button
@@ -128,7 +130,7 @@ function ResetPasswordContent() {
           className="w-full h-11"
           disabled={isLoading}
         >
-          {isLoading ? "Updating…" : "Update password"}
+          {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update password"}
         </Button>
       </form>
 

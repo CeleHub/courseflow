@@ -182,7 +182,7 @@ export default function EditCoursePage() {
           <CardDescription>Update course details.</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className={`space-y-6 transition-opacity ${saving ? "opacity-60" : ""}`}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label>Course Code</Label>
@@ -196,13 +196,14 @@ export default function EditCoursePage() {
                   onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
                   required
                   maxLength={200}
+                  disabled={saving}
                 />
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label>Level *</Label>
-                <Select value={formData.level} onValueChange={(v) => setFormData((p) => ({ ...p, level: v }))}>
+                <Select value={formData.level} onValueChange={(v) => setFormData((p) => ({ ...p, level: v }))} disabled={saving}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {levelOptions.map((l) => (
@@ -220,13 +221,14 @@ export default function EditCoursePage() {
                   value={formData.credits}
                   onChange={(e) => setFormData((p) => ({ ...p, credits: e.target.value }))}
                   required
+                  disabled={saving}
                 />
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label>Semester *</Label>
-                <Select value={formData.semester} onValueChange={(v) => setFormData((p) => ({ ...p, semester: v }))}>
+                <Select value={formData.semester} onValueChange={(v) => setFormData((p) => ({ ...p, semester: v }))} disabled={saving}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value={Semester.FIRST}>First Semester</SelectItem>
@@ -236,7 +238,7 @@ export default function EditCoursePage() {
               </div>
               <div className="space-y-2">
                 <Label>Department *</Label>
-                <Select value={formData.departmentCode} onValueChange={(v) => setFormData((p) => ({ ...p, departmentCode: v, lecturerId: '' }))}>
+                <Select value={formData.departmentCode} onValueChange={(v) => setFormData((p) => ({ ...p, departmentCode: v, lecturerId: '' }))} disabled={saving}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {departments.map((d) => (
@@ -253,6 +255,7 @@ export default function EditCoursePage() {
                 onChange={(id) => setFormData((p) => ({ ...p, lecturerId: id }))}
                 departmentCode={formData.departmentCode || undefined}
                 placeholder="Search by name or email..."
+                disabled={saving}
               />
             </div>
             <div className="space-y-2">
@@ -262,6 +265,7 @@ export default function EditCoursePage() {
                 onChange={(e) => setFormData((p) => ({ ...p, overview: e.target.value }))}
                 rows={4}
                 maxLength={2000}
+                disabled={saving}
               />
             </div>
             {isAdmin && (
@@ -271,6 +275,7 @@ export default function EditCoursePage() {
                     type="checkbox"
                     checked={formData.isGeneral}
                     onChange={(e) => setFormData((p) => ({ ...p, isGeneral: e.target.checked }))}
+                    disabled={saving}
                   />
                   <span>General Course</span>
                 </label>
@@ -279,6 +284,7 @@ export default function EditCoursePage() {
                     type="checkbox"
                     checked={formData.isLocked}
                     onChange={(e) => setFormData((p) => ({ ...p, isLocked: e.target.checked }))}
+                    disabled={saving}
                   />
                   <span>Locked</span>
                 </label>
@@ -287,8 +293,7 @@ export default function EditCoursePage() {
             <div className="flex gap-2">
               <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>
               <Button type="submit" disabled={saving}>
-                {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                Save Changes
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Changes"}
               </Button>
             </div>
           </form>

@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { apiClient } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-import { Lock } from "lucide-react";
+import { Lock, Loader2 } from "lucide-react";
 
 const AVATAR_COLORS = ["bg-indigo-500", "bg-violet-500", "bg-blue-500", "bg-emerald-500"] as const;
 
@@ -82,10 +82,10 @@ export default function ProfilePage() {
           <CardTitle>Personal Information</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <form onSubmit={handleSave} className="space-y-4">
+          <form onSubmit={handleSave} className={`space-y-4 transition-opacity ${saving ? "opacity-60" : ""}`}>
             <div className="space-y-2">
               <Label htmlFor="name">Name</Label>
-              <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
+              <Input id="name" value={name} onChange={(e) => setName(e.target.value)} disabled={saving} />
             </div>
             <div className="space-y-2">
               <Label>Email</Label>
@@ -96,11 +96,11 @@ export default function ProfilePage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="phone">Phone</Label>
-              <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
+              <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} disabled={saving} />
             </div>
             <div className="flex justify-end">
               <Button type="submit" disabled={saving} className="h-10 bg-indigo-600 hover:bg-indigo-700 text-white">
-                Save Changes
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Changes"}
               </Button>
             </div>
           </form>

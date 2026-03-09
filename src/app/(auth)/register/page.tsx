@@ -115,7 +115,7 @@ export default function RegisterPage() {
         <p className="text-sm text-gray-500 mt-1">Fill in your details to get started</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form onSubmit={handleSubmit} className={`space-y-5 transition-opacity ${isLoading ? "opacity-60" : ""}`}>
         {submitError && (
           <div className="p-3 rounded-lg bg-red-50 text-red-700 text-sm">
             {submitError}
@@ -129,6 +129,7 @@ export default function RegisterPage() {
             value={formData.name}
             onChange={(e) => handleChange("name", e.target.value)}
             className="text-base min-h-[44px]"
+            disabled={isLoading}
           />
         </div>
         <div className="space-y-2">
@@ -140,6 +141,7 @@ export default function RegisterPage() {
             onChange={(e) => handleChange("matricNO", e.target.value)}
             className="text-base min-h-[44px]"
             required
+            disabled={isLoading}
           />
         </div>
         <div className="space-y-2">
@@ -152,6 +154,7 @@ export default function RegisterPage() {
             onChange={(e) => handleChange("email", e.target.value)}
             className="text-base min-h-[44px]"
             required
+            disabled={isLoading}
           />
         </div>
         <div className="space-y-2">
@@ -166,6 +169,7 @@ export default function RegisterPage() {
               className="text-base min-h-[44px] pr-12"
               required
               minLength={6}
+              disabled={isLoading}
             />
             <button
               type="button"
@@ -186,11 +190,12 @@ export default function RegisterPage() {
             onChange={(e) => handleChange("confirmPassword", e.target.value)}
             className="text-base min-h-[44px]"
             required
+            disabled={isLoading}
           />
         </div>
         <div className="space-y-2">
           <Label htmlFor="role">Role</Label>
-          <Select value={formData.role} onValueChange={(v) => handleChange("role", v)}>
+          <Select value={formData.role} onValueChange={(v) => handleChange("role", v)} disabled={isLoading}>
             <SelectTrigger className="text-base min-h-[44px]">
               <SelectValue placeholder="Select role" />
             </SelectTrigger>
@@ -219,7 +224,7 @@ export default function RegisterPage() {
                   }
                   handleChange("departmentCode", v);
                 }}
-                disabled={deptLoading}
+                disabled={deptLoading || isLoading}
               >
                 <SelectTrigger className="text-base min-h-[44px]">
                   {deptLoading ? (
@@ -269,6 +274,7 @@ export default function RegisterPage() {
                 value={formData.verificationCode}
                 onChange={(e) => handleChange("verificationCode", e.target.value)}
                 className="text-base min-h-[44px]"
+                disabled={isLoading}
               />
             </div>
           </div>
@@ -289,6 +295,7 @@ export default function RegisterPage() {
                 value={formData.phone}
                 onChange={(e) => handleChange("phone", e.target.value)}
                 className="text-base min-h-[44px]"
+                disabled={isLoading}
               />
             </div>
           </div>

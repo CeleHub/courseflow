@@ -46,6 +46,7 @@ import {
   Trash2,
   MoreVertical,
   Plus,
+  Loader2,
 } from 'lucide-react'
 import { apiClient } from '@/lib/api'
 import { getItemsFromResponse } from '@/lib/utils'
@@ -520,23 +521,23 @@ export default function DepartmentDetailsPage() {
                 setEditSaving(false)
               }
             }}
-            className="space-y-4"
+            className={`space-y-4 transition-opacity ${editSaving ? 'opacity-60' : ''}`}
           >
             <div>
               <Label>Department name</Label>
-              <Input value={editForm.name} onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))} className="mt-1.5" required maxLength={100} />
+              <Input value={editForm.name} onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))} className="mt-1.5" required maxLength={100} disabled={editSaving} />
             </div>
             <div>
               <Label>Department code</Label>
-              <Input value={editForm.code} onChange={(e) => setEditForm((p) => ({ ...p, code: e.target.value.toUpperCase().slice(0, 4) }))} className="mt-1.5 font-mono" required />
+              <Input value={editForm.code} onChange={(e) => setEditForm((p) => ({ ...p, code: e.target.value.toUpperCase().slice(0, 4) }))} className="mt-1.5 font-mono" required disabled={editSaving} />
             </div>
             <div>
               <Label>Description</Label>
-              <Textarea value={editForm.description} onChange={(e) => setEditForm((p) => ({ ...p, description: e.target.value }))} rows={3} className="mt-1.5" maxLength={1000} />
+              <Textarea value={editForm.description} onChange={(e) => setEditForm((p) => ({ ...p, description: e.target.value }))} rows={3} className="mt-1.5" maxLength={1000} disabled={editSaving} />
             </div>
             <div>
               <Label>College</Label>
-              <Select value={editForm.college} onValueChange={(v) => setEditForm((p) => ({ ...p, college: v as College }))}>
+              <Select value={editForm.college} onValueChange={(v) => setEditForm((p) => ({ ...p, college: v as College }))} disabled={editSaving}>
                 <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value={College.CBAS}>CBAS</SelectItem>
@@ -551,12 +552,13 @@ export default function DepartmentDetailsPage() {
                   value={editForm.hodId}
                   onChange={(v) => setEditForm((p) => ({ ...p, hodId: v }))}
                   placeholder="Search by name..."
+                  disabled={editSaving}
                 />
               </div>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
-              <Button type="submit" disabled={editSaving}>{editSaving ? 'Saving…' : 'Save Changes'}</Button>
+              <Button type="button" variant="outline" onClick={() => setEditOpen(false)} disabled={editSaving}>Cancel</Button>
+              <Button type="submit" disabled={editSaving}>{editSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save Changes'}</Button>
             </DialogFooter>
           </form>
         </DialogContent>

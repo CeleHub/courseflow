@@ -517,7 +517,7 @@ export default function ExamsPage() {
             <DialogTitle>Schedule Exam</DialogTitle>
             <DialogDescription>Select course, venue, date and time.</DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleCreate} className="space-y-4">
+          <form onSubmit={handleCreate} className={`space-y-4 transition-opacity ${creating ? "opacity-60" : ""}`}>
             <div ref={courseComboboxRef} className="relative">
               <Label>Course *</Label>
               <div className="relative mt-1.5">
@@ -535,6 +535,7 @@ export default function ExamsPage() {
                 onKeyDown={(e) => {
                   if (e.key === 'Escape') setCourseComboboxOpen(false)
                 }}
+                disabled={creating}
               />
               <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
               </div>
@@ -579,6 +580,7 @@ export default function ExamsPage() {
               <Select
                 value={formData.venue}
                 onValueChange={(v) => setFormData((p) => ({ ...p, venue: v as VenueType }))}
+                disabled={creating}
               >
                 <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -596,25 +598,25 @@ export default function ExamsPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <Label>Exam date *</Label>
-                <Input type="date" value={formData.date} onChange={(e) => setFormData((p) => ({ ...p, date: e.target.value }))} className="mt-1.5" required />
+                <Input type="date" value={formData.date} onChange={(e) => setFormData((p) => ({ ...p, date: e.target.value }))} className="mt-1.5" required disabled={creating} />
               </div>
               <div>
                 <Label>Start time *</Label>
-                <Input type="time" value={formData.startTime} onChange={(e) => setFormData((p) => ({ ...p, startTime: e.target.value }))} className="mt-1.5" required />
+                <Input type="time" value={formData.startTime} onChange={(e) => setFormData((p) => ({ ...p, startTime: e.target.value }))} className="mt-1.5" required disabled={creating} />
               </div>
               <div>
                 <Label>End time *</Label>
-                <Input type="time" value={formData.endTime} onChange={(e) => setFormData((p) => ({ ...p, endTime: e.target.value }))} className="mt-1.5" required />
+                <Input type="time" value={formData.endTime} onChange={(e) => setFormData((p) => ({ ...p, endTime: e.target.value }))} className="mt-1.5" required disabled={creating} />
               </div>
             </div>
             <div>
               <Label>Student count *</Label>
-              <Input type="number" min={1} value={formData.studentCount || ''} onChange={(e) => setFormData((p) => ({ ...p, studentCount: Number(e.target.value) || 1 }))} className="mt-1.5" required />
+              <Input type="number" min={1} value={formData.studentCount || ''} onChange={(e) => setFormData((p) => ({ ...p, studentCount: Number(e.target.value) || 1 }))} className="mt-1.5" required disabled={creating} />
             </div>
             {selectedCourse?.isGeneral && (
               <div>
                 <Label>Target college *</Label>
-                <Select value={formData.targetCollege ?? ''} onValueChange={(v) => setFormData((p) => ({ ...p, targetCollege: v as College }))}>
+                <Select value={formData.targetCollege ?? ''} onValueChange={(v) => setFormData((p) => ({ ...p, targetCollege: v as College }))} disabled={creating}>
                   <SelectTrigger className="mt-1.5"><SelectValue placeholder="Select college" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value={College.CBAS}>CBAS</SelectItem>
@@ -625,11 +627,11 @@ export default function ExamsPage() {
             )}
             <div>
               <Label>Invigilators</Label>
-              <Input placeholder="e.g. Dr. Smith, Prof. Jones" value={formData.invigilators ?? ''} onChange={(e) => setFormData((p) => ({ ...p, invigilators: e.target.value }))} />
+              <Input placeholder="e.g. Dr. Smith, Prof. Jones" value={formData.invigilators ?? ''} onChange={(e) => setFormData((p) => ({ ...p, invigilators: e.target.value }))} disabled={creating} />
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)} disabled={creating}>Cancel</Button>
-              <Button type="submit" disabled={creating}>{creating && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Schedule Exam</Button>
+              <Button type="submit" disabled={creating}>{creating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Schedule Exam"}</Button>
             </DialogFooter>
           </form>
         </DialogContent>

@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/hooks/use-toast'
-import { Calendar, ArrowLeft } from 'lucide-react'
+import { Calendar, ArrowLeft, Loader2 } from 'lucide-react'
 import { ErrorState } from '@/components/state/error-state'
 import { apiClient } from '@/lib/api'
 import { getItemsFromResponse } from '@/lib/utils'
@@ -219,11 +219,11 @@ export default function CreateSchedulePage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className={`space-y-6 transition-opacity ${loading ? 'opacity-60' : ''}`}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2 md:col-span-2">
                   <Label htmlFor="courseCode">Course *</Label>
-                  <Select value={formData.courseCode} onValueChange={(value) => handleSelectChange('courseCode', value)}>
+                  <Select value={formData.courseCode} onValueChange={(value) => handleSelectChange('courseCode', value)} disabled={loading}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select course" />
                     </SelectTrigger>
@@ -239,7 +239,7 @@ export default function CreateSchedulePage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="dayOfWeek">Day of Week *</Label>
-                  <Select value={formData.dayOfWeek} onValueChange={(value) => handleSelectChange('dayOfWeek', value)}>
+                  <Select value={formData.dayOfWeek} onValueChange={(value) => handleSelectChange('dayOfWeek', value)} disabled={loading}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select day" />
                     </SelectTrigger>
@@ -262,6 +262,7 @@ export default function CreateSchedulePage() {
                     value={formData.startTime}
                     onChange={handleInputChange}
                     required
+                    disabled={loading}
                   />
                 </div>
 
@@ -274,6 +275,7 @@ export default function CreateSchedulePage() {
                     value={formData.endTime}
                     onChange={handleInputChange}
                     required
+                    disabled={loading}
                   />
                 </div>
 
@@ -286,6 +288,7 @@ export default function CreateSchedulePage() {
                   checked={formData.isFixed}
                   onChange={(e) => setFormData(prev => ({ ...prev, isFixed: e.target.checked }))}
                   className="rounded border-gray-300"
+                  disabled={loading}
                 />
                 <Label htmlFor="isFixed" className="cursor-pointer">Pin this slot (isFixed) — so auto-generation never moves it</Label>
               </div>
@@ -303,7 +306,7 @@ export default function CreateSchedulePage() {
                   type="submit"
                   disabled={loading}
                 >
-                  {loading ? 'Creating...' : 'Create Schedule'}
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Create Schedule'}
                 </Button>
               </div>
             </form>

@@ -544,29 +544,29 @@ export function UsersPage({ role }: UsersPageProps) {
             <DialogTitle>{editingUser ? 'Edit User' : addLabel}</DialogTitle>
             <DialogDescription>{editingUser ? 'Update user details.' : 'Create a new user account.'}</DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleSave} className="space-y-4">
+          <form onSubmit={handleSave} className={`space-y-4 transition-opacity ${saving ? "opacity-60" : ""}`}>
             <div>
               <Label>Full name</Label>
-              <Input value={formData.name ?? ''} onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))} placeholder="Optional" />
+              <Input value={formData.name ?? ''} onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))} placeholder="Optional" disabled={saving} />
             </div>
             <div>
               <Label>Matric / Staff no. *</Label>
-              <Input value={formData.matricNO} onChange={(e) => setFormData((p) => ({ ...p, matricNO: e.target.value }))} required />
+              <Input value={formData.matricNO} onChange={(e) => setFormData((p) => ({ ...p, matricNO: e.target.value }))} required disabled={saving} />
             </div>
             <div>
               <Label>Email *</Label>
-              <Input type="email" value={formData.email} onChange={(e) => setFormData((p) => ({ ...p, email: e.target.value }))} required disabled={!!editingUser} />
+              <Input type="email" value={formData.email} onChange={(e) => setFormData((p) => ({ ...p, email: e.target.value }))} required disabled={!!editingUser || saving} />
             </div>
             {!editingUser && (
               <div>
                 <Label>Password *</Label>
-                <Input type="password" value={formData.password ?? ''} onChange={(e) => setFormData((p) => ({ ...p, password: e.target.value }))} required />
+                <Input type="password" value={formData.password ?? ''} onChange={(e) => setFormData((p) => ({ ...p, password: e.target.value }))} required disabled={saving} />
               </div>
             )}
             {isLecturers && (
               <div>
                 <Label>Role</Label>
-                <Select value={formData.role} onValueChange={(v) => setFormData((p) => ({ ...p, role: v as Role }))}>
+                <Select value={formData.role} onValueChange={(v) => setFormData((p) => ({ ...p, role: v as Role }))} disabled={saving}>
                   <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value={Role.LECTURER}>Lecturer</SelectItem>
@@ -578,7 +578,7 @@ export function UsersPage({ role }: UsersPageProps) {
             {(isLecturers || role === 'STUDENT') && (
               <div>
                 <Label>Department</Label>
-                <Select value={formData.departmentCode || ''} onValueChange={(v) => setFormData((p) => ({ ...p, departmentCode: v }))}>
+                <Select value={formData.departmentCode || ''} onValueChange={(v) => setFormData((p) => ({ ...p, departmentCode: v }))} disabled={saving}>
                   <SelectTrigger className="mt-1.5"><SelectValue placeholder="Select department" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="">None</SelectItem>
@@ -591,11 +591,11 @@ export function UsersPage({ role }: UsersPageProps) {
             )}
             <div>
               <Label>Phone</Label>
-              <Input value={formData.phone ?? ''} onChange={(e) => setFormData((p) => ({ ...p, phone: e.target.value }))} placeholder="Optional" />
+              <Input value={formData.phone ?? ''} onChange={(e) => setFormData((p) => ({ ...p, phone: e.target.value }))} placeholder="Optional" disabled={saving} />
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)} disabled={saving}>Cancel</Button>
-              <Button type="submit" disabled={saving}>{saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Save</Button>
+              <Button type="submit" disabled={saving}>{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}</Button>
             </DialogFooter>
           </form>
         </DialogContent>

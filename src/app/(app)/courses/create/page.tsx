@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { BookOpen, ArrowLeft } from "lucide-react";
+import { BookOpen, ArrowLeft, Loader2 } from "lucide-react";
 import { ErrorState } from "@/components/state/error-state";
 import { LecturerCombobox } from "@/components/courses/lecturer-combobox";
 import { apiClient } from "@/lib/api";
@@ -247,7 +247,7 @@ export default function CreateCoursePage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className={`space-y-6 transition-opacity ${loading ? "opacity-60" : ""}`}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="code">
@@ -263,6 +263,7 @@ export default function CreateCoursePage() {
                     required
                     maxLength={7}
                     style={{ textTransform: "uppercase" }}
+                    disabled={loading}
                   />
                   <p className="text-xs text-muted-foreground">
                     2–4 letters + 3 digits (e.g., CS101, MTH201)
@@ -283,6 +284,7 @@ export default function CreateCoursePage() {
                     required
                     min="1"
                     max="6"
+                    disabled={loading}
                   />
                 </div>
 
@@ -299,6 +301,7 @@ export default function CreateCoursePage() {
                     onChange={handleInputChange}
                     required
                     maxLength={200}
+                    disabled={loading}
                   />
                 </div>
 
@@ -311,6 +314,7 @@ export default function CreateCoursePage() {
                     onValueChange={(value) =>
                       handleSelectChange("level", value)
                     }
+                    disabled={loading}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select level" />
@@ -334,6 +338,7 @@ export default function CreateCoursePage() {
                     onValueChange={(value) =>
                       handleSelectChange("semester", value)
                     }
+                    disabled={loading}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select semester" />
@@ -354,6 +359,7 @@ export default function CreateCoursePage() {
                     onValueChange={(value) =>
                       handleSelectChange("departmentCode", value)
                     }
+                    disabled={loading}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select department" />
@@ -375,6 +381,7 @@ export default function CreateCoursePage() {
                     onChange={(id) => handleSelectChange("lecturerId", id)}
                     departmentCode={formData.departmentCode || undefined}
                     placeholder="Search by name or email..."
+                    disabled={loading}
                   />
                 </div>
 
@@ -388,6 +395,7 @@ export default function CreateCoursePage() {
                     onChange={(e) => handleInputChange(e)}
                     rows={4}
                     maxLength={2000}
+                    disabled={loading}
                   />
                 </div>
 
@@ -406,6 +414,7 @@ export default function CreateCoursePage() {
                           }))
                         }
                         className="rounded border-gray-300"
+                        disabled={loading}
                       />
                       <Label htmlFor="isGeneral" className="cursor-pointer">
                         General Course (GST) - University-wide course
@@ -429,6 +438,7 @@ export default function CreateCoursePage() {
                           }))
                         }
                         className="rounded border-gray-300"
+                        disabled={loading}
                       />
                       <Label htmlFor="isLocked" className="cursor-pointer">
                         Lock Course (Prevent deletion)
@@ -448,7 +458,7 @@ export default function CreateCoursePage() {
                   Cancel
                 </Button>
                 <Button type="submit" disabled={loading}>
-                  {loading ? "Creating..." : "Create Course"}
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create Course"}
                 </Button>
               </div>
             </form>
