@@ -216,9 +216,13 @@ export default function DepartmentDetailsPage() {
       const fn = prevLocked ? apiClient.unlockDepartmentSchedule : apiClient.lockDepartmentSchedule
       const res = await fn(department.code)
       if (res.success) {
-        const deptRes = await apiClient.getDepartmentByCode(department.code)
-        if (deptRes.success && deptRes.data) setDepartment(deptRes.data as Department)
         toast({ title: prevLocked ? 'Schedule unlocked' : 'Schedule locked' })
+        try {
+          const deptRes = await apiClient.getDepartmentByCode(department.code)
+          if (deptRes.success && deptRes.data) setDepartment(deptRes.data as Department)
+        } catch {
+          // Refetch failed but mutation succeeded — keep optimistic state
+        }
       } else {
         setDepartment((d) => (d ? { ...d, isScheduleLocked: prevLocked } : null))
         toast({ title: (res as { error?: string }).error ?? 'Failed', variant: 'destructive' })
