@@ -26,6 +26,8 @@ type ToasterToast = ToastProps & {
   title?: React.ReactNode
   description?: React.ReactNode
   action?: ToastActionElement
+  /** When true, toast does not auto-dismiss (spec 19.5: network error toast) */
+  persistent?: boolean
 }
 
 const actionTypes = {
@@ -197,7 +199,9 @@ function toast({ ...props }: Toast) {
     },
   })
 
-  scheduleAutoDismiss(id, props.variant as string)
+  if (!props.persistent) {
+    scheduleAutoDismiss(id, props.variant as string)
+  }
 
   return {
     id: id,

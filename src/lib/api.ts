@@ -30,12 +30,14 @@ const API_BASE_URL = "https://courseflow-backend-s16i.onrender.com/api/v1";
 
 type On401Callback = () => void;
 type On403Callback = () => void;
+type OnNetworkErrorCallback = (retry: () => Promise<ApiResponse<any>>) => void;
 
 class ApiClient {
   private baseURL: string;
   private token: string | null = null;
   private on401: On401Callback | null = null;
   private on403: On403Callback | null = null;
+  private onNetworkError: OnNetworkErrorCallback | null = null;
 
   setOn401(callback: On401Callback | null) {
     this.on401 = callback;
@@ -43,6 +45,10 @@ class ApiClient {
 
   setOn403(callback: On403Callback | null) {
     this.on403 = callback;
+  }
+
+  setOnNetworkError(callback: OnNetworkErrorCallback | null) {
+    this.onNetworkError = callback;
   }
 
   constructor(baseURL: string) {
@@ -142,6 +148,10 @@ class ApiClient {
       const data = await response.json();
       return this.normalizeResponse(data, endpoint);
     } catch (error) {
+      if (this.onNetworkError) {
+        const retry = () => this.request<T>(endpoint, options);
+        this.onNetworkError(retry);
+      }
       return {
         success: false,
         error: error instanceof Error ? error.message : "Network error",
@@ -192,6 +202,10 @@ class ApiClient {
       const data = await response.json();
       return this.normalizeResponse(data, endpoint);
     } catch (error) {
+      if (this.onNetworkError) {
+        const retry = () => this.uploadFile(endpoint, file);
+        this.onNetworkError(retry);
+      }
       return {
         success: false,
         error: error instanceof Error ? error.message : "Network error",
@@ -235,6 +249,10 @@ class ApiClient {
         timestamp: new Date().toISOString(),
       };
     } catch (error) {
+      if (this.onNetworkError) {
+        const retry = () => this.downloadFile(endpoint);
+        this.onNetworkError(retry);
+      }
       return {
         success: false,
         error: error instanceof Error ? error.message : "Network error",
