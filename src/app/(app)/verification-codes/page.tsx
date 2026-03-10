@@ -433,7 +433,7 @@ if (res.success) {
                 <div className="flex items-center gap-2 mt-2 text-sm text-gray-500">
                   {c.maxUsage != null ? (
                     <>
-                      <div className="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden flex-1 max-w-[80px]">
+                      <div className="w-20 h-1.5 bg-gray-200 rounded-full overflow-hidden flex-1 shrink-0">
                         <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${Math.min(100, (c.usageCount / c.maxUsage) * 100)}%` }} />
                       </div>
                       <span>{c.usageCount}/{c.maxUsage}</span>

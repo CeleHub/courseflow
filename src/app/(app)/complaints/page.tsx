@@ -258,7 +258,7 @@ export default function ComplaintsPage() {
           <div className="relative rounded-xl border border-gray-200 p-12 text-center">
             {refetching && <RefetchIndicator />}
             <MessageSquare className="h-16 w-16 mx-auto text-gray-300 mb-4" />
-            <h3 className="text-base font-semibold text-gray-700">No complaints submitted</h3>
+            <h3 className="text-base font-semibold text-gray-700">You haven't submitted any complaints.</h3>
             <p className="text-sm text-gray-400 mt-2">Submit a complaint if you need assistance.</p>
             <Button className="mt-5" onClick={() => setIsSubmitOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
@@ -496,7 +496,7 @@ export default function ComplaintsPage() {
           ) : (
             <>
               <MessageSquare className="h-16 w-16 mx-auto text-gray-300 mb-4" />
-              <h3 className="text-base font-semibold text-gray-700">No complaints submitted</h3>
+              <h3 className="text-base font-semibold text-gray-700">You haven't submitted any complaints.</h3>
               <p className="text-sm text-gray-400 mt-2">Submit a complaint if you need assistance.</p>
               <Button className="mt-5" onClick={() => setIsSubmitOpen(true)}>
                 <Plus className="h-4 w-4 mr-2" />
