@@ -401,7 +401,7 @@ export default function HealthPage() {
         </Card>
 
         {/* Uptime */}
-        <Card>
+        <Card className={simpleError ? "border-red-200" : ""}>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-sm font-medium">Uptime</CardTitle>
             <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
@@ -409,15 +409,29 @@ export default function HealthPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">
-              {simple?.uptime != null ? formatUptime(simple.uptime) : "—"}
-            </p>
-            <p className="text-[13px] text-gray-500 mt-1">
-              Since{" "}
-              {simple?.uptime
-                ? formatTimestamp(new Date(Date.now() - simple.uptime * 1000).toISOString())
-                : "—"}
-            </p>
+            {simpleError ? (
+              <>
+                <p className="text-2xl font-bold">—</p>
+                <button
+                  onClick={fetchSimple}
+                  className="text-[13px] text-indigo-600 hover:underline mt-1"
+                >
+                  Failed to fetch — Retry
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="text-2xl font-bold">
+                  {simple?.uptime != null ? formatUptime(simple.uptime) : "—"}
+                </p>
+                <p className="text-[13px] text-gray-500 mt-1">
+                  Since{" "}
+                  {simple?.uptime
+                    ? formatTimestamp(new Date(Date.now() - simple.uptime * 1000).toISOString())
+                    : "—"}
+                </p>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
