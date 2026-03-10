@@ -12,6 +12,7 @@ import { getItemsFromResponse } from '@/lib/utils'
 import {
   Exam,
   CreateExamData,
+  UpdateExamData,
   Course,
   AcademicSession,
   College,
@@ -168,13 +169,18 @@ export default function ExamsPage() {
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState('')
   const [editExam, setEditExam] = useState<Exam | null>(null)
+  const [editLoading, setEditLoading] = useState(false)
+  const [editError, setEditError] = useState('')
   const [deleteExam, setDeleteExam] = useState<Exam | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
   const [fetchError, setFetchError] = useState<string | null>(null)
 
   const [courseComboboxQuery, setCourseComboboxQuery] = useState('')
   const [courseComboboxOpen, setCourseComboboxOpen] = useState(false)
+  const [editCourseComboboxQuery, setEditCourseComboboxQuery] = useState('')
+  const [editCourseComboboxOpen, setEditCourseComboboxOpen] = useState(false)
   const courseComboboxRef = useRef<HTMLDivElement>(null)
+  const editCourseComboboxRef = useRef<HTMLDivElement>(null)
 
   const examSchema = useMemo(() => createExamSchema(courses), [courses])
   type ExamFormValues = z.infer<ReturnType<typeof createExamSchema>>
@@ -194,10 +200,67 @@ export default function ExamsPage() {
     },
   })
 
+  const editForm = useForm<ExamFormValues>({
+    resolver: zodResolver(examSchema),
+    mode: 'onBlur',
+    defaultValues: {
+      courseCode: '',
+      venue: VenueType.LECTURE_HALL_1,
+      date: '',
+      startTime: '',
+      endTime: '',
+      studentCount: 1,
+      invigilators: '',
+      targetCollege: undefined,
+    },
+  })
+
+  const openEditExam = useCallback(async (exam: Exam) => {
+    setEditExam(exam)
+    setEditError('')
+    editForm.reset({
+      courseCode: exam.courseCode,
+      venue: exam.venue ?? VenueType.LECTURE_HALL_1,
+      date: exam.date?.includes('T') ? exam.date.split('T')[0] : (exam.date ?? ''),
+      startTime: exam.startTime ?? '',
+      endTime: exam.endTime ?? '',
+      studentCount: exam.studentCount ?? 1,
+      invigilators: exam.invigilators ?? '',
+      targetCollege: exam.targetCollege ?? undefined,
+    })
+    try {
+      const res = await apiClient.getExamById(exam.id)
+      if (res.success && res.data) {
+        const fresh = res.data as Exam
+        setEditExam(fresh)
+        editForm.reset({
+          courseCode: fresh.courseCode,
+          venue: fresh.venue ?? VenueType.LECTURE_HALL_1,
+          date: fresh.date?.includes('T') ? fresh.date.split('T')[0] : (fresh.date ?? ''),
+          startTime: fresh.startTime ?? '',
+          endTime: fresh.endTime ?? '',
+          studentCount: fresh.studentCount ?? 1,
+          invigilators: fresh.invigilators ?? '',
+          targetCollege: fresh.targetCollege ?? undefined,
+        })
+      }
+    } catch {
+      toast({ title: 'Failed to load exam', variant: 'destructive' })
+    }
+  }, [editForm, toast])
+
   const courseCode = form.watch('courseCode')
+  const editCourseCode = editForm.watch('courseCode')
   const selectedCourse = courses.find((c) => c.code === courseCode)
   const filteredCoursesForCombobox = courses.filter((c) => {
     const q = courseComboboxQuery.toLowerCase().trim()
+    if (!q) return true
+    const code = (c.code ?? '').toLowerCase()
+    const name = (c.name ?? '').toLowerCase()
+    return code.includes(q) || name.includes(q)
+  }).slice(0, 50)
+  const editFilteredCoursesForCombobox = courses.filter((c) => {
+    const q = editCourseComboboxQuery.toLowerCase().trim()
     if (!q) return true
     const code = (c.code ?? '').toLowerCase()
     const name = (c.name ?? '').toLowerCase()
@@ -294,6 +357,39 @@ export default function ExamsPage() {
       setCreateError('Failed to schedule exam')
     } finally {
       setCreating(false)
+    }
+  })
+
+  const editSelectedCourse = courses.find((c) => c.code === editCourseCode)
+  const editIsCbt = isCbtCourse(editSelectedCourse)
+
+  const handleEditSubmit = editForm.handleSubmit(async (data) => {
+    if (!editExam) return
+    setEditError('')
+    try {
+      setEditLoading(true)
+      const payload: UpdateExamData = {
+        courseCode: data.courseCode,
+        venue: data.venue,
+        date: data.date.includes('T') ? data.date : `${data.date}T00:00:00.000Z`,
+        startTime: data.startTime,
+        endTime: data.endTime,
+        studentCount: typeof data.studentCount === 'number' ? data.studentCount : parseInt(String(data.studentCount), 10) || 1,
+        invigilators: data.invigilators,
+        targetCollege: editSelectedCourse?.isGeneral ? data.targetCollege : undefined,
+      }
+      const res = await apiClient.updateExam(editExam.id, payload)
+      if (res.success) {
+        toast({ title: 'Exam updated.' })
+        setEditExam(null)
+        fetchData()
+      } else {
+        setEditError((res as { error?: string }).error || 'Failed to update')
+      }
+    } catch {
+      setEditError('Failed to update exam')
+    } finally {
+      setEditLoading(false)
     }
   })
 
@@ -505,7 +601,7 @@ export default function ExamsPage() {
                         {isAdmin && (
                           <td className="p-3 text-right">
                             <div className="flex items-center justify-end gap-1">
-                              <Button size="icon" variant="ghost" className="h-11 w-11" onClick={() => setEditExam(exam)}><Pencil className="h-5 w-5" /><span className="sr-only">Edit</span></Button>
+                              <Button size="icon" variant="ghost" className="h-11 w-11" onClick={() => openEditExam(exam)}><Pencil className="h-5 w-5" /><span className="sr-only">Edit</span></Button>
                               <Button size="icon" variant="ghost" className="h-11 w-11 text-red-600" onClick={() => setDeleteExam(exam)}><Trash2 className="h-5 w-5" /><span className="sr-only">Delete</span></Button>
                             </div>
                           </td>
@@ -540,7 +636,7 @@ export default function ExamsPage() {
                           <Button size="icon" variant="ghost" className="h-11 w-11 shrink-0"><MoreVertical className="h-5 w-5" /><span className="sr-only">Menu</span></Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => setEditExam(exam)}>Edit</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => openEditExam(exam)}>Edit</DropdownMenuItem>
                           <DropdownMenuItem className="text-red-600" onClick={() => setDeleteExam(exam)}>Delete</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -744,16 +840,194 @@ export default function ExamsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Edit modal - simplified for now */}
+      {/* Edit Exam Modal */}
       <Dialog open={!!editExam} onOpenChange={(o) => !o && setEditExam(null)}>
         <DialogContent className="md:max-w-[560px]" onSwipeDown={() => setEditExam(null)}>
           <DialogHeader>
             <DialogTitle>Edit Exam</DialogTitle>
+            <DialogDescription>Update exam details.</DialogDescription>
           </DialogHeader>
-          {editExam && <p className="text-sm text-gray-500">Edit functionality can be expanded. For now, delete and re-create.</p>}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditExam(null)}>Close</Button>
-          </DialogFooter>
+          <Form {...editForm}>
+            <form onSubmit={handleEditSubmit} className={`space-y-4 transition-opacity ${editLoading ? "opacity-60" : ""}`}>
+              {editError && <ServerErrorBanner message={editError} />}
+              <FormField
+                control={editForm.control}
+                name="courseCode"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Course *</FormLabel>
+                    <FormControl>
+                      <div ref={editCourseComboboxRef} className="relative">
+                        <Input
+                          className="pr-10"
+                          placeholder="Search by code or name..."
+                          value={editSelectedCourse && !editCourseComboboxQuery ? courseDisplayLabel(editSelectedCourse) : editCourseComboboxQuery}
+                          onChange={(e) => {
+                            setEditCourseComboboxQuery(e.target.value)
+                            if (editSelectedCourse) field.onChange('')
+                            setEditCourseComboboxOpen(true)
+                          }}
+                          onFocus={() => setEditCourseComboboxOpen(true)}
+                          onKeyDown={(e) => e.key === 'Escape' && setEditCourseComboboxOpen(false)}
+                          disabled={editLoading}
+                        />
+                        <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                        {editCourseComboboxOpen && (
+                          <>
+                            <div className="fixed inset-0 z-40" aria-hidden onClick={() => setEditCourseComboboxOpen(false)} />
+                            <div className="absolute z-50 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg max-h-48 overflow-y-auto">
+                              {editFilteredCoursesForCombobox.length === 0 ? (
+                                <div className="px-3 py-6 text-center text-sm text-gray-500">No courses match</div>
+                              ) : (
+                                editFilteredCoursesForCombobox.map((c) => (
+                                  <button
+                                    key={c.code}
+                                    type="button"
+                                    className="w-full px-3 py-2.5 text-left text-sm hover:bg-gray-100 first:rounded-t-lg last:rounded-b-lg focus:bg-gray-100 focus:outline-2 focus:outline-indigo-600 focus:outline-offset-2"
+                                    onClick={() => {
+                                      field.onChange(c.code)
+                                      setEditCourseComboboxQuery('')
+                                      setEditCourseComboboxOpen(false)
+                                    }}
+                                  >
+                                    {courseDisplayLabel(c)}
+                                  </button>
+                                ))
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              {editIsCbt && (
+                <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800 flex items-start gap-2">
+                  <Info className="h-4 w-4 shrink-0 mt-0.5" />
+                  <span>This is a CBT course (100L or General). You must select an ICT venue.</span>
+                </div>
+              )}
+              <FormField
+                control={editForm.control}
+                name="venue"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Venue *</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange} disabled={editLoading}>
+                      <FormControl>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <div className="px-2 py-1.5 text-xs font-medium text-gray-500">ICT Venues (Required for CBT)</div>
+                        {ICT_VENUES.map((v) => (
+                          <SelectItem key={v} value={v}>{VENUE_LABELS[v]}</SelectItem>
+                        ))}
+                        <div className="px-2 py-1.5 text-xs font-medium text-gray-500 mt-2">Regular Venues</div>
+                        {REGULAR_VENUES.map((v) => (
+                          <SelectItem key={v} value={v} disabled={editIsCbt}>{VENUE_LABELS[v]}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <FormField
+                  control={editForm.control}
+                  name="date"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Exam date *</FormLabel>
+                      <FormControl>
+                        <Input type="date" disabled={editLoading} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="startTime"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Start time *</FormLabel>
+                      <FormControl>
+                        <Input type="time" disabled={editLoading} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="endTime"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>End time *</FormLabel>
+                      <FormControl>
+                        <Input type="time" disabled={editLoading} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <FormField
+                control={editForm.control}
+                name="studentCount"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Student count *</FormLabel>
+                    <FormControl>
+                      <Input type="number" min={1} disabled={editLoading} {...field} value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value, 10) : 1)} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              {editSelectedCourse?.isGeneral && (
+                <FormField
+                  control={editForm.control}
+                  name="targetCollege"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Target college *</FormLabel>
+                      <Select value={field.value ?? ''} onValueChange={field.onChange} disabled={editLoading}>
+                        <FormControl>
+                          <SelectTrigger><SelectValue placeholder="Select college" /></SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value={College.CBAS}>CBAS</SelectItem>
+                          <SelectItem value={College.CHMS}>CHMS</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+              <FormField
+                control={editForm.control}
+                name="invigilators"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Invigilators</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g. Dr. Smith, Prof. Jones" disabled={editLoading} {...field} value={field.value ?? ''} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setEditExam(null)} disabled={editLoading}>Cancel</Button>
+                <Button type="submit" disabled={editLoading}>{editLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Update Exam'}</Button>
+              </DialogFooter>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
 

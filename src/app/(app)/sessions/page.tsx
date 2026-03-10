@@ -183,6 +183,22 @@ export default function AcademicSessionsPage() {
     }
   })
 
+  const openEditSession = useCallback(async (s: AcademicSession) => {
+    setEditSession(s)
+    setEditError('')
+    editForm.reset({ name: s.name, startDate: s.startDate.split('T')[0], endDate: s.endDate.split('T')[0] })
+    try {
+      const res = await apiClient.getAcademicSessionById(s.id)
+      if (res.success && res.data) {
+        const fresh = res.data as AcademicSession
+        setEditSession(fresh)
+        editForm.reset({ name: fresh.name, startDate: fresh.startDate.split('T')[0], endDate: fresh.endDate.split('T')[0] })
+      }
+    } catch {
+      toast({ title: 'Failed to load session', variant: 'destructive' })
+    }
+  }, [editForm, toast])
+
   const handleEdit = editForm.handleSubmit(async (data) => {
     if (!editSession) return
     setEditError('')
@@ -337,7 +353,7 @@ export default function AcademicSessionsPage() {
                           <BarChart2 className="h-5 w-5" />
                           <span className="sr-only">Statistics</span>
                         </Button>
-                        <Button size="icon" variant="ghost" className="h-11 w-11 touch-manipulation" onClick={() => { setEditSession(session); editForm.reset({ name: session.name, startDate: session.startDate.split('T')[0], endDate: session.endDate.split('T')[0] }); setEditError(''); }}>
+                        <Button size="icon" variant="ghost" className="h-11 w-11 touch-manipulation" onClick={() => openEditSession(session)}>
                           <Pencil className="h-5 w-5" />
                           <span className="sr-only">Edit</span>
                         </Button>
@@ -411,7 +427,7 @@ export default function AcademicSessionsPage() {
                   <button
                     type="button"
                     className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-100 text-left w-full min-h-[44px] font-medium"
-                    onClick={() => { setEditSession(s); editForm.reset({ name: s.name, startDate: s.startDate.split('T')[0], endDate: s.endDate.split('T')[0] }); setEditError(''); setMobileSheetSession(null); }}
+                    onClick={() => { openEditSession(s); setMobileSheetSession(null); }}
                   >
                     <Pencil className="h-5 w-5" />
                     Edit

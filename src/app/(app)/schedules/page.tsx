@@ -191,6 +191,16 @@ export default function SchedulePage() {
     }
   }, [searchParams, canMutateSchedules])
 
+  const openScheduleDetail = useCallback(async (s: Schedule) => {
+    setDetailSchedule(s)
+    try {
+      const res = await apiClient.getScheduleById(s.id)
+      if (res.success && res.data) setDetailSchedule(res.data as Schedule)
+    } catch {
+      toast({ title: 'Failed to load schedule details', variant: 'destructive' })
+    }
+  }, [toast])
+
   const handleDeleteSchedule = async (): Promise<boolean> => {
     if (!deleteSchedule) return false
     try {
@@ -1421,7 +1431,7 @@ export default function SchedulePage() {
                               <Button size="icon" variant="ghost" className="h-9 w-9"><MoreVertical className="h-4 w-4" /></Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => setDetailSchedule(s)}>View Details</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => openScheduleDetail(s)}>View Details</DropdownMenuItem>
                               {canMutateSchedules && (
                                 <>
                                   <DropdownMenuItem onClick={() => { setEditSchedule(s); setCreateModalOpen(true); }}>Edit Schedule</DropdownMenuItem>
@@ -1485,7 +1495,7 @@ export default function SchedulePage() {
                 <div className="hidden md:block">
                   <TimetableGrid
                     schedules={filteredSchedules}
-                    onScheduleClick={setDetailSchedule}
+                    onScheduleClick={openScheduleDetail}
                     onEmptyCellClick={canMutateSchedules ? (day, startTime) => { setCreateModalPrefill({ dayOfWeek: day, startTime }); setEditSchedule(null); setCreateModalOpen(true); } : undefined}
                     canMutate={canMutateSchedules}
                   />
@@ -1495,7 +1505,7 @@ export default function SchedulePage() {
                     schedules={filteredSchedules}
                     selectedDay={mobileSelectedDay}
                     onDayChange={setMobileSelectedDay}
-                    onScheduleClick={setDetailSchedule}
+                    onScheduleClick={openScheduleDetail}
                     onEmptySlotClick={canMutateSchedules ? (day, startTime) => { setCreateModalPrefill({ dayOfWeek: day, startTime }); setEditSchedule(null); setCreateModalOpen(true); } : undefined}
                     canMutate={canMutateSchedules}
                   />

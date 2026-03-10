@@ -152,7 +152,7 @@ export default function VerificationCodesPage() {
     setIsModalOpen(true)
   }
 
-  const openEdit = (c: VerificationCode) => {
+  const openEdit = async (c: VerificationCode) => {
     setEditingCode(c)
     setSaveError('')
     form.reset({
@@ -163,6 +163,22 @@ export default function VerificationCodesPage() {
       expiresAt: c.expiresAt ? new Date(c.expiresAt).toISOString().slice(0, 16) : '',
     })
     setIsModalOpen(true)
+    try {
+      const res = await apiClient.getVerificationCodeById(c.id)
+      if (res.success && res.data) {
+        const fresh = res.data as VerificationCode
+        setEditingCode(fresh)
+        form.reset({
+          code: fresh.code,
+          role: fresh.role,
+          description: fresh.description ?? '',
+          maxUsage: fresh.maxUsage != null ? String(fresh.maxUsage) : '',
+          expiresAt: fresh.expiresAt ? new Date(fresh.expiresAt).toISOString().slice(0, 16) : '',
+        })
+      }
+    } catch {
+      toast({ title: 'Failed to load code', variant: 'destructive' })
+    }
   }
 
   const handleSave = form.handleSubmit(async (data) => {

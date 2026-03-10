@@ -245,7 +245,7 @@ export function UsersPage({ role }: UsersPageProps) {
     setIsModalOpen(true)
   }
 
-  const openEdit = (u: UserType) => {
+  const openEdit = async (u: UserType) => {
     setEditingUser(u)
     setSaveError('')
     form.reset({
@@ -258,6 +258,24 @@ export function UsersPage({ role }: UsersPageProps) {
       password: '',
     })
     setIsModalOpen(true)
+    try {
+      const res = await apiClient.getUserById(u.id)
+      if (res.success && res.data) {
+        const fresh = res.data as UserType
+        setEditingUser(fresh)
+        form.reset({
+          matricNO: fresh.matricNO,
+          email: fresh.email,
+          name: fresh.name ?? '',
+          role: fresh.role,
+          departmentCode: fresh.departmentCode ?? '',
+          phone: fresh.phone ?? '',
+          password: '',
+        })
+      }
+    } catch {
+      toast({ title: 'Failed to load user', variant: 'destructive' })
+    }
   }
 
   const handleSave = form.handleSubmit(async (data) => {

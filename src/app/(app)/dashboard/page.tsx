@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  AlertCircle,
   BookOpen,
   Calendar,
   MessageCircle,
@@ -30,6 +31,7 @@ import {
   Department,
   Schedule,
   Exam,
+  Course,
   VenueType,
   Level,
   DayOfWeek,
@@ -190,6 +192,7 @@ export default function DashboardPage() {
 
   // HOD / LECTURER
   const [lecturerDashboard, setLecturerDashboard] = useState<LecturerDashboard | null>(null);
+  const [lecturerCourses, setLecturerCourses] = useState<Course[]>([]);
   const [department, setDepartment] = useState<Department | null>(null);
   const [lecturerSchedules, setLecturerSchedules] = useState<Schedule[]>([]);
   const [togglingLock, setTogglingLock] = useState(false);
@@ -202,13 +205,16 @@ export default function DashboardPage() {
   // Modals
   const [generateModalOpen, setGenerateModalOpen] = useState(false);
 
+  const [coursesWithoutSchedulesCount, setCoursesWithoutSchedulesCount] = useState<number | null>(null);
+
   const fetchAdminData = useCallback(async () => {
-    const [deptRes, courseRes, schedRes, sessionRes, pendingRes] = await Promise.all([
+    const [deptRes, courseRes, schedRes, sessionRes, pendingRes, withoutSchedRes] = await Promise.all([
       apiClient.getDepartmentStatistics(),
       apiClient.getCourseStatistics(),
       apiClient.getScheduleStatistics(),
       apiClient.getActiveAcademicSession(),
       apiClient.getPendingComplaints(),
+      apiClient.getCoursesWithoutSchedules(),
     ]);
     if (deptRes.success && deptRes.data) setDeptStats(deptRes.data as DepartmentStatistics);
     if (courseRes.success && courseRes.data) setCourseStats(courseRes.data as CourseStatistics);
@@ -216,19 +222,25 @@ export default function DashboardPage() {
     if (sessionRes.success && sessionRes.data) setActiveSession(sessionRes.data as AcademicSession);
     if (pendingRes.success && Array.isArray(pendingRes.data)) setPendingCount((pendingRes.data as unknown[]).length);
     else if (pendingRes.success && (pendingRes.data as any)?.data?.length) setPendingCount((pendingRes.data as any).data.length);
+    if (withoutSchedRes.success && withoutSchedRes.data) {
+      const d = withoutSchedRes.data as any;
+      setCoursesWithoutSchedulesCount(Array.isArray(d) ? d.length : (d?.data?.length ?? d?.count ?? 0));
+    } else setCoursesWithoutSchedulesCount(null);
   }, []);
 
   const fetchHodData = useCallback(async () => {
-    if (!user?.departmentCode) return;
-    const [dashRes, deptRes, schedRes] = await Promise.all([
+    const [dashRes, schedRes, coursesRes, deptRes] = await Promise.all([
       apiClient.getLecturerDashboard(),
-      apiClient.getDepartmentByCode(user.departmentCode),
       apiClient.getLecturerSchedule(),
+      apiClient.getLecturerCourses(),
+      user?.departmentCode ? apiClient.getDepartmentByCode(user.departmentCode) : Promise.resolve({ success: false, data: null }),
     ]);
     if (dashRes.success && dashRes.data) setLecturerDashboard(dashRes.data as LecturerDashboard);
     if (deptRes.success && deptRes.data) setDepartment(deptRes.data as Department);
     const sched = getItemsFromResponse<Schedule>(schedRes);
     setLecturerSchedules(sched?.items ?? []);
+    const courses = getItemsFromResponse<Course>(coursesRes);
+    setLecturerCourses(courses?.items ?? []);
   }, [user?.departmentCode]);
 
   const fetchStudentData = useCallback(async () => {
@@ -331,10 +343,11 @@ export default function DashboardPage() {
       {/* ADMIN Dashboard */}
       {isAdmin && (
         <>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
             <StatCard icon={Building2} value={deptStats?.totalDepartments ?? 0} label="Total Departments" iconBg="bg-indigo-500" />
             <StatCard icon={BookOpen} value={courseStats?.totalCourses ?? 0} label="Total Courses" iconBg="bg-violet-500" />
             <StatCard icon={Clock} value={scheduleStats?.totalSchedules ?? 0} label="Total Schedules" iconBg="bg-sky-500" />
+            <StatCard icon={AlertCircle} value={coursesWithoutSchedulesCount ?? "—"} label="Courses without Schedules" iconBg="bg-amber-500" />
             <StatCard icon={CalendarDays} value={activeSession?.name ?? "None"} label="Active Session" iconBg="bg-emerald-500" />
           </div>
           {/* Charts row */}
@@ -446,6 +459,27 @@ export default function DashboardPage() {
               </Card>
             )}
           </div>
+          <Card className="rounded-xl p-5">
+            <h3 className="font-semibold mb-4">My Courses</h3>
+            {lecturerCourses.length === 0 ? (
+              <p className="text-sm text-gray-500">No courses assigned.</p>
+            ) : (
+              <ul className="space-y-2">
+                {lecturerCourses.slice(0, 8).map((c) => (
+                  <li key={c.id} className="flex items-center gap-2 text-sm">
+                    <span className="font-mono text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">
+                      {c.code}
+                    </span>
+                    <span>{c.name}</span>
+                  </li>
+                ))}
+                {lecturerCourses.length > 8 && (
+                  <li className="text-sm text-gray-500">+{lecturerCourses.length - 8} more</li>
+                )}
+              </ul>
+            )}
+            <Button asChild variant="outline" className="mt-4"><Link href="/courses">View All Courses</Link></Button>
+          </Card>
           <Card className="rounded-xl p-5">
             <h3 className="font-semibold mb-2">My Schedule This Week</h3>
             <MobileTimetable schedules={lecturerSchedules} />
