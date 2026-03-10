@@ -166,6 +166,9 @@ class ApiClient {
         const message = Array.isArray(errorData.message)
           ? errorData.message.join(", ")
           : errorData.message || errorData.error || "Upload failed";
+        if (response.status === 401 && this.on401) {
+          this.on401();
+        }
         return {
           success: false,
           error: message,
@@ -200,6 +203,9 @@ class ApiClient {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        if (response.status === 401 && this.on401) {
+          this.on401();
+        }
         return {
           success: false,
           error: errorData.error || `HTTP ${response.status}`,
