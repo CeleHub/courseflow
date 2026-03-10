@@ -29,6 +29,16 @@
 
 ---
 
+### 3. §4 Generate Schedule Modal — Breakpoint ✅ FIXED
+
+| Line | Spec | Implementation |
+|------|------|-----------------|
+| §4 | Desktop ≥ 640px = centered; Mobile < 640px = bottom sheet | Was using `max-md` (768px) |
+
+**Fix applied:** Changed Generate Schedule Modal from `max-md` to `max-sm` (640px) to match §4.
+
+---
+
 ## Spec Internal Conflicts (No Implementation Gap)
 
 ### §4 vs §20 — Modal Breakpoint
@@ -45,7 +55,7 @@
 - **§11.5:** "You haven't submitted any complaints."
 - **§16 table:** Complaints (student) | "No complaints submitted" | "Submit a complaint if you need assistance."
 
-**Implementation:** Follows §16. §11.5 and §16 conflict on the title text.
+**Implementation:** Follows §11.5 ("You haven't submitted any complaints."). §11.5 and §16 conflict on the title text.
 
 ---
 
@@ -78,9 +88,10 @@
 
 | Status | Count |
 |--------|-------|
-| **Gaps to fix** | 2 |
+| **Gaps to fix** | 0 |
 | Spec conflicts (informational) | 3 |
 
 **Fixes applied:**
 1. ✅ Student complaints empty state title → "You haven't submitted any complaints."
 2. ✅ Mobile verification code usage bar → 80px (`w-20`)
+3. ✅ Generate Schedule Modal breakpoint → 640px (`max-sm`) per §4

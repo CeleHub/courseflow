@@ -65,7 +65,7 @@ export function ConfirmDialog({
         )}
         onSwipeDown={() => onOpenChange(false)}
       >
-        <div className="flex flex-col items-center text-center md:block md:text-left">
+        <div className="flex flex-col items-center text-center sm:block sm:text-left">
           {Icon && (
             <div
               className={cn(
