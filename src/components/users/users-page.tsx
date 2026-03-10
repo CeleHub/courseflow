@@ -144,6 +144,7 @@ export function UsersPage({ role }: UsersPageProps) {
   const [showInactive, setShowInactive] = useState(false)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<UserType | null>(null)
+  const openForEditUserIdRef = useRef<string | null>(null)
   const [deleteUser, setDeleteUser] = useState<UserType | null>(null)
   const [deactivateUser, setDeactivateUser] = useState<UserType | null>(null)
   const [saving, setSaving] = useState(false)
@@ -230,7 +231,14 @@ export function UsersPage({ role }: UsersPageProps) {
     return name.includes(term) || email.includes(term) || matric.includes(term) || dept.includes(term)
   })
 
+  const closeModal = useCallback(() => {
+    openForEditUserIdRef.current = null
+    setEditingUser(null)
+    setIsModalOpen(false)
+  }, [])
+
   const openCreate = () => {
+    openForEditUserIdRef.current = null
     setEditingUser(null)
     setSaveError('')
     form.reset({
@@ -246,6 +254,7 @@ export function UsersPage({ role }: UsersPageProps) {
   }
 
   const openEdit = async (u: UserType) => {
+    openForEditUserIdRef.current = u.id
     setEditingUser(u)
     setSaveError('')
     form.reset({
@@ -260,6 +269,7 @@ export function UsersPage({ role }: UsersPageProps) {
     setIsModalOpen(true)
     try {
       const res = await apiClient.getUserById(u.id)
+      if (openForEditUserIdRef.current !== u.id) return
       if (res.success && res.data) {
         const fresh = res.data as UserType
         setEditingUser(fresh)
@@ -274,7 +284,7 @@ export function UsersPage({ role }: UsersPageProps) {
         })
       }
     } catch {
-      toast({ title: 'Failed to load user', variant: 'destructive' })
+      if (openForEditUserIdRef.current === u.id) toast({ title: 'Failed to load user', variant: 'destructive' })
     }
   }
 
@@ -294,7 +304,7 @@ export function UsersPage({ role }: UsersPageProps) {
         const res = await apiClient.updateUser(editingUser.id, payload)
         if (res.success) {
           toast({ title: 'User updated.' })
-          setIsModalOpen(false)
+          closeModal()
           fetchData()
         } else {
           setSaveError((res as { error?: string }).error || 'Update failed')
@@ -310,10 +320,10 @@ export function UsersPage({ role }: UsersPageProps) {
           phone: data.phone?.trim(),
         }
         const res = await apiClient.createUser(payload)
-        if (res.success) {
-          toast({ title: 'User created.' })
-          setIsModalOpen(false)
-          fetchData()
+if (res.success) {
+        toast({ title: 'User created.' })
+        closeModal()
+        fetchData()
         } else {
           setSaveError((res as { error?: string }).error || 'Create failed')
         }
@@ -600,8 +610,8 @@ export function UsersPage({ role }: UsersPageProps) {
       )}
 
       {/* 10.3 Add/Edit Modal */}
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="md:max-w-[520px]" onSwipeDown={() => setIsModalOpen(false)}>
+      <Dialog open={isModalOpen} onOpenChange={(o) => { if (!o) closeModal(); else setIsModalOpen(o); }}>
+        <DialogContent className="md:max-w-[520px]" onSwipeDown={() => closeModal()}>
           <DialogHeader>
             <DialogTitle>{editingUser ? 'Edit User' : addLabel}</DialogTitle>
             <DialogDescription>{editingUser ? 'Update user details.' : 'Create a new user account.'}</DialogDescription>
@@ -721,7 +731,7 @@ export function UsersPage({ role }: UsersPageProps) {
               )}
             />
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)} disabled={saving}>Cancel</Button>
+              <Button type="button" variant="outline" onClick={() => closeModal()} disabled={saving}>Cancel</Button>
               <Button type="submit" disabled={saving}>{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}</Button>
             </DialogFooter>
           </form>

@@ -83,6 +83,7 @@ export default function VerificationCodesPage() {
   usePageLoadReporter(loading)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingCode, setEditingCode] = useState<VerificationCode | null>(null)
+  const openForEditCodeIdRef = useRef<string | null>(null)
   const [deleteCode, setDeleteCode] = useState<VerificationCode | null>(null)
   const [saving, setSaving] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
@@ -145,7 +146,14 @@ export default function VerificationCodesPage() {
     form.setValue('code', `${rolePrefix}-${year}-${suffix}`)
   }
 
+  const closeModal = useCallback(() => {
+    openForEditCodeIdRef.current = null
+    setEditingCode(null)
+    setIsModalOpen(false)
+  }, [])
+
   const openCreate = () => {
+    openForEditCodeIdRef.current = null
     setEditingCode(null)
     setSaveError('')
     form.reset({ code: '', role: Role.LECTURER, description: '', maxUsage: '', expiresAt: '' })
@@ -153,6 +161,7 @@ export default function VerificationCodesPage() {
   }
 
   const openEdit = async (c: VerificationCode) => {
+    openForEditCodeIdRef.current = c.id
     setEditingCode(c)
     setSaveError('')
     form.reset({
@@ -165,6 +174,7 @@ export default function VerificationCodesPage() {
     setIsModalOpen(true)
     try {
       const res = await apiClient.getVerificationCodeById(c.id)
+      if (openForEditCodeIdRef.current !== c.id) return
       if (res.success && res.data) {
         const fresh = res.data as VerificationCode
         setEditingCode(fresh)
@@ -177,7 +187,7 @@ export default function VerificationCodesPage() {
         })
       }
     } catch {
-      toast({ title: 'Failed to load code', variant: 'destructive' })
+      if (openForEditCodeIdRef.current === c.id) toast({ title: 'Failed to load code', variant: 'destructive' })
     }
   }
 
@@ -196,17 +206,17 @@ export default function VerificationCodesPage() {
         const res = await apiClient.updateVerificationCode(editingCode.id, payload)
         if (res.success) {
           toast({ title: 'Code updated.' })
-          setIsModalOpen(false)
+          closeModal()
           fetchCodes()
         } else {
           setSaveError((res as { error?: string }).error ?? 'Failed to update')
         }
       } else {
         const res = await apiClient.createVerificationCode(payload)
-        if (res.success) {
-          toast({ title: 'Code created.' })
-          setIsModalOpen(false)
-          fetchCodes()
+if (res.success) {
+        toast({ title: 'Code created.' })
+        closeModal()
+        fetchCodes()
         } else {
           setSaveError((res as { error?: string }).error ?? 'Failed to create')
         }
@@ -439,8 +449,8 @@ export default function VerificationCodesPage() {
       )}
 
       {/* 12.3 Create/Edit Modal */}
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="md:max-w-[500px]" onSwipeDown={() => setIsModalOpen(false)}>
+      <Dialog open={isModalOpen} onOpenChange={(o) => { if (!o) closeModal(); else setIsModalOpen(o); }}>
+        <DialogContent className="md:max-w-[500px]" onSwipeDown={() => closeModal()}>
           <DialogHeader>
             <DialogTitle>{editingCode ? 'Edit Verification Code' : 'New Verification Code'}</DialogTitle>
             <DialogDescription>{editingCode ? 'Update code details.' : 'Create a verification code for registration.'}</DialogDescription>
@@ -524,7 +534,7 @@ export default function VerificationCodesPage() {
               )}
             />
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)} disabled={saving}>Cancel</Button>
+              <Button type="button" variant="outline" onClick={() => closeModal()} disabled={saving}>Cancel</Button>
               <Button type="submit" disabled={saving}>{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}</Button>
             </DialogFooter>
           </form>

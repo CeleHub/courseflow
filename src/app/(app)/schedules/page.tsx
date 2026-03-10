@@ -67,6 +67,7 @@ export default function SchedulePage() {
   const [viewMode, setViewMode] = useState<'timetable' | 'list'>('timetable')
   const [generateModalOpen, setGenerateModalOpen] = useState(false)
   const [detailSchedule, setDetailSchedule] = useState<Schedule | null>(null)
+  const openForDetailScheduleIdRef = useRef<string | null>(null)
   const [createModalOpen, setCreateModalOpen] = useState(false)
   const [createModalPrefill, setCreateModalPrefill] = useState<{ courseCode?: string; dayOfWeek?: DayOfWeek; startTime?: string }>({})
   const [mobileSelectedDay, setMobileSelectedDay] = useState<DayOfWeek>(DayOfWeek.MONDAY)
@@ -192,12 +193,14 @@ export default function SchedulePage() {
   }, [searchParams, canMutateSchedules])
 
   const openScheduleDetail = useCallback(async (s: Schedule) => {
+    openForDetailScheduleIdRef.current = s.id
     setDetailSchedule(s)
     try {
       const res = await apiClient.getScheduleById(s.id)
+      if (openForDetailScheduleIdRef.current !== s.id) return
       if (res.success && res.data) setDetailSchedule(res.data as Schedule)
     } catch {
-      toast({ title: 'Failed to load schedule details', variant: 'destructive' })
+      if (openForDetailScheduleIdRef.current === s.id) toast({ title: 'Failed to load schedule details', variant: 'destructive' })
     }
   }, [toast])
 
@@ -209,6 +212,7 @@ export default function SchedulePage() {
       if (res.success) {
         toast({ title: 'Schedule deleted' })
         setDeleteSchedule(null)
+        openForDetailScheduleIdRef.current = null
         setDetailSchedule(null)
         fetchSchedules()
         return true
@@ -1062,8 +1066,8 @@ export default function SchedulePage() {
         <ScheduleDetailSheet
           schedule={detailSchedule}
           sessionName={sessions.find((s) => s.id === detailSchedule?.sessionId)?.name}
-          onClose={() => setDetailSchedule(null)}
-          onEdit={(s) => { setDetailSchedule(null); setEditSchedule(s); setCreateModalOpen(true); }}
+          onClose={() => { openForDetailScheduleIdRef.current = null; setDetailSchedule(null); }}
+          onEdit={(s) => { openForDetailScheduleIdRef.current = null; setDetailSchedule(null); setEditSchedule(s); setCreateModalOpen(true); }}
           onDelete={(s) => setDeleteSchedule(s)}
           canMutate={canMutateSchedules}
           isAdmin={isAdmin}

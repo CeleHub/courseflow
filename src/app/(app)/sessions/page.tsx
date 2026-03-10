@@ -78,6 +78,7 @@ export default function AcademicSessionsPage() {
   const [creating, setCreating] = useState(false)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [editSession, setEditSession] = useState<AcademicSession | null>(null)
+  const openForEditSessionIdRef = useRef<string | null>(null)
   const [statsSession, setStatsSession] = useState<AcademicSession | null>(null)
   const [statsLoading, setStatsLoading] = useState(false)
   const [statsData, setStatsData] = useState<SessionStatistics | null>(null)
@@ -184,18 +185,20 @@ export default function AcademicSessionsPage() {
   })
 
   const openEditSession = useCallback(async (s: AcademicSession) => {
+    openForEditSessionIdRef.current = s.id
     setEditSession(s)
     setEditError('')
     editForm.reset({ name: s.name, startDate: s.startDate.split('T')[0], endDate: s.endDate.split('T')[0] })
     try {
       const res = await apiClient.getAcademicSessionById(s.id)
+      if (openForEditSessionIdRef.current !== s.id) return
       if (res.success && res.data) {
         const fresh = res.data as AcademicSession
         setEditSession(fresh)
         editForm.reset({ name: fresh.name, startDate: fresh.startDate.split('T')[0], endDate: fresh.endDate.split('T')[0] })
       }
     } catch {
-      toast({ title: 'Failed to load session', variant: 'destructive' })
+      if (openForEditSessionIdRef.current === s.id) toast({ title: 'Failed to load session', variant: 'destructive' })
     }
   }, [editForm, toast])
 
@@ -211,6 +214,7 @@ export default function AcademicSessionsPage() {
       })
       if (res.success) {
         toast({ title: 'Session updated.' })
+        openForEditSessionIdRef.current = null
         setEditSession(null)
         fetchSessions()
       } else {
@@ -510,8 +514,8 @@ export default function AcademicSessionsPage() {
       </Dialog>
 
       {/* 5.3 Edit Modal */}
-      <Dialog open={!!editSession} onOpenChange={(o) => !o && setEditSession(null)}>
-        <DialogContent className="md:max-w-[480px]" onSwipeDown={() => setEditSession(null)}>
+      <Dialog open={!!editSession} onOpenChange={(o) => { if (!o) { openForEditSessionIdRef.current = null; setEditSession(null); } }}>
+        <DialogContent className="md:max-w-[480px]" onSwipeDown={() => { openForEditSessionIdRef.current = null; setEditSession(null); }}>
           <DialogHeader>
             <DialogTitle>Edit Session</DialogTitle>
             <DialogDescription>Update the academic session details.</DialogDescription>
@@ -559,7 +563,7 @@ export default function AcademicSessionsPage() {
                 )}
               />
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setEditSession(null)} disabled={creating}>
+                <Button type="button" variant="outline" onClick={() => { openForEditSessionIdRef.current = null; setEditSession(null); }} disabled={creating}>
                   Cancel
                 </Button>
                 <Button type="submit" disabled={creating}>

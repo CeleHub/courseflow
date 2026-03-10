@@ -169,6 +169,7 @@ export default function ExamsPage() {
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState('')
   const [editExam, setEditExam] = useState<Exam | null>(null)
+  const openForEditExamIdRef = useRef<string | null>(null)
   const [editLoading, setEditLoading] = useState(false)
   const [editError, setEditError] = useState('')
   const [deleteExam, setDeleteExam] = useState<Exam | null>(null)
@@ -216,6 +217,7 @@ export default function ExamsPage() {
   })
 
   const openEditExam = useCallback(async (exam: Exam) => {
+    openForEditExamIdRef.current = exam.id
     setEditExam(exam)
     setEditError('')
     editForm.reset({
@@ -230,6 +232,7 @@ export default function ExamsPage() {
     })
     try {
       const res = await apiClient.getExamById(exam.id)
+      if (openForEditExamIdRef.current !== exam.id) return
       if (res.success && res.data) {
         const fresh = res.data as Exam
         setEditExam(fresh)
@@ -245,7 +248,7 @@ export default function ExamsPage() {
         })
       }
     } catch {
-      toast({ title: 'Failed to load exam', variant: 'destructive' })
+      if (openForEditExamIdRef.current === exam.id) toast({ title: 'Failed to load exam', variant: 'destructive' })
     }
   }, [editForm, toast])
 
@@ -841,8 +844,8 @@ export default function ExamsPage() {
       </Dialog>
 
       {/* Edit Exam Modal */}
-      <Dialog open={!!editExam} onOpenChange={(o) => !o && setEditExam(null)}>
-        <DialogContent className="md:max-w-[560px]" onSwipeDown={() => setEditExam(null)}>
+      <Dialog open={!!editExam} onOpenChange={(o) => { if (!o) { openForEditExamIdRef.current = null; setEditExam(null); } }}>
+        <DialogContent className="md:max-w-[560px]" onSwipeDown={() => { openForEditExamIdRef.current = null; setEditExam(null); }}>
           <DialogHeader>
             <DialogTitle>Edit Exam</DialogTitle>
             <DialogDescription>Update exam details.</DialogDescription>
@@ -1023,7 +1026,7 @@ export default function ExamsPage() {
                 )}
               />
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setEditExam(null)} disabled={editLoading}>Cancel</Button>
+                <Button type="button" variant="outline" onClick={() => { openForEditExamIdRef.current = null; setEditExam(null); }} disabled={editLoading}>Cancel</Button>
                 <Button type="submit" disabled={editLoading}>{editLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Update Exam'}</Button>
               </DialogFooter>
             </form>
