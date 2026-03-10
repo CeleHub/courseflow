@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useActiveSessionInvalidateCount } from "@/contexts/ActiveSessionContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -174,6 +175,7 @@ function StatCard({
 export default function DashboardPage() {
   const { user, isAdmin, isLecturer, isHod, isStudent } = useAuth();
   const { toast } = useToast();
+  const activeSessionInvalidateCount = useActiveSessionInvalidateCount();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [retryTrigger, setRetryTrigger] = useState(0);
@@ -255,20 +257,28 @@ export default function DashboardPage() {
       }
     };
     run();
-  }, [isAdmin, isHod, isLecturer, isStudent, retryTrigger, fetchAdminData, fetchHodData, fetchStudentData]);
+  }, [isAdmin, isHod, isLecturer, isStudent, retryTrigger, activeSessionInvalidateCount, fetchAdminData, fetchHodData, fetchStudentData]);
 
   const handleToggleLock = async (): Promise<boolean> => {
     if (!department || !user?.departmentCode) return false;
+    const prevLocked = department.isScheduleLocked;
+    setDepartment((d) => (d ? { ...d, isScheduleLocked: !d.isScheduleLocked } : null));
     setTogglingLock(true);
     try {
-      const fn = department.isScheduleLocked ? apiClient.unlockDepartmentSchedule : apiClient.lockDepartmentSchedule;
+      const fn = prevLocked ? apiClient.unlockDepartmentSchedule : apiClient.lockDepartmentSchedule;
       const res = await fn(department.code);
       if (res.success) {
-        setDepartment((d) => (d ? { ...d, isScheduleLocked: !d.isScheduleLocked } : null));
-        toast({ title: `Schedule ${department.isScheduleLocked ? "unlocked" : "locked"} for ${department.name}.` });
+        const deptRes = await apiClient.getDepartmentByCode(department.code);
+        if (deptRes.success && deptRes.data) setDepartment(deptRes.data as Department);
+        toast({ title: `Schedule ${prevLocked ? "unlocked" : "locked"} for ${department.name}.` });
         return true;
       }
+      setDepartment((d) => (d ? { ...d, isScheduleLocked: prevLocked } : null));
       toast({ title: (res as any).error, variant: "destructive" });
+      return false;
+    } catch {
+      setDepartment((d) => (d ? { ...d, isScheduleLocked: prevLocked } : null));
+      toast({ title: "Failed to update", variant: "destructive" });
       return false;
     } finally {
       setTogglingLock(false);

@@ -50,6 +50,7 @@ export default function CreateSchedulePage() {
   const [loading, setLoading] = useState(false)
   const [loadingData, setLoadingData] = useState(true)
   const [serverError, setServerError] = useState('')
+  const [isFixed, setIsFixed] = useState(false)
   usePageLoadReporter(loadingData)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [courses, setCourses] = useState<Course[]>([])
@@ -137,8 +138,6 @@ export default function CreateSchedulePage() {
       </div>
     )
   }
-
-  const [isFixed, setIsFixed] = useState(false)
 
   const handleSubmit = form.handleSubmit(async (data) => {
     setServerError('')

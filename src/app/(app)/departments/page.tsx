@@ -247,6 +247,10 @@ export default function DepartmentsPage() {
   const handleConfirmAction = async (): Promise<boolean> => {
     const { dept, type } = confirmAction
     if (!dept) return false
+    const prevLocked = dept.isScheduleLocked
+    if (type === 'lock' || type === 'unlock') {
+      setDepartments((prev) => prev.map((d) => (d.code === dept.code ? { ...d, isScheduleLocked: type === 'lock' } : d)))
+    }
     try {
       setActionLoading(true)
       let res: { success?: boolean }
@@ -261,9 +265,15 @@ export default function DepartmentsPage() {
         fetchDepartments()
         return true
       }
+      if (type === 'lock' || type === 'unlock') {
+        setDepartments((prev) => prev.map((d) => (d.code === dept.code ? { ...d, isScheduleLocked: prevLocked } : d)))
+      }
       toast({ title: (res as any).error || 'Action failed', variant: 'destructive' })
       return false
     } catch {
+      if (type === 'lock' || type === 'unlock') {
+        setDepartments((prev) => prev.map((d) => (d.code === dept.code ? { ...d, isScheduleLocked: prevLocked } : d)))
+      }
       toast({ title: 'Action failed', variant: 'destructive' })
       return false
     } finally {
@@ -769,7 +779,7 @@ export default function DepartmentsPage() {
                     <FormLabel>Head of Department (Optional)</FormLabel>
                     <FormControl>
                       <HodCombobox
-                        value={field.value}
+                        value={field.value ?? ''}
                         onChange={field.onChange}
                         placeholder="Search by name..."
                         disabled={editSaving}

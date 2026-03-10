@@ -116,7 +116,7 @@ export default function ComplaintsPage() {
       })
       setSubmitError('')
     }
-  }, [isSubmitOpen, user?.id, user?.name])
+  }, [isSubmitOpen, user?.id, user?.name, complaintForm, user])
 
   const fetchComplaints = useCallback(async () => {
     try {
@@ -155,10 +155,6 @@ export default function ComplaintsPage() {
       hasFetchedRef.current = true
     }
   }, [isManager, orderBy, activeTab, toast])
-
-  useEffect(() => {
-    if (user) setFormData((p) => ({ ...p, name: user.name ?? p.name, email: user.email ?? p.email }))
-  }, [user])
 
   useEffect(() => {
     fetchComplaints()

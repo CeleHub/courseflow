@@ -326,7 +326,7 @@ export default function EditCoursePage() {
                     <FormLabel>Lecturer</FormLabel>
                     <FormControl>
                       <LecturerCombobox
-                        value={field.value}
+                        value={field.value ?? ''}
                         onChange={field.onChange}
                         departmentCode={form.watch("departmentCode") || undefined}
                         placeholder="Search by name or email..."

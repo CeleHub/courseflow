@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useAuth } from '@/contexts/AuthContext'
+import { useActiveSessionInvalidateCount } from '@/contexts/ActiveSessionContext'
 import { usePageLoadReporter } from '@/contexts/PageLoadContext'
 import { RefetchIndicator } from '@/components/ui/refetch-indicator'
 import { useToast } from '@/hooks/use-toast'
@@ -55,6 +56,7 @@ export default function SchedulePage() {
   const searchParams = useSearchParams()
   const { isAuthenticated, isAdmin, isLecturer, isHod, user } = useAuth()
   const { toast } = useToast()
+  const activeSessionInvalidateCount = useActiveSessionInvalidateCount()
 
   const isStaff = isAdmin || isLecturer || isHod /* for read access */
   const canMutateSchedules = isAdmin || isHod /* LECTURER is read-only per 0.1 */
@@ -139,7 +141,7 @@ export default function SchedulePage() {
       }
     }
     fetchData()
-  }, [])
+  }, [activeSessionInvalidateCount])
 
   const fetchSchedules = useCallback(async () => {
     try {

@@ -26,6 +26,7 @@ export function NetworkErrorProvider({
         persistent: true,
         action: (
           <ToastAction
+            altText="Retry"
             onClick={() => {
               dismiss();
               retry();

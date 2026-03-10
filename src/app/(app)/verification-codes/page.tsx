@@ -203,16 +203,19 @@ export default function VerificationCodesPage() {
   })
 
   const handleToggleActive = async (c: VerificationCode) => {
+    const prevActive = c.isActive
+    setCodes((prev) => prev.map((x) => (x.id === c.id ? { ...x, isActive: !x.isActive } : x)))
     try {
       setActionLoading(true)
       const res = await apiClient.updateVerificationCode(c.id, { isActive: !c.isActive })
       if (res.success) {
-        toast({ title: c.isActive ? 'Code deactivated.' : 'Code activated.' })
-        fetchCodes()
+        toast({ title: prevActive ? 'Code deactivated.' : 'Code activated.' })
       } else {
+        setCodes((prev) => prev.map((x) => (x.id === c.id ? { ...x, isActive: prevActive } : x)))
         toast({ title: (res as any).error, variant: 'destructive' })
       }
     } catch {
+      setCodes((prev) => prev.map((x) => (x.id === c.id ? { ...x, isActive: prevActive } : x)))
       toast({ title: 'Update failed', variant: 'destructive' })
     } finally {
       setActionLoading(false)

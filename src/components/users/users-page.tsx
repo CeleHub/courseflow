@@ -312,16 +312,19 @@ export function UsersPage({ role }: UsersPageProps) {
       setDeactivateUser(u)
       return
     }
+    const prevActive = u.isActive
+    setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, isActive: true } : x)))
     try {
       setActionLoading(true)
       const res = await apiClient.updateUser(u.id, { isActive: true })
       if (res.success) {
         toast({ title: 'User activated.' })
-        fetchData()
       } else {
+        setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, isActive: prevActive } : x)))
         toast({ title: (res as any).error, variant: 'destructive' })
       }
     } catch {
+      setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, isActive: prevActive } : x)))
       toast({ title: 'Update failed', variant: 'destructive' })
     } finally {
       setActionLoading(false)
@@ -330,18 +333,21 @@ export function UsersPage({ role }: UsersPageProps) {
 
   const handleConfirmDeactivate = async (): Promise<boolean> => {
     if (!deactivateUser) return false
+    const prevActive = deactivateUser.isActive
+    setUsers((prev) => prev.map((x) => (x.id === deactivateUser.id ? { ...x, isActive: false } : x)))
+    setDeactivateUser(null)
     try {
       setActionLoading(true)
       const res = await apiClient.updateUser(deactivateUser.id, { isActive: false })
       if (res.success) {
         toast({ title: 'User deactivated.' })
-        setDeactivateUser(null)
-        fetchData()
         return true
       }
+      setUsers((prev) => prev.map((x) => (x.id === deactivateUser.id ? { ...x, isActive: prevActive } : x)))
       toast({ title: (res as any).error, variant: 'destructive' })
       return false
     } catch {
+      setUsers((prev) => prev.map((x) => (x.id === deactivateUser.id ? { ...x, isActive: prevActive } : x)))
       toast({ title: 'Update failed', variant: 'destructive' })
       return false
     } finally {

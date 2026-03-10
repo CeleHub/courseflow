@@ -209,17 +209,22 @@ export default function DepartmentDetailsPage() {
 
   const handleLockToggle = async () => {
     if (!department) return
+    const prevLocked = department.isScheduleLocked
+    setDepartment((d) => (d ? { ...d, isScheduleLocked: !d.isScheduleLocked } : null))
     setLockLoading(true)
     try {
-      const fn = department.isScheduleLocked ? apiClient.unlockDepartmentSchedule : apiClient.lockDepartmentSchedule
+      const fn = prevLocked ? apiClient.unlockDepartmentSchedule : apiClient.lockDepartmentSchedule
       const res = await fn(department.code)
       if (res.success) {
-        setDepartment((d) => (d ? { ...d, isScheduleLocked: !d.isScheduleLocked } : null))
-        toast({ title: department.isScheduleLocked ? 'Schedule unlocked' : 'Schedule locked' })
+        const deptRes = await apiClient.getDepartmentByCode(department.code)
+        if (deptRes.success && deptRes.data) setDepartment(deptRes.data as Department)
+        toast({ title: prevLocked ? 'Schedule unlocked' : 'Schedule locked' })
       } else {
+        setDepartment((d) => (d ? { ...d, isScheduleLocked: prevLocked } : null))
         toast({ title: (res as { error?: string }).error ?? 'Failed', variant: 'destructive' })
       }
     } catch {
+      setDepartment((d) => (d ? { ...d, isScheduleLocked: prevLocked } : null))
       toast({ title: 'Failed', variant: 'destructive' })
     } finally {
       setLockLoading(false)
@@ -623,7 +628,7 @@ export default function DepartmentDetailsPage() {
                     <FormLabel>Head of Department (Optional)</FormLabel>
                     <FormControl>
                       <HodCombobox
-                        value={field.value}
+                        value={field.value ?? ''}
                         onChange={field.onChange}
                         placeholder="Search by name..."
                         disabled={editSaving}

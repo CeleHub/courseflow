@@ -62,7 +62,7 @@ export default function ProfilePage() {
     if (user) {
       form.reset({ name: user.name ?? "", phone: user.phone ?? "" });
     }
-  }, [user?.id, user?.name, user?.phone, form]);
+  }, [user?.id, user?.name, user?.phone, user, form]);
 
   const handleSave = form.handleSubmit(async (data) => {
     if (!user) return;

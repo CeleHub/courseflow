@@ -213,7 +213,7 @@ export default function CreateDepartmentPage() {
                         <FormLabel>Head of Department (Optional)</FormLabel>
                         <FormControl>
                           <HodCombobox
-                            value={field.value}
+                            value={field.value ?? ''}
                             onChange={field.onChange}
                             placeholder="Search by name..."
                             disabled={loading}

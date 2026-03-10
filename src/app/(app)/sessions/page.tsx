@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useAuth } from '@/contexts/AuthContext'
 import { usePageLoadReporter } from '@/contexts/PageLoadContext'
+import { useActiveSessionInvalidate } from '@/contexts/ActiveSessionContext'
 import { RefetchIndicator } from '@/components/ui/refetch-indicator'
 import { apiClient } from '@/lib/api'
 import {
@@ -65,6 +66,7 @@ type SessionFormValues = z.infer<typeof sessionSchema>
 export default function AcademicSessionsPage() {
   const { isAuthenticated, isAdmin } = useAuth()
   const { toast } = useToast()
+  const invalidateActiveSession = useActiveSessionInvalidate()
 
   const [sessions, setSessions] = useState<AcademicSession[]>([])
   const [activeSession, setActiveSession] = useState<AcademicSession | null>(null)
@@ -234,6 +236,7 @@ export default function AcademicSessionsPage() {
         else if (action === 'archive') toast({ title: 'Session archived.', variant: 'default' })
         else toast({ title: 'Session deleted.' })
         fetchSessions()
+        if (action === 'activate' || action === 'archive') invalidateActiveSession()
         return true
       }
       toast({ title: (res as any).error || 'Action failed', variant: 'destructive' })

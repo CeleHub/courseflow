@@ -32,6 +32,7 @@ import {
 } from '@/components/ui/form'
 import { ServerErrorBanner } from '@/components/ui/server-error-banner'
 import { Loader2 } from 'lucide-react'
+import { useToast } from '@/hooks/use-toast'
 import { apiClient } from '@/lib/api'
 import { getItemsFromResponse } from '@/lib/utils'
 import { Course, DayOfWeek, Schedule } from '@/types'
