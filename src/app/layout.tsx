@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { PageLoadProvider } from "@/contexts/PageLoadContext";
+import { ForbiddenProvider } from "@/contexts/ForbiddenContext";
 import { Toaster } from "@/components/ui/toaster";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { Footer } from "@/components/footer";
@@ -39,6 +40,7 @@ export default function RootLayout({
         <ErrorBoundary>
           <AuthProvider>
             <PageLoadProvider>
+              <ForbiddenProvider>
               <TopProgressBar />
               <div className="flex flex-col min-h-screen">
               {children}
@@ -46,6 +48,7 @@ export default function RootLayout({
             </div>
             <Toaster />
             <Analytics />
+              </ForbiddenProvider>
             </PageLoadProvider>
           </AuthProvider>
         </ErrorBoundary>

@@ -29,14 +29,20 @@ import {
 const API_BASE_URL = "https://courseflow-backend-s16i.onrender.com/api/v1";
 
 type On401Callback = () => void;
+type On403Callback = () => void;
 
 class ApiClient {
   private baseURL: string;
   private token: string | null = null;
   private on401: On401Callback | null = null;
+  private on403: On403Callback | null = null;
 
   setOn401(callback: On401Callback | null) {
     this.on401 = callback;
+  }
+
+  setOn403(callback: On403Callback | null) {
+    this.on403 = callback;
   }
 
   constructor(baseURL: string) {
@@ -122,6 +128,9 @@ class ApiClient {
         if (response.status === 401 && this.on401) {
           this.on401();
         }
+        if (response.status === 403 && this.on403) {
+          this.on403();
+        }
         return {
           success: false,
           error: message,
@@ -169,6 +178,9 @@ class ApiClient {
         if (response.status === 401 && this.on401) {
           this.on401();
         }
+        if (response.status === 403 && this.on403) {
+          this.on403();
+        }
         return {
           success: false,
           error: message,
@@ -205,6 +217,9 @@ class ApiClient {
         const errorData = await response.json().catch(() => ({}));
         if (response.status === 401 && this.on401) {
           this.on401();
+        }
+        if (response.status === 403 && this.on403) {
+          this.on403();
         }
         return {
           success: false,
