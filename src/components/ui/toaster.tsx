@@ -19,7 +19,7 @@ export function Toaster() {
       {toasts.map(function ({ id, title, description, action, variant, ...props }) {
         const Icon = VARIANT_ICONS[variant ?? "default"]
         const iconClass = VARIANT_ICON_CLASSES[variant ?? "default"]
-        const message = title ?? description ?? ""
+        const message = description ?? title ?? ""
 
         return (
           <Toast key={id} variant={variant} {...props}>

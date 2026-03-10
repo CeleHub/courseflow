@@ -216,7 +216,7 @@ export default function DepartmentDetailsPage() {
       const fn = prevLocked ? apiClient.unlockDepartmentSchedule : apiClient.lockDepartmentSchedule
       const res = await fn(department.code)
       if (res.success) {
-        toast({ title: prevLocked ? 'Schedule unlocked' : 'Schedule locked' })
+        toast({ title: prevLocked ? `Schedule unlocked for ${department.name}.` : `Schedule locked for ${department.name}.` })
         try {
           const deptRes = await apiClient.getDepartmentByCode(department.code)
           if (deptRes.success && deptRes.data) setDepartment(deptRes.data as Department)

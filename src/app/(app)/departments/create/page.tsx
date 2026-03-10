@@ -90,7 +90,7 @@ export default function CreateDepartmentPage() {
       })
 
       if (response.success) {
-        toast({ title: 'Success', description: 'Department created successfully' })
+        toast({ title: 'Department created successfully.' })
         router.push('/departments')
       } else {
         setServerError(response.error || 'Failed to create department')

@@ -20,8 +20,7 @@ export function NetworkErrorProvider({
   useEffect(() => {
     const handleNetworkError = (retry: () => Promise<any>) => {
       const { dismiss } = toast({
-        title: "Network error",
-        description: "Please check your connection and try again.",
+        title: "Network error. Please check your connection.",
         variant: "error",
         persistent: true,
         action: (

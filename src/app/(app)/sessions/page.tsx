@@ -46,7 +46,6 @@ import {
   Loader2,
   MoreVertical,
   Pencil,
-  Plus,
   Archive,
   Trash2,
 } from 'lucide-react'
@@ -253,7 +252,7 @@ export default function AcademicSessionsPage() {
 
       if (res.success) {
         if (action === 'activate') toast({ title: `${session.name} is now the active session.` })
-        else if (action === 'archive') toast({ title: 'Session archived.', variant: 'default' })
+        else if (action === 'archive') toast({ title: 'Session archived.', variant: 'info' })
         else toast({ title: 'Session deleted.' })
         fetchSessions()
         if (action === 'activate' || action === 'archive') invalidateActiveSession()
@@ -284,8 +283,7 @@ export default function AcademicSessionsPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Academic Sessions</h1>
         <Button size="default" className="h-10 bg-indigo-600 hover:bg-indigo-700 text-white" onClick={() => setIsCreateDialogOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          New Session
+          + New Session
         </Button>
       </div>
 
@@ -315,8 +313,7 @@ export default function AcademicSessionsPage() {
           <CalendarDays className="h-12 w-12 mx-auto text-gray-400 mb-4" />
           <p className="text-gray-500">No academic sessions have been created yet.</p>
           <Button className="mt-4" onClick={() => setIsCreateDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            New Session
+            + New Session
           </Button>
         </div>
       ) : (

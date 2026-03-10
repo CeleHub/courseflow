@@ -210,7 +210,7 @@ export default function SchedulePage() {
       setDeleteLoading(true)
       const res = await apiClient.deleteSchedule(deleteSchedule.id)
       if (res.success) {
-        toast({ title: 'Schedule deleted' })
+        toast({ title: 'Schedule deleted.' })
         setDeleteSchedule(null)
         openForDetailScheduleIdRef.current = null
         setDetailSchedule(null)

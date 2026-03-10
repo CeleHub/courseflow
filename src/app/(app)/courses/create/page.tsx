@@ -175,7 +175,7 @@ export default function CreateCoursePage() {
       });
 
       if (response.success) {
-        toast({ title: "Success", description: "Course created successfully" });
+        toast({ title: `Course ${codeUpper} created.` });
         router.push("/courses");
       } else {
         setServerError(response.error || "Failed to create course");

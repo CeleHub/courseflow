@@ -42,12 +42,8 @@ export default function ForgotPasswordPage() {
     setServerError("");
     setIsLoading(true);
     try {
-      const response = await apiClient.forgotPassword(data.email);
-      if (response.success) {
-        setSubmitted(true);
-      } else {
-        setServerError(response.error || "Failed to send reset link");
-      }
+      await apiClient.forgotPassword(data.email);
+      setSubmitted(true);
     } catch (error) {
       setServerError("An unexpected error occurred");
     } finally {

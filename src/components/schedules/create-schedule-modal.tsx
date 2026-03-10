@@ -46,7 +46,7 @@ const scheduleModalSchema = z.object({
   if (data.dayOfWeek === DayOfWeek.WEDNESDAY && data.startTime) {
     const hour = parseInt(data.startTime.split(':')[0] ?? '0', 10)
     if (hour >= 14) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Wednesday classes must end by 15:00', path: ['startTime'] })
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Wednesday classes must end by 15:00.', path: ['startTime'] })
     }
   }
 })
@@ -177,7 +177,7 @@ export function CreateScheduleModal({
           isFixed: data.isFixed,
         })
         if (res.success) {
-          toast({ title: 'Schedule updated' })
+          toast({ title: 'Schedule updated.' })
           onOpenChange(false)
           form.reset({ courseCode: '', dayOfWeek: '', startTime: '', isFixed: false })
           setQuery('')
@@ -194,7 +194,7 @@ export function CreateScheduleModal({
           isFixed: data.isFixed,
         })
         if (res.success) {
-          toast({ title: 'Schedule created' })
+          toast({ title: 'Schedule created.' })
           onOpenChange(false)
           form.reset({ courseCode: '', dayOfWeek: '', startTime: '', isFixed: false })
           setQuery('')

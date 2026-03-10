@@ -130,7 +130,6 @@ export default function VerificationCodesPage() {
     try {
       await navigator.clipboard.writeText(code.code)
       setCopiedId(code.id)
-      toast({ title: 'Copied to clipboard.', variant: 'info' })
       setTimeout(() => setCopiedId(null), 2000)
     } catch {
       toast({ title: 'Copy failed', variant: 'destructive' })
@@ -365,9 +364,16 @@ if (res.success) {
                       <td className="p-3">
                         <div className="flex items-center gap-1">
                           <code className="font-mono text-sm">{c.code}</code>
-                          <Button size="icon" variant="ghost" className="h-11 w-11 shrink-0" onClick={() => copyToClipboard(c)} title={copiedId === c.id ? 'Copied!' : 'Copy'}>
-                            <Clipboard className="h-4 w-4" /><span className="sr-only">Copy</span>
-                          </Button>
+                          <div className="relative inline-flex">
+                            {copiedId === c.id && (
+                              <span className="absolute -top-9 left-1/2 -translate-x-1/2 px-2 py-1 bg-gray-900 text-white text-xs rounded shadow-lg z-10 animate-in fade-in duration-150">
+                                Copied!
+                              </span>
+                            )}
+                            <Button size="icon" variant="ghost" className="h-11 w-11 shrink-0" onClick={() => copyToClipboard(c)} title="Copy">
+                              <Clipboard className="h-4 w-4" /><span className="sr-only">Copy</span>
+                            </Button>
+                          </div>
                         </div>
                       </td>
                       <td className="p-3"><Badge variant="secondary">{c.role}</Badge></td>
@@ -410,7 +416,16 @@ if (res.success) {
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <code className="font-mono text-sm">{c.code}</code>
-                    <Button size="icon" variant="ghost" className="h-11 w-11 shrink-0" onClick={() => copyToClipboard(c)}><Clipboard className="h-4 w-4" /><span className="sr-only">Copy</span></Button>
+                    <div className="relative inline-flex">
+                      {copiedId === c.id && (
+                        <span className="absolute -top-9 left-1/2 -translate-x-1/2 px-2 py-1 bg-gray-900 text-white text-xs rounded shadow-lg z-10 animate-in fade-in duration-150">
+                          Copied!
+                        </span>
+                      )}
+                      <Button size="icon" variant="ghost" className="h-11 w-11 shrink-0" onClick={() => copyToClipboard(c)} title="Copy">
+                        <Clipboard className="h-4 w-4" /><span className="sr-only">Copy</span>
+                      </Button>
+                    </div>
                   </div>
                   <Badge variant="secondary">{c.role}</Badge>
                 </div>

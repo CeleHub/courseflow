@@ -47,8 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem('user')
       }
       toast({
-        title: "Session Expired",
-        description: "Your session has expired. Please sign in again.",
+        title: "Your session has expired. Please sign in again.",
         variant: "warning",
       })
       router.push('/login')

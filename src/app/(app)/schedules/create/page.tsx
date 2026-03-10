@@ -152,7 +152,7 @@ export default function CreateSchedulePage() {
       })
 
       if (response.success) {
-        toast({ title: 'Success', description: 'Schedule created successfully' })
+        toast({ title: 'Schedule created.' })
         router.push('/schedules')
       } else {
         setServerError(response.error || 'Failed to create schedule')

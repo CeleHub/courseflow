@@ -209,7 +209,8 @@ export default function ComplaintsPage() {
       setStatusLoading(id)
       const res = await apiClient.updateComplaintStatus(id, status)
       if (res.success) {
-        toast({ title: 'Status updated.' })
+        const statusLabel = status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+        toast({ title: `Complaint status updated to ${statusLabel}.` })
         setDetailComplaint((c) => (c?.id === id ? { ...c, status } : c))
         fetchComplaints()
       } else {
