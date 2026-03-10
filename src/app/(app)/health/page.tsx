@@ -274,7 +274,7 @@ export default function HealthPage() {
   const tables = db?.database?.tables ?? db?.tables;
 
   return (
-    <div className="space-y-6 mt-6">
+    <div className="space-y-3 md:space-y-6 mt-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h1 className="text-2xl font-bold">System Health</h1>
         <div className="flex items-center gap-4">

@@ -143,7 +143,7 @@ export function Topbar({
               <button
                 onClick={openMobileUserSheet}
                 className={cn(
-                  "md:hidden flex items-center justify-center min-w-[44px] min-h-[44px] w-8 h-8 rounded-full text-white font-medium text-sm touch-manipulation",
+                  "sm:hidden flex items-center justify-center min-w-[44px] min-h-[44px] w-8 h-8 rounded-full text-white font-medium text-sm touch-manipulation",
                   getAvatarColor(user.name, user.email)
                 )}
                 aria-label="User menu"
