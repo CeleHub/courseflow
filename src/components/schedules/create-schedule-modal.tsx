@@ -218,7 +218,7 @@ export function CreateScheduleModal({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[480px]" onSwipeDown={handleClose}>
+      <DialogContent className="md:max-w-[480px]" onSwipeDown={handleClose}>
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Edit Schedule' : 'Create Schedule'}</DialogTitle>
           <DialogDescription>

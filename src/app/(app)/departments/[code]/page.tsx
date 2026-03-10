@@ -522,7 +522,7 @@ export default function DepartmentDetailsPage() {
 
       {/* Edit Department Modal */}
       <Dialog open={editOpen} onOpenChange={(o) => !o && setEditOpen(false)}>
-        <DialogContent className="sm:max-w-[520px]" onSwipeDown={() => setEditOpen(false)}>
+        <DialogContent className="md:max-w-[520px]" onSwipeDown={() => setEditOpen(false)}>
           <DialogHeader>
             <DialogTitle>Edit Department</DialogTitle>
             <DialogDescription>Update department details and assign HOD.</DialogDescription>

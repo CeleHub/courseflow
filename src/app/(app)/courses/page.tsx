@@ -343,7 +343,7 @@ export default function CoursesPage() {
 
       {/* Mobile filters */}
       <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
-        <DialogContent className="sm:max-w-[400px]" onSwipeDown={() => setFiltersOpen(false)}>
+        <DialogContent className="md:max-w-[400px]" onSwipeDown={() => setFiltersOpen(false)}>
           <DialogHeader><DialogTitle>Filters</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div>
@@ -715,7 +715,7 @@ export default function CoursesPage() {
 
       {/* Upload modal */}
       <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
-        <DialogContent className="sm:max-w-md" onSwipeDown={() => setIsUploadOpen(false)}>
+        <DialogContent className="md:max-w-md" onSwipeDown={() => setIsUploadOpen(false)}>
           <DialogHeader>
             <DialogTitle>Upload Courses CSV</DialogTitle>
           </DialogHeader>

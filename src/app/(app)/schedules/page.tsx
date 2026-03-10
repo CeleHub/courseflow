@@ -1162,7 +1162,7 @@ export default function SchedulePage() {
 
         {/* Mobile filters dialog */}
         <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
-          <DialogContent className="sm:max-w-[400px]" onSwipeDown={() => setFiltersOpen(false)}>
+          <DialogContent className="md:max-w-[400px]" onSwipeDown={() => setFiltersOpen(false)}>
             <DialogHeader><DialogTitle>Filters</DialogTitle></DialogHeader>
             <div className="space-y-4">
               <div>

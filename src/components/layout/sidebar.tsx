@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
@@ -97,6 +98,16 @@ export function Sidebar({
     router.push("/login");
   };
 
+  // Close drawer when viewport crosses 640px (sm breakpoint)
+  useEffect(() => {
+    if (!isMobile || !isOpen || !onClose) return;
+    const handler = () => {
+      if (window.innerWidth >= 640) onClose();
+    };
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, [isMobile, isOpen, onClose]);
+
   const navContent = (
     <>
       {/* Mobile: user panel at top */}
@@ -131,7 +142,7 @@ export function Sidebar({
 
       {/* Nav items */}
       <nav className="flex-1 overflow-y-auto py-4">
-        <div className={cn("space-y-1", isMobile ? "px-2" : "px-2 md:px-0 md:flex md:flex-col md:items-center lg:items-stretch lg:px-2")}>
+        <div className={cn("space-y-1", isMobile ? "px-2" : "px-2 sm:px-0 sm:flex sm:flex-col sm:items-center lg:items-stretch lg:px-2")}>
           {visibleItems.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
             return (
@@ -142,7 +153,7 @@ export function Sidebar({
                 title={!isMobile ? item.label : undefined}
                 className={cn(
                   "flex items-center gap-3 rounded-md text-sm font-medium transition-colors touch-manipulation",
-                  isMobile ? "px-5 py-3.5 min-h-[44px]" : "px-3 py-2 md:justify-center md:px-0 md:py-3.5 lg:justify-start lg:py-3 lg:px-4",
+                  isMobile ? "px-5 py-3.5 min-h-[44px]" : "px-3 py-2 sm:justify-center sm:px-0 sm:py-3.5 lg:justify-start lg:py-3 lg:px-4",
                   isActive
                     ? "bg-indigo-50 text-indigo-600"
                     : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
@@ -189,14 +200,14 @@ export function Sidebar({
       <>
         {isOpen && (
           <div
-            className="fixed inset-0 bg-black/40 z-40 lg:hidden"
+            className="fixed inset-0 bg-black/40 z-40 sm:hidden"
             onClick={onClose}
             aria-hidden="true"
           />
         )}
         <aside
           className={cn(
-            "fixed top-0 left-0 z-[60] h-full w-[min(80vw,300px)] bg-white border-r border-gray-200 flex flex-col transition-transform duration-250 ease-out lg:hidden",
+            "fixed top-0 left-0 z-[60] h-full w-[min(80vw,300px)] bg-white border-r border-gray-200 flex flex-col transition-transform duration-250 ease-out sm:hidden",
             isOpen ? "translate-x-0" : "-translate-x-full"
           )}
         >
@@ -207,7 +218,7 @@ export function Sidebar({
   }
 
   return (
-    <aside className="hidden md:flex md:flex-col fixed left-0 top-14 h-[calc(100vh-56px)] w-12 lg:w-60 bg-white border-r border-gray-200 z-40 overflow-y-auto transition-[width]">
+    <aside className="hidden sm:flex sm:flex-col fixed left-0 top-14 h-[calc(100vh-56px)] w-12 lg:w-60 bg-white border-r border-gray-200 z-40 overflow-y-auto transition-[width]">
       {navContent}
     </aside>
   );

@@ -82,13 +82,13 @@ export function Topbar({
         className
       )}
     >
-      <div className="flex h-full items-center justify-between px-4 md:px-6">
+      <div className="flex h-full items-center justify-between px-4 sm:px-6">
         {/* Left: Hamburger (mobile) or CourseFlow (desktop) */}
         <div className="flex items-center shrink-0">
           <Button
             variant="ghost"
             size="icon"
-            className="md:hidden min-w-[44px] min-h-[44px] touch-manipulation"
+            className="sm:hidden min-w-[44px] min-h-[44px] touch-manipulation"
             onClick={onMenuClick}
             aria-label="Open menu"
           >
@@ -96,14 +96,14 @@ export function Topbar({
           </Button>
           <Link
             href="/dashboard"
-            className="hidden md:inline font-semibold text-lg text-indigo-600 hover:text-indigo-700 focus:outline focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 rounded-md"
+            className="hidden sm:inline font-semibold text-lg text-indigo-600 hover:text-indigo-700 focus:outline focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 rounded-md"
           >
             CourseFlow
           </Link>
         </div>
 
         {/* Center: CourseFlow (mobile only) */}
-        <div className="flex-1 flex justify-center min-w-0 md:hidden">
+        <div className="flex-1 flex justify-center min-w-0 sm:hidden">
           <Link
             href="/dashboard"
             className="font-semibold text-lg text-indigo-600 hover:text-indigo-700 focus:outline focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 rounded-md"
@@ -115,7 +115,7 @@ export function Topbar({
         {/* Right: Desktop - bell + role + avatar dropdown | Mobile - avatar (opens bottom sheet) */}
         <div className="flex items-center gap-3 shrink-0">
           {/* Desktop: notification + role badge + avatar dropdown */}
-          <div className="hidden md:flex items-center gap-3">
+          <div className="hidden sm:flex items-center gap-3">
             <Button
               variant="ghost"
               size="icon"
@@ -180,7 +180,7 @@ export function Topbar({
                 <DropdownMenuTrigger asChild>
                   <button
                     className={cn(
-                      "hidden md:flex items-center justify-center w-8 h-8 rounded-full text-white font-medium text-sm",
+                      "hidden sm:flex items-center justify-center w-8 h-8 rounded-full text-white font-medium text-sm",
                       getAvatarColor(user.name, user.email)
                     )}
                     aria-label="User menu"

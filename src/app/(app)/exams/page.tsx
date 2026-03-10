@@ -369,7 +369,7 @@ export default function ExamsPage() {
       </div>
 
       <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
-        <DialogContent className="sm:max-w-[400px]" onSwipeDown={() => setFiltersOpen(false)}>
+        <DialogContent className="md:max-w-[400px]" onSwipeDown={() => setFiltersOpen(false)}>
           <DialogHeader><DialogTitle>Filters</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div>
@@ -554,7 +554,7 @@ export default function ExamsPage() {
 
       {/* 9.3 Schedule Exam Modal */}
       <Dialog open={isCreateOpen} onOpenChange={(o) => { if (!o) { setIsCreateOpen(false); resetForm(); } }}>
-        <DialogContent className="sm:max-w-[560px]" onSwipeDown={() => { setIsCreateOpen(false); resetForm(); }}>
+        <DialogContent className="md:max-w-[560px]" onSwipeDown={() => { setIsCreateOpen(false); resetForm(); }}>
           <DialogHeader>
             <DialogTitle>Schedule Exam</DialogTitle>
             <DialogDescription>Select course, venue, date and time.</DialogDescription>
@@ -745,7 +745,7 @@ export default function ExamsPage() {
 
       {/* Edit modal - simplified for now */}
       <Dialog open={!!editExam} onOpenChange={(o) => !o && setEditExam(null)}>
-        <DialogContent className="sm:max-w-[560px]" onSwipeDown={() => setEditExam(null)}>
+        <DialogContent className="md:max-w-[560px]" onSwipeDown={() => setEditExam(null)}>
           <DialogHeader>
             <DialogTitle>Edit Exam</DialogTitle>
           </DialogHeader>

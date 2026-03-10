@@ -341,7 +341,7 @@ export default function DepartmentsPage() {
 
       {/* Mobile filters sheet */}
       <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
-        <DialogContent className="sm:max-w-[400px]" onSwipeDown={() => setFiltersOpen(false)}>
+        <DialogContent className="md:max-w-[400px]" onSwipeDown={() => setFiltersOpen(false)}>
           <DialogHeader>
             <DialogTitle>Filters</DialogTitle>
           </DialogHeader>
@@ -568,7 +568,7 @@ export default function DepartmentsPage() {
 
       {/* Upload modal — desktop 480px, mobile bottom sheet */}
       <Dialog open={isUploadOpen} onOpenChange={(o) => { setIsUploadOpen(o); if (!o) { setSelectedFile(null); setUploadResult(null); } }}>
-        <DialogContent className="sm:max-w-[480px]" onSwipeDown={() => closeUploadModal()}>
+        <DialogContent className="md:max-w-[480px]" onSwipeDown={() => closeUploadModal()}>
           <DialogHeader>
             <DialogTitle>Upload Departments CSV</DialogTitle>
             <DialogDescription>Drop your CSV file here or click to browse. Accept .csv only. Max 5MB.</DialogDescription>
@@ -668,7 +668,7 @@ export default function DepartmentsPage() {
       {/* Confirm dialogs */}
       {/* Edit modal */}
       <Dialog open={!!editDept} onOpenChange={(o) => !o && setEditDept(null)}>
-        <DialogContent className="sm:max-w-[520px]" onSwipeDown={() => setEditDept(null)}>
+        <DialogContent className="md:max-w-[520px]" onSwipeDown={() => setEditDept(null)}>
           <DialogHeader>
             <DialogTitle>Edit Department</DialogTitle>
             <DialogDescription>Update department details.</DialogDescription>

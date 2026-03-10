@@ -156,7 +156,7 @@ export function GenerateScheduleModal({
   return (
     <Dialog open={open} onOpenChange={(o) => !loading && (result ? handleClose() : onOpenChange(o))}>
       <DialogContent
-        className="sm:max-w-[520px] max-sm:fixed max-sm:bottom-0 max-sm:left-0 max-sm:right-0 max-sm:top-auto max-sm:max-h-[90vh] max-sm:rounded-t-2xl max-sm:rounded-b-none"
+        className="md:max-w-[520px] max-md:fixed max-md:bottom-0 max-md:left-0 max-md:right-0 max-md:top-auto max-md:max-h-[90vh] max-md:rounded-t-2xl max-md:rounded-b-none"
         onPointerDownOutside={(e) => result && e.preventDefault()}
         onSwipeDown={() => {
           if (loading) return
@@ -164,7 +164,7 @@ export function GenerateScheduleModal({
           else onOpenChange(false)
         }}
       >
-        <div className="max-sm:mt-3 max-sm:w-10 max-sm:h-1 max-sm:mx-auto max-sm:rounded-full max-sm:bg-gray-300" />
+        <div className="max-md:mt-3 max-md:w-10 max-md:h-1 max-md:mx-auto max-md:rounded-full max-md:bg-gray-300" />
         <DialogHeader>
           <DialogTitle>Generate Schedules</DialogTitle>
         </DialogHeader>

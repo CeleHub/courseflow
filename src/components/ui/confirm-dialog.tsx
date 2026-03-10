@@ -60,12 +60,12 @@ export function ConfirmDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={cn(
-          "sm:max-w-[400px]",
-          "max-sm:fixed max-sm:bottom-0 max-sm:left-0 max-sm:right-0 max-sm:top-auto max-sm:translate-y-0 max-sm:rounded-t-2xl max-sm:rounded-b-none"
+          "md:max-w-[400px]",
+          "max-md:fixed max-md:bottom-0 max-md:left-0 max-md:right-0 max-md:top-auto max-md:translate-y-0 max-md:rounded-t-2xl max-md:rounded-b-none"
         )}
         onSwipeDown={() => onOpenChange(false)}
       >
-        <div className="flex flex-col items-center text-center sm:block sm:text-left">
+        <div className="flex flex-col items-center text-center md:block md:text-left">
           {Icon && (
             <div
               className={cn(
@@ -86,7 +86,7 @@ export function ConfirmDialog({
             variant={confirmVariant}
             onClick={handleConfirm}
             disabled={busy}
-            className={cn("w-full sm:w-auto", confirmClassName)}
+            className={cn("w-full md:w-auto", confirmClassName)}
           >
             {busy ? (
               <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
@@ -98,7 +98,7 @@ export function ConfirmDialog({
             variant="outline"
             onClick={() => onOpenChange(false)}
             disabled={busy}
-            className="w-full sm:w-auto"
+            className="w-full md:w-auto"
           >
             {cancelLabel}
           </Button>
