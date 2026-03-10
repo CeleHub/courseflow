@@ -59,15 +59,15 @@ const DialogContent = React.forwardRef<
       ref={ref}
       className={cn(
         "fixed z-50 grid w-full gap-0 border bg-background p-0 shadow-2xl",
-        "max-md:left-0 max-md:right-0 max-md:top-auto max-md:bottom-0 max-md:max-h-[90vh] max-md:translate-y-0 max-md:rounded-t-[20px] max-md:rounded-b-none max-md:duration-300 max-md:ease-out max-md:data-[state=open]:animate-in max-md:data-[state=closed]:animate-out max-md:data-[state=closed]:slide-out-to-bottom max-md:data-[state=open]:slide-in-from-bottom",
-        "md:left-[50%] md:top-[50%] md:max-w-lg md:max-h-[90vh] md:translate-x-[-50%] md:translate-y-[-50%] md:rounded-2xl md:duration-150 md:data-[state=open]:animate-in md:data-[state=closed]:animate-out md:data-[state=closed]:fade-out-0 md:data-[state=open]:fade-in-0 md:data-[state=closed]:zoom-out-95 md:data-[state=open]:zoom-in-95 md:data-[state=closed]:slide-out-to-left-1/2 md:data-[state=closed]:slide-out-to-top-[48%] md:data-[state=open]:slide-in-from-left-1/2 md:data-[state=open]:slide-in-from-top-[48%]",
+        "max-sm:left-0 max-sm:right-0 max-sm:top-auto max-sm:bottom-0 max-sm:max-h-[90vh] max-sm:translate-y-0 max-sm:rounded-t-[20px] max-sm:rounded-b-none max-sm:duration-300 max-sm:ease-out max-sm:data-[state=open]:animate-in max-sm:data-[state=closed]:animate-out max-sm:data-[state=closed]:slide-out-to-bottom max-sm:data-[state=open]:slide-in-from-bottom",
+        "sm:left-[50%] sm:top-[50%] sm:max-w-lg sm:max-h-[90vh] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-2xl sm:duration-150 sm:data-[state=open]:animate-in sm:data-[state=closed]:animate-out sm:data-[state=closed]:fade-out-0 sm:data-[state=open]:fade-in-0 sm:data-[state=closed]:zoom-out-95 sm:data-[state=open]:zoom-in-95 sm:data-[state=closed]:slide-out-to-left-1/2 sm:data-[state=closed]:slide-out-to-top-[48%] sm:data-[state=open]:slide-in-from-left-1/2 sm:data-[state=open]:slide-in-from-top-[48%]",
         "overflow-y-auto flex flex-col",
         className
       )}
       {...props}
     >
       {/* Mobile-only drag handle: 40×4px, gray-300, margin-top 12px */}
-      <div className="hidden max-md:block w-10 h-1 mx-auto mt-3 mb-1 rounded-full bg-gray-300 flex-shrink-0" aria-hidden />
+      <div className="hidden max-sm:block w-10 h-1 mx-auto mt-3 mb-1 rounded-full bg-gray-300 flex-shrink-0" aria-hidden />
       <div
         className="flex-1 min-h-0 overflow-y-auto px-6 pt-6 pb-2 flex flex-col gap-4"
         onTouchStart={handleTouchStart}
@@ -91,7 +91,7 @@ const DialogHeader = ({
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      "flex flex-col space-y-1.5 text-center md:text-left border-b border-gray-200 pb-4",
+      "flex flex-col space-y-1.5 text-center sm:text-left border-b border-gray-200 pb-4",
       className
     )}
     {...props}
@@ -105,8 +105,8 @@ const DialogFooter = ({
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      "flex flex-col-reverse md:flex-row md:justify-end md:space-x-2 gap-2 pt-4 px-6 pb-[max(16px,env(safe-area-inset-bottom))] border-t border-gray-200 -mx-6",
-      "max-md:[&>button]:w-full max-md:[&>button]:h-11 max-md:[&>a]:w-full max-md:[&>a]:h-11",
+      "flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 gap-2 pt-4 px-6 pb-[max(16px,env(safe-area-inset-bottom))] border-t border-gray-200 -mx-6",
+      "max-sm:[&>button]:w-full max-sm:[&>button]:h-11 max-sm:[&>a]:w-full max-sm:[&>a]:h-11",
       className
     )}
     {...props}

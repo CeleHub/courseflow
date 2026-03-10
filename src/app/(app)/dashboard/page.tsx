@@ -7,7 +7,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  AlertCircle,
   BookOpen,
   Calendar,
   MessageCircle,
@@ -205,16 +204,13 @@ export default function DashboardPage() {
   // Modals
   const [generateModalOpen, setGenerateModalOpen] = useState(false);
 
-  const [coursesWithoutSchedulesCount, setCoursesWithoutSchedulesCount] = useState<number | null>(null);
-
   const fetchAdminData = useCallback(async () => {
-    const [deptRes, courseRes, schedRes, sessionRes, pendingRes, withoutSchedRes] = await Promise.all([
+    const [deptRes, courseRes, schedRes, sessionRes, pendingRes] = await Promise.all([
       apiClient.getDepartmentStatistics(),
       apiClient.getCourseStatistics(),
       apiClient.getScheduleStatistics(),
       apiClient.getActiveAcademicSession(),
       apiClient.getPendingComplaints(),
-      apiClient.getCoursesWithoutSchedules(),
     ]);
     if (deptRes.success && deptRes.data) setDeptStats(deptRes.data as DepartmentStatistics);
     if (courseRes.success && courseRes.data) setCourseStats(courseRes.data as CourseStatistics);
@@ -222,10 +218,6 @@ export default function DashboardPage() {
     if (sessionRes.success && sessionRes.data) setActiveSession(sessionRes.data as AcademicSession);
     if (pendingRes.success && Array.isArray(pendingRes.data)) setPendingCount((pendingRes.data as unknown[]).length);
     else if (pendingRes.success && (pendingRes.data as any)?.data?.length) setPendingCount((pendingRes.data as any).data.length);
-    if (withoutSchedRes.success && withoutSchedRes.data) {
-      const d = withoutSchedRes.data as any;
-      setCoursesWithoutSchedulesCount(Array.isArray(d) ? d.length : (d?.data?.length ?? d?.count ?? 0));
-    } else setCoursesWithoutSchedulesCount(null);
   }, []);
 
   const fetchHodData = useCallback(async () => {
@@ -343,11 +335,10 @@ export default function DashboardPage() {
       {/* ADMIN Dashboard */}
       {isAdmin && (
         <>
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <StatCard icon={Building2} value={deptStats?.totalDepartments ?? 0} label="Total Departments" iconBg="bg-indigo-500" />
             <StatCard icon={BookOpen} value={courseStats?.totalCourses ?? 0} label="Total Courses" iconBg="bg-violet-500" />
             <StatCard icon={Clock} value={scheduleStats?.totalSchedules ?? 0} label="Total Schedules" iconBg="bg-sky-500" />
-            <StatCard icon={AlertCircle} value={coursesWithoutSchedulesCount ?? "—"} label="Courses without Schedules" iconBg="bg-amber-500" />
             <StatCard icon={CalendarDays} value={activeSession?.name ?? "None"} label="Active Session" iconBg="bg-emerald-500" />
           </div>
           {/* Charts row */}

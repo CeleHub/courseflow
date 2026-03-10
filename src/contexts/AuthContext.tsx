@@ -33,11 +33,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('user')
     }
-    toast({
-      title: "Logged Out",
-      description: "You have been successfully logged out",
-    })
-  }, [toast])
+  }, [])
 
   useEffect(() => {
     const handle401 = () => {
@@ -97,11 +93,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         localStorage.setItem('user', JSON.stringify(authData.user as User))
 
-        toast({
-          title: "Login Successful",
-          description: `Welcome back, ${authData.user?.name ?? authData.user?.email ?? "User"}!`,
-        })
-
         return { success: true }
       } else {
         return { success: false, error: response.error || "Invalid credentials" }
@@ -124,11 +115,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         apiClient.setToken(authData.access_token)
 
         localStorage.setItem('user', JSON.stringify(authData.user as User))
-
-        toast({
-          title: "Registration Successful",
-          description: `Welcome to CourseFlow, ${authData.user?.name ?? authData.user?.email ?? "User"}!`,
-        })
 
         return { success: true }
       } else {

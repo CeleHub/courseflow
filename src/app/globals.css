@@ -97,12 +97,8 @@
     outline: 2px solid #4F46E5;
     outline-offset: 2px;
   }
+  /* §0.4: All form inputs minimum 16px to prevent iOS Safari zoom */
   input, select, textarea {
-    font-size: 16px; /* Prevent iOS Safari zoom on focus */
-  }
-  @media (min-width: 768px) {
-    input, select, textarea {
-      font-size: 14px; /* Smaller on desktop is ok */
-    }
+    font-size: 16px;
   }
 }
